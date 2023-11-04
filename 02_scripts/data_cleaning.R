@@ -154,11 +154,17 @@ week_1 <-
   # select(displayName, frameId, x, y, x_next, x_ball_next, y_next, y_ball_next, gameId, playId, a, s) #distance_to_ball_next) 
   
   ## find distance from each projected player to the projected ball
-  mutate(distance_to_ball_next = sqrt((x_next-x_ball_next)^2 +  (y_next - y_ball_next)^2)) 
+  mutate(distance_to_ball_next = sqrt((x_next-x_ball_next)^2 +  (y_next - y_ball_next)^2)) |> 
+  
+  ## which are the players facing?
+  mutate(
+    n = 1,
+    radians = (90 - o) * pi / 180, # Adjust the orientation directly from the positive y-axis
+    x_facing = x + (cos(radians) * n),  # Calculate new x based on the orientation and distance n
+    y_facing = y - (sin(radians) * n)   # Calculate new y based on the orientation and distance n (negated due to y-axis direction)
+  ) |> select(-n)
 
-# week_1 |> 
-#   filter(gameId == temp$gameId[1], playId == temp$playId[1], displayName == temp$displayName[1]) |>
-#   select(displayName, frameId, x, y, x_next, x_ball_next, y_next, y_ball_next, gameId, playId, a, s, distance_to_ball_next) 
+
 
 
 
