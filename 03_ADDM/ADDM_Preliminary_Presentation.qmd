@@ -1,0 +1,380 @@
+---
+title: "ADDM Preliminary Presentation"
+author: "Dusty Turner"
+format: revealjs
+cache: true
+width: 1300
+---
+
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+source(here::here("02_scripts","data_cleaning.R"))
+```
+
+
+# 
+
+![](01_images/kaggle-logo-gray-300.png)
+
+## Understanding Kaggle
+
+### What is Kaggle?
+- **Online platform** for data science and machine learning
+- **Founded** in 2010, subsidiary of Google LLC
+- **Global community** of data scientists and machine learning practitioners
+
+## Key Features of Kaggle
+- **Competitions**: Solve real-world problems, win prizes
+- **Datasets**: Access a vast repository of free datasets
+- **Kernels**: Write and execute Python/R code, share work
+- **Community**: Share insights and collaborate globally
+
+<!-- ## Real-World Impact -->
+<!-- - Competitions addressing issues from ocean health to healthcare improvement -->
+<!-- - Overview of the project -->
+<!-- - Importance and relevance of the topic -->
+<!-- - Objectives of the project -->
+
+##
+
+![](01_images/competition_info.PNG)
+
+<center>
+**This year's competition offers up a general goal — create metrics that assign value to elements of tackling.**
+</center>
+
+. . .
+
+<br>
+<center>
+**Research Question: Can we determine the probability that any player makes a tackle on the football field?**
+</center>
+
+. . .
+
+<br>
+<center>
+**Ultimatly: Assign a tackles over expected value for each player**
+</center>
+
+# Data Available 
+
+## {.small-text}
+
+```{r}
+list <- list.files(here::here("01_data")) |> 
+  as.tibble() |> 
+  filter(str_detect(value, "tracking")) |> pull() 
+
+reader <- function(string){
+  read_parquet(here::here("01_data/", string)) |> 
+    mutate(weekId = string)
+}
+
+games_info <- map_dfr(.x = list, .f = ~reader(string = .x)) |>  
+  mutate(weekId = str_c("week_",parse_number(weekId)))
+```
+
+#### Lots of Plays
+
+```{r}
+games_info |> 
+  distinct(weekId, gameId) |> 
+  count(weekId, name = "Games") |> 
+
+  left_join(
+
+games_info |> 
+  count(weekId, playId) |> 
+  count(weekId, name = "Plays") 
+) |> 
+  gt::gt() 
+
+```
+
+## {.scrollable}
+
+#### Every Play, Every Week
+
+```{r}
+dak <- week_1 |> filter(displayName == "Dak Prescott") |> distinct(gameId, playId)
+
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  count(displayName, jerseyNumber, club) |> 
+  arrange(club, jerseyNumber) |> 
+  gt::gt()
+```
+
+## Player Location Data Every .1 Seconds
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(displayName == "Dak Prescott") |> 
+  select(frameId, time, x, y, s, a, dis, o, dir) |> 
+  mutate(time = lubridate::round_date(time, ".1 sec")) |> 
+  slice(11:20) |> 
+  gt::gt() |> 
+  gt::tab_header(title = "Dak Prescott")
+```
+
+:::
+
+::: {.column width="50%"}
+
+![](01_images/data_explaination.png)
+
+:::
+
+::::
+
+## Data Available {.small-text}
+
+<div style="font-size: 24px;">
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+#### Player & Game Identifiers
+- **Game and Play IDs**: Unique identifiers for games and individual plays
+- **Player Information**: Names, jersey numbers, team, position, physical attributes, college
+
+#### In-Game Player Movements
+- **Spatial Data**: Player positions, movement direction, speed, and orientation
+- **Time and Motion**: Specific moments in play, distance covered
+
+#### Detailed Play Information
+- **Play Attributes**: Description, quarter, down, yards needed
+- **Team & Field Position**: Possessing team, defensive team, yardline positions
+
+:::
+
+::: {.column width="50%"}
+
+
+#### Scoring and Game Probabilities
+- **Scores & Results**: Pre-snap scores, play outcomes
+- **Probabilities**: Win probabilities for home and visitor teams
+- **Expected Points**: Points added or expected by play outcomes
+
+#### Tackles, Penalties, and Formations
+- **Tackles & Fouls**: Tackles, assists, fouls committed, and missed tackles
+- **Ball Carrier Info**: Identifiers and names of ball carriers
+- **Team Formations**: Offensive formations and number of defenders
+
+:::
+
+::::
+
+
+</div>
+
+##
+
+<center>
+
+```{r}
+
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, playDescription, is_football, club) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  # ggplot(data = ., aes(x = x, y = y, color = defensiveTeam)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  # scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+```
+
+</center>
+
+## {.scrollable}
+
+```{r}
+week_1 |> count(event, sort = T) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 0)
+```
+
+
+# Created Features
+
+## Distance to the ball
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  group_by(frameId) |> 
+    mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  ungroup() |> 
+  select(distance_to_ball, displayName, x, y, x_ball, y_ball, color, absoluteYardlineNumber, ball_carrier, playId, time, playDescription, is_football, club, distance_to_ball) %>% 
+  # select(x, y, x_ball, y_ball, distance_to_ball, displayName) |> 
+  # filter(displayName == "Lavonte David") %>% 
+  # print(n = Inf)
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_segment(aes(xend = x_ball, yend = y_ball), color = "black") +
+    # geom_text(aes(label = round(distance_to_ball,1))) +
+  scale_fill_continuous(high = "grey", low = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+## Speed Vector Similarity
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  # group_by(frameId) |> 
+  #   mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
+  # mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
+  # mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  # mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  # ungroup() |> 
+  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = -abs(v_approach))) +
+  # ggplot(data = ., aes(x = x, y = y, color = defensiveTeam)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  # geom_segment(aes(xend = x_ball, yend = y_ball), color = "black") +
+  scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+```
+
+## Projected Movement
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next) %>% 
+  # filter(is_football == "football") |> select(x, y, x_next, y_next)
+{
+  ggplot(data = ., aes(x = x, y = y)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_segment(aes(xend = x_next, yend = y_next), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
+  scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+```
+
+## Projected Movement to The Ball
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, x_ball_next, y_ball_next) %>% 
+  # filter(is_football == "football") |> select(x, y, x_next, y_next)
+{
+  ggplot(data = ., aes(x = x, y = y, color = is_football)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_segment(aes(xend = x_ball_next, yend = y_ball_next), color = "black") +
+  # scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+```
+
+## Position Identifiers
+
+```{r}
+defensive_model_building_data_model |> 
+  filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,6,7)]) |> 
+  filter(frameId == 1) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment) %>% 
+  
+  {
+  ggplot(data = ., aes(x = x, y = y, color = alignment)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = TRUE, size = 3) +
+  # transition_time(time) + ease_aes("linear") +
+  facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
+  labs(y = "", x = "Yards To Endzone", title = "") +
+  theme_field +
+      guides(shape = "none") +
+  theme(legend.position = "bottom") 
+  
+}
+
+```
+
+
+
+# Part 2: Conducting a Literature Review
+  - Methodology for literature review
+  - Summary of key findings from existing literature
+  - Gaps identified in the current body of knowledge
+  - How this project contributes to filling those gaps
+
+# Part 3: Finding Appropriate Data
+  - Criteria for data selection
+  - Sources of data (primary/secondary)
+  - Challenges encountered in data collection
+  - Ensuring data quality and relevance
+
+# Part 4: Analyzing the Data
+  - Methods and tools used for data analysis
+  - Overview of the analytical process
+  - Presentation of preliminary findings
+  - Discussion of challenges and limitations in data analysis
+
+# Conclusion
+  - Recap of key points
+  - Implications of the findings so far
+  - Next steps and future directions for the project
+
+# References
+  - List of all references cited in the presentation
+
+# Appendix
+  - Any additional materials, charts, or data
+

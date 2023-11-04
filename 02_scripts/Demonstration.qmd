@@ -1,0 +1,237 @@
+---
+title: "Demonstration"
+author: "Dusty Turner"
+format:
+  html:
+    embed-resources: true
+execute: 
+  eval: true
+  echo: false
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r}
+#| output: false
+library(tidyverse)
+library(gganimate)
+library(arrow)
+source(here::here("02_scripts","ggtheme_field.R"))
+
+week_1 <- read_parquet(here::here("01_data","tracking_week_1.parquet")) |> 
+  left_join(y = read_parquet(here::here("01_data","tackles.parquet"))) |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  mutate(tackle = fct_rev(fct_na_value_to_level(tackle, level = "no_tackle"))) |> 
+  left_join(read_parquet(here::here("01_data","plays.parquet"))) |> 
+  mutate(ball_carrier = displayName == ballCarrierDisplayName) |> 
+  mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
+  # filter(!is.na(x_ball)) 
+  group_by(gameId, playId) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  mutate(distance_to_ball = sqrt((x-x_ball)^2 +  (y - y_ball)^2)) |> 
+  select(-x_ball, -y_ball) |> 
+  ungroup() |> 
+  mutate(defendersInTheBox = ifelse(is.na(defendersInTheBox), median(defendersInTheBox, na.rm = TRUE), defendersInTheBox)) |> 
+  mutate(is_football = fct_rev(ifelse(displayName == "football", "football", "not_football")))
+
+
+week_1 
+
+defensive_model_building_data <- 
+  week_1 |> 
+  filter(defensiveTeam == club) |> 
+  group_by(gameId, playId, frameId) |> 
+  # select(distance_to_ball) |> 
+  mutate(rank = as.factor(rank(distance_to_ball))) |> 
+  ungroup()
+
+
+# mod_1 <- glm(tackle ~ distance_to_ball, family = binomial(link = "logit"), data = defensive_model_building_data)
+mod_1 <- glm(tackle ~ distance_to_ball * defendersInTheBox + s + a + rank, family = binomial(link = "logit"), data = defensive_model_building_data)
+
+summary(mod_1)
+
+defensive_model_building_data |> 
+  mutate(prob_of_tackle = predict(object = mod_1, type = "response")) |> 
+  select(prob_of_tackle, tackle) |>
+  mutate(tackle = ifelse(tackle == "no_tackle", 0 , 1)) |> 
+  yardstick::mae(truth = tackle, estimate = prob_of_tackle)
+  # mutate(tackle = as.factor(ifelse(tackle == "no_tackle", 0 , 1))) |> 
+  # yardstick::roc_auc(truth = tackle, estimate = prob_of_tackle, estimator = "binary", event_level = "second")
+
+defensive_model_building_data_prediction <-
+  defensive_model_building_data |> 
+  select(gameId, playId, nflId, frameId, x, y) |> 
+  mutate(prob_of_tackle = predict(object = mod_1, type = "response"))
+
+
+
+week_1_pred <-
+week_1 |> 
+  select(gameId, playId, nflId, frameId, club, tackle, x, y, club, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber, 
+         time, defensiveTeam, displayName, distance_to_ball, playDescription, is_football) |> 
+  left_join(defensive_model_building_data_prediction)
+  # mutate(prob_of_tackel = ifelse(is.na(prob_of_tackle), 0, prob_of_tackle))
+
+play_game_ids <- week_1_pred |> distinct(gameId, playId) 
+
+dak <- week_1_pred |> filter(str_detect(displayName, "Dak")) 
+```
+
+Hootenanny Leadership;
+
+I've assembled a small visualization that displays a simple model I made for the probability of a tackle for all defensive players. 
+
+I'm hoping there's something here to build on because working on this is tons of fun -- but I understand if there isn't.  As I mentioned in the quick hoot last week, if this idea fails, I want it to fail fast.  But not, of course, without due diligence.  
+
+<hr>
+
+**Visualization Description**:
+
+- Offense in blue  
+- Ball is a triangle  
+- Defense is grey / black  
+
+The "blacker" the defensive player, the higher the probability is that the player will make the tackle.
+
+**Quick notes to explain why pass plays do not start at the line of scrimmage**:
+
+- On pass completions, there 5 frames before the ball is caught to 5 frames after the play ends.  
+- On designed rushes/handoffs, there are 5 frames before the ball is snapped to 5 frames after the play ends.  
+- On QB scrambles, there are 5 frames before the QB crosses the line of scrimmage to 5 frames after the play ends.  
+
+<hr>
+
+### Runs
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2])  |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[6])  |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[8])  |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+### Passes
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[4]) |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[5]) |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
+```{r}
+week_1_pred |>
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[9]) |>
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           club == defensiveTeam ~ "defense",
+                           club != defensiveTeam ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>% 
+  {
+  ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
+  geom_point(aes(shape = is_football), show.legend = FALSE) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+```
+
