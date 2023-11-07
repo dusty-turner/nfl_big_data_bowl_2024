@@ -215,6 +215,8 @@ week_1 |> count(event, sort = T) |>
 
 # Created Features
 
+[Example Play](https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12)
+
 ## Distance to the ball
 
 ```{r}
@@ -254,7 +256,7 @@ week_1 |>
 {
   ggplot(data = ., aes(x = x, y = y, color = v_approach)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   scale_color_gradient2(na.value = "dodgerblue", low = "green", high = "green", mid = "red", midpoint = 0) +
   transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
@@ -274,7 +276,7 @@ week_1 |>
 {
   ggplot(data = ., aes(x = x, y = y)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   # geom_text(aes(label = jerseyNumber), color = "red", nudge_x = 0, nudge_y = -1) +
   geom_segment(aes(xend = x_next, yend = y_next), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
   # geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
@@ -299,7 +301,7 @@ week_1 |>
 {
   ggplot(data = ., aes(x = x, y = y)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   # geom_text(aes(label = jerseyNumber), color = "red", nudge_x = 0, nudge_y = -1) +
   geom_segment(aes(xend = x_next, yend = y_next), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
   geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
@@ -311,9 +313,9 @@ week_1 |>
 }
 ```
 
-##
+<!-- ## -->
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe> -->
 
 ## Projected Movement to The Ball
 
@@ -327,7 +329,7 @@ week_1 |>
 {
   ggplot(data = ., aes(x = x, y = y, color = is_football)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(aes(shape = is_football), show.legend = FALSE, size = 3) +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   geom_segment(aes(xend = x_ball_next, yend = y_ball_next), color = "black") +
   # scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
   # facet_wrap(~playId) +
@@ -337,23 +339,90 @@ week_1 |>
 }
 ```
 
-## Position Identifiers
+<!-- ## Position Identifiers -->
+
+<!-- ```{r} -->
+<!-- defensive_model_building_data_model |>  -->
+<!--   filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,6,7)]) |>  -->
+<!--   filter(frameId == 1) |>  -->
+<!--   filter(defensiveTeam == club | is_football == "football") |>  -->
+<!--   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>  -->
+<!--   select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment) %>%  -->
+
+<!--   { -->
+<!--   ggplot(data = ., aes(x = x, y = y, color = alignment)) + -->
+<!--   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") + -->
+<!--   geom_point(aes(shape = is_football), show.legend = TRUE, size = 5) + -->
+<!--   # transition_time(time) + ease_aes("linear") + -->
+<!--   facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) + -->
+<!--   labs(y = "", x = "Yards To Endzone", title = "") + -->
+<!--   theme_field + -->
+<!--       guides(shape = "none") + -->
+<!--   theme(legend.position = "bottom")  -->
+
+<!-- } -->
+
+<!-- ``` -->
+
+## Positions
 
 ```{r}
-defensive_model_building_data_model |> 
-  filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,6,7)]) |> 
-  filter(frameId == 1) |> 
+
+defensive_model_building_data |>
+  filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,7,8)]) |>
+  filter(frameId == 1) |>
+  filter(defensiveTeam == club | is_football == "football") |>
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>
+  select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, position) %>%
+
+  {
+  ggplot(data = ., aes(x = x, y = y, color = position)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = TRUE, size = 4) +
+  # transition_time(time) + ease_aes("linear") +
+  facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","200" = "Play 3","246" = "Play 4"))
+             ) +
+  labs(y = "", x = "Yards To Endzone", title = "") +
+  theme_field +
+      guides(shape = "none") +
+  theme(legend.position = "bottom")
+
+}
+```
+
+## Start Points
+
+```{r}
+week_1 |> 
+  filter(str_detect(event, "snap")) |> 
+  filter(club != possessionTeam) |> 
+  select(position, x, y, yardlineNumber, absoluteYardlineNumber, event) |> 
+  mutate(x_from_los = abs(absoluteYardlineNumber - x)) |> 
+  ggplot(aes(x = x_from_los, y = y)) +
+  ggdensity::geom_hdr() +
+  theme_field +
+  theme(legend.position = "none") +
+  labs(x = "Distance from Line of Scrimage", y = "")
+```
+
+## Alignment Clusters
+
+```{r}
+defensive_model_building_data |> 
+  # filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,6,7)]) |> 
+  filter(frameId == 6) |> 
   filter(defensiveTeam == club | is_football == "football") |> 
-  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
-  select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment) %>% 
+  filter(is.na(passResult))  |> 
+  # mutate(color = as.factor(alignment_cluster)) |>
+  select(gameId, displayName, x, x_from_los, y, v_approach, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment, alignment_cluster) %>%
   
   {
-  ggplot(data = ., aes(x = x, y = y, color = alignment)) +
-  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(aes(shape = is_football), show.legend = TRUE, size = 3) +
+  ggplot(data = ., aes(x = x_from_los, y = y, color = alignment_cluster)) +
+  # geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = TRUE, size = 1) +
   # transition_time(time) + ease_aes("linear") +
-  facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
-  labs(y = "", x = "Yards To Endzone", title = "") +
+  # facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
+  labs(y = "", x = "Yards To Line of Scrimage", title = "", color = "Alignment Cluster") +
   theme_field +
       guides(shape = "none") +
   theme(legend.position = "bottom") 
@@ -361,6 +430,8 @@ defensive_model_building_data_model |>
 }
 
 ```
+
+
 
 
 

@@ -13,38 +13,30 @@ defense_validation <- validation_set(splits)
 defense_test  <- testing(splits)
 
 
-# temp <-
-  defense_test %>%  filter(!complete.cases(.)) |>  
-  # names()
-  # filter(displayName == "Charvarius Ward")  |> 
-    # select(-c(x:ball_carrier)) |> 
-  # count(displayName) 
-  # slice(1:10) |> 
-    as.data.frame() |> 
-  select(displayName,distance_to_ball_next, frameId, x, y, distance_to_ball)
-
-  # names(which(sapply(defense_test, function(x) any(is.na(x)))))
-  
 mod <- 
   logistic_reg(penalty = tune(), mixture = tune()) %>% 
   set_engine("glmnet") |> 
   set_mode("classification") 
 
-mod <- 
-  rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>% 
-  set_engine("ranger", importance = "impurity") |> 
-  set_mode("classification") 
+# mod <- 
+#   rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>% 
+#   set_engine("ranger", importance = "impurity") |> 
+#   set_mode("classification") 
+
+
+# tackle, position, rank, defendersInTheBox, alignment, s, a, rank, v_approach
 
 recipe <-
-  # recipe(tackle ~ distance_to_ball + defendersInTheBox + s + a + rank, data = defense_training) %>%
   recipe(tackle ~ ., data = defense_training) |> 
-  # step_rm(gameId, playId, nflId, frameId, club, time, displayName,
-  step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, time, displayName, absoluteYardlineNumber, x, y, x_next, y_next, 
-          ballCarrierId, ballCarrierDisplayName, playDescription, ball_carrier, club, defensiveTeam, is_football) |> 
+  step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_next, y_next, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
+          time, defensiveTeam, displayName, playDescription, is_football, rank) |> 
+  # step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_next, y_next, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
+  #         time, defensiveTeam, displayName, playDescription, is_football, tackle, position, rank, defendersInTheBox, alignment, alignment_cluster) 
+  step_impute_mode(position) |>
   step_dummy(all_nominal_predictors()) |> 
-  step_impute_mean(v_approach) 
-  # step_zv(all_double_predictors()) %>%
-  # step_normalize(all_double_predictors()) 
+  step_impute_mean(v_approach)  
+  # step_interact(terms = ~starts_with("position"):starts_with("alignment_cluster"))
+
 
 
 workflow <-
@@ -53,7 +45,7 @@ workflow <-
   
 grid <- expand_grid(penalty = 10^seq(-4, -1, length.out = 30), mixture = 10^seq(-4, -1, length.out = 30))
 
-grid <- grid_latin_hypercube(trees(), min_n(), mtry(range = c(4,17)), size = 10)
+# grid <- grid_latin_hypercube(trees(), min_n(), mtry(range = c(4,17)), size = 10)
 
 res <- 
   workflow %>% 
@@ -106,12 +98,12 @@ data_joined_with_pred |>
                          tackle == "1" ~ "tackler",
                          club == defensiveTeam ~ "defense",
                          club != defensiveTeam ~ "offense")) |> 
-  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) %>%
+  select(distance_to_ball, x, y, color, absoluteYardlineNumber, ball_carrier, playId, time, prob_of_tackle, playDescription, is_football) |> 
   {
-    ggplot(data = ., aes(x = x, y = y, color = prob_of_tackle)) +
+    ggplot(data = ., aes(x = x, y = y, alpha = prob_of_tackle)) +
       geom_vline(aes(xintercept = absoluteYardlineNumber), color = "yellow") +
       geom_point(aes(shape = is_football), show.legend = FALSE) +
-      scale_color_gradient2(na.value = "dodgerblue", low = "grey", high = "black") +
+      # scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "grey") +
       # facet_wrap(~playId) +
       transition_time(time) + ease_aes("linear") +
       labs(y = "", x = "Yards To Endzone", caption = .$playDescription[1]) +

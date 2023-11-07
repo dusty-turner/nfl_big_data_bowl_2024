@@ -11,6 +11,7 @@ week_1 <-
   left_join(read_parquet(here::here("01_data","players.parquet"))) |> 
   
   ## rearrange tackle
+  mutate(position = as.factor(position)) |> 
   mutate(tackle = as.factor(tackle)) |> 
   mutate(tackle = fct_rev(fct_na_value_to_level(tackle, level = "0"))) |> 
   
@@ -165,15 +166,27 @@ week_1 <-
   ) |> select(-n)
 
 
+#### add in clusters for defense
 
+clust_dat <-
+week_1 |> 
+  filter(str_detect(event, "snap")) |> 
+  filter(club != possessionTeam) |> 
+  select(gameId, playId, nflId, position, x, y, yardlineNumber, absoluteYardlineNumber, event) |> 
+  mutate(x_from_los = abs(absoluteYardlineNumber - x)) |> 
+  select(gameId, playId, nflId, x_from_los, y)
 
+library(mclust)
+set.seed(1)
+mclust_mod <- Mclust(data = clust_dat[, c("x_from_los","y")], G = 6)
 
+# mclust_mod
 
-  # filter(is.nan(v_approach)) |> 
-  # select(-c(dx,dy,r_magnitude,dx_unit,dy_unit,v_x,v_y,v_x_ball,v_y_ball,v_rel_x,v_rel_y)) |> 
-# week_1 |> 
-  # select(displayName, gameId, playId, frameId, x, y, s, dir, x_ball, y_ball, s_ball, dir_ball, v_approach, ball_carrier, dx,dy,r_magnitude,dx_unit,dy_unit,v_x,v_y,v_x_ball,v_y_ball,v_rel_x,v_rel_y)  
-# count(v_approach,ball_carrier)
+# summary(mclust_mod)
+# plot(mclust_mod, what = "classification")
+
+clust_dat_with_cluster <- clust_dat |> mutate(alignment_cluster = as.factor(mclust_mod$classification)) |> select(-y)
+
 
 defensive_model_building_data <- 
   week_1 |> 
@@ -225,12 +238,15 @@ week_1 |>
   select(nflId, gameId, playId, pass_alignment)
 
 
-defensive_model_building_data <- 
+defensive_model_building_data <-
 defensive_model_building_data |> 
   left_join(run_play_alignments) |>
   left_join(pass_play_alignment) |>
+  left_join(clust_dat_with_cluster, by = c("gameId", "playId", "nflId")) |> 
   mutate(alignment = ifelse(is.na(run_alignment), pass_alignment, run_alignment)) |> 
-  select(-run_alignment, -pass_alignment)
+  select(-run_alignment, -pass_alignment) 
+  # select(gameId:frameId, y.x, y.y, contains("alignment"), contains("cluster"), event) 
+# |> filter(!is.na(alignment_cluster))
 
 
 temp <-
@@ -251,10 +267,13 @@ defensive_model_building_data <-
 
 defensive_model_building_data_model <- 
   defensive_model_building_data |> 
-  select(gameIdPlayId, gameId, playId, nflId, frameId, club, tackle, x, y, x_next, y_next, s, a, 
+  select(gameIdPlayId, gameId, playId, nflId, frameId, club, tackle, x, y, x_next, y_next, s, a, position,
          rank, club, defendersInTheBox, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber, 
-         time, defensiveTeam, displayName, distance_to_ball, distance_to_ball_next, playDescription, is_football, alignment, 
-         passResult, v_approach) 
+         time, defensiveTeam, displayName, distance_to_ball, distance_to_ball_next, playDescription, is_football, alignment,
+         alignment_cluster, passResult, v_approach) |> 
+  filter(frameId > 5)
+
+# I don't have clusters built in for passing plays
 
 # ## some plays don't end in tackles.  Some plays have a forced fumble
 # week_1 |> 

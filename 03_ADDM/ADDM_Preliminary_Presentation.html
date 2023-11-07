@@ -2570,7 +2570,7 @@ Dusty Turner
 <section>
 <section id="created-features" class="title-slide slide level1 center">
 <h1>Created Features</h1>
-
+<p><a href="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12">Example Play</a></p>
 </section>
 <section id="distance-to-the-ball" class="slide level2">
 <h2>Distance to the ball</h2>
@@ -2587,20 +2587,45 @@ Dusty Turner
 <section id="projected-movement-with-orientation" class="slide level2">
 <h2>Projected Movement with Orientation</h2>
 
+<!-- ## -->
+<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe> -->
 <img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-11-1.gif" class="r-stretch"></section>
-<section id="section-6" class="slide level2">
-<h2></h2>
-<iframe width="560" height="315" src="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share" allowfullscreen="">
-</iframe>
-</section>
 <section id="projected-movement-to-the-ball" class="slide level2">
 <h2>Projected Movement to The Ball</h2>
 
+<!-- ## Position Identifiers -->
+<!-- ```{r} -->
+<!-- defensive_model_building_data_model |>  -->
+<!--   filter(gameId == dak$gameId[1], playId %in% unique(dak$playId)[c(2,3,6,7)]) |>  -->
+<!--   filter(frameId == 1) |>  -->
+<!--   filter(defensiveTeam == club | is_football == "football") |>  -->
+<!--   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>  -->
+<!--   select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment) %>%  -->
+<!--   { -->
+<!--   ggplot(data = ., aes(x = x, y = y, color = alignment)) + -->
+<!--   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") + -->
+<!--   geom_point(aes(shape = is_football), show.legend = TRUE, size = 5) + -->
+<!--   # transition_time(time) + ease_aes("linear") + -->
+<!--   facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) + -->
+<!--   labs(y = "", x = "Yards To Endzone", title = "") + -->
+<!--   theme_field + -->
+<!--       guides(shape = "none") + -->
+<!--   theme(legend.position = "bottom")  -->
+<!-- } -->
+<!-- ``` -->
 <img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-12-1.gif" class="r-stretch"></section>
-<section id="position-identifiers" class="slide level2">
-<h2>Position Identifiers</h2>
+<section id="positions" class="slide level2">
+<h2>Positions</h2>
 
-<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-13-1.png" width="960" class="r-stretch"></section></section>
+<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-13-1.png" width="960" class="r-stretch"></section>
+<section id="start-points" class="slide level2">
+<h2>Start Points</h2>
+
+<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-14-1.png" width="960" class="r-stretch"></section>
+<section id="alignment-clusters" class="slide level2">
+<h2>Alignment Clusters</h2>
+
+<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-15-1.png" width="960" class="r-stretch"></section></section>
 <section id="part-2-conducting-a-literature-review" class="title-slide slide level1 center">
 <h1>Part 2: Conducting a Literature Review</h1>
 <ul>
