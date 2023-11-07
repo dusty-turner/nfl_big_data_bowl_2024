@@ -59,17 +59,7 @@ week_1 <-
   mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
   mutate(distance_to_ball = sqrt((x-x_ball)^2 +  (y - y_ball)^2)) |> 
   ungroup() |> 
-  
-  
-  # week_1 |> select(distance_to_ball_next)  
-# temp2 |>
-  # filter(gameId == temp$gameId[1], playId == temp$playId[1], displayName == temp$displayName[1]) |>  
-  # select(displayName, frameId, x, y, x_next, x_ball, y_next, y_ball, gameId, playId, a, s) |> 
-  ## find distance from each projected player to the projected ball
-  # select(-x_ball, -y_ball) |> 
-  ## find speed of ball and estimated distance to next location
-# week_1 <-
-# temp |> 
+
   mutate(delta_t = 1) |> 
   # select(gameId, playId, displayName, x, y, s, a, dis, frameId, delta_t) |> 
   group_by(displayName, gameId, playId) |> 
@@ -111,10 +101,12 @@ week_1 <-
   mutate(y_ball = ifelse(ball_carrier, y, NA)) |> 
   mutate(s_ball = ifelse(ball_carrier, s, NA)) |> 
   mutate(dir_ball = ifelse(ball_carrier, dir, NA))  |> 
+  mutate(o_ball = ifelse(ball_carrier, o, NA))  |> 
   group_by(gameId, playId, frameId) |> 
   mutate(x_ball = mean(x_ball,na.rm = T)) |>
   mutate(y_ball = mean(y_ball,na.rm = T)) |>
   mutate(s_ball = mean(s_ball,na.rm = T)) |>
+  mutate(o_ball = mean(o_ball,na.rm = T)) |>
   mutate(dir_ball = mean(dir_ball,na.rm = T)) |> 
   ungroup()  |> 
     

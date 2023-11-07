@@ -431,6 +431,96 @@ defensive_model_building_data |>
 
 ```
 
+## 
+
+```{r}
+week_1 |> 
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+    # filter(nflId == 38588) |>
+  # group_by(nflId) |> filter(cur_group_id()  == 4) |> ungroup() |>
+  filter(is.na(passResult))  |> select(gameId, playId, nflId,x, y, s, a, o, dir, frameId, x_ball, y_ball, s_ball, o_ball, dir_ball, defensiveTeam, club, is_football, time, absoluteYardlineNumber) |> 
+  group_by(nflId) |> 
+  mutate(
+    # Convert degrees to radians for calculation
+    rad_o = o * pi / 180,
+    rad_dir = dir * pi / 180,
+    rad_dir_ball = dir_ball * pi / 180,
+    
+    # Calculate gaze vector for player
+    gaze_x = cos(rad_o),
+    gaze_y = sin(rad_o),
+    
+    # Calculate vectors from player to ball
+    vector_to_ball_x = x_ball - x,
+    vector_to_ball_y = y_ball - y,
+    
+    # Normalize the vector for proper angle calculation
+    norm_vector_to_ball_x = vector_to_ball_x / sqrt(vector_to_ball_x^2 + vector_to_ball_y^2),
+    norm_vector_to_ball_y = vector_to_ball_y / sqrt(vector_to_ball_x^2 + vector_to_ball_y^2),
+    
+    # Calculate the dot product and magnitude of vectors for angle
+    dot_product = gaze_x * norm_vector_to_ball_x + gaze_y * norm_vector_to_ball_y,
+    player_angle_to_ball = acos(dot_product) * 180 / pi  # Convert back to degrees
+  ) %>%
+  mutate(
+    # Check if player is facing the ball (assuming a threshold of 30 degrees)
+    is_facing_ball = as.factor(if_else(player_angle_to_ball < 30, TRUE, FALSE)),
+    
+    # Calculate change in angle across frames to determine if turning towards the ball
+    change_in_angle = lead(player_angle_to_ball) - player_angle_to_ball
+  ) %>%
+  mutate(
+    # Check if the player is turning towards the ball (angle getting smaller)
+    is_turning_towards_ball = as.factor(if_else(change_in_angle < 0, TRUE, FALSE))
+  ) |> 
+  ungroup() |> 
+
+
+# Display the relevant columns
+# select(x, y, o, dir, player_angle_to_ball, is_facing_ball, is_turning_towards_ball)
+
+  filter(defensiveTeam == club | is_football == "football")  %>% 
+  select(gameId, playId, nflId, frameId, x, y, is_facing_ball, absoluteYardlineNumber, is_football, time) %>% 
+  # count(time) |> 
+
+    # select(is_facing_ball, is_turning_towards_ball) |>
+  # print(n = Inf) %>% I
+
+  {
+  ggplot(data = ., aes(x = x, y = y, color = is_facing_ball)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  geom_point(show.legend = FALSE, size = 5) +
+  transition_time(time) + ease_aes("linear") +
+  # facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
+  labs(y = "", x = "Yards To Line of Scrimage", title = "") +
+  theme_field +  guides(shape = "none") 
+  # theme(legend.position = "bottom") 
+  # ggplot(data = ., aes(x = x, y = y, color = is_facing_ball)) +
+  # geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  # geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  # transition_time(time) + ease_aes("linear") +
+  # # facet_wrap(~playId, labeller = labeller(playId = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
+  # labs(y = "", x = "Yards To Line of Scrimage", title = "") +
+  # theme_field +  guides(shape = "none") 
+  # # theme(legend.position = "bottom") 
+  
+}
+
+  ggplot(data = ., aes(x = x, y = y, color = is_football)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  geom_segment(aes(xend = x_ball_next, yend = y_ball_next), color = "black") +
+  # scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~playId) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$playDescription[1], width = 80)) +
+  theme_field
+}
+
+
+```
+
 
 
 
