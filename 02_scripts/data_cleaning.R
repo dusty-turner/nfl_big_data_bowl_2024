@@ -22,8 +22,6 @@ week_1 <-
   mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
   mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
   
-# week_1 |> select(displayName, gameId, playId, x_ball, y_ball, x, y, dir, o, s, a) |> 
-  # filter(displayName == "football") |> 
   ## put in projected location at next step
   group_by(displayName, gameId, playId) |> 
   mutate(

@@ -373,13 +373,13 @@ Dusty Turner
 <div class="fragment">
 <br>
 <center>
-<strong>Research Question: Can we determine the probability that any player makes a tackle on the football field?</strong>
+<strong>Research Question: Can we determine each defensive player’s probability that they make a tackle on each play on the football field?</strong>
 </center>
 </div>
 <div class="fragment">
 <br>
 <center>
-<strong>Ultimatly: Assign a tackles over expected value for each player</strong>
+<strong>Ultimately: Assign a tackles over expected value for each player</strong>
 </center>
 </div>
 </section></section>
@@ -882,7 +882,7 @@ Dusty Turner
 <section id="section-3" class="slide level2 scrollable">
 <h2></h2>
 <h4 id="every-play-every-week">Every Play, Every Week</h4>
-<div class="cell" data-hash="ADDM_Preliminary_Presentation_cache/revealjs/unnamed-chunk-4_f55612b497dab67f803abe97677c9a0e">
+<div class="cell" data-hash="ADDM_Preliminary_Presentation_cache/revealjs/unnamed-chunk-4_4e4a89af739f194b7d676cb84fd0c0f3">
 <div class="cell-output-display">
 
 <div id="eogbmxlepk" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -1333,101 +1333,125 @@ Dusty Turner
       <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="jerseyNumber">jerseyNumber</th>
       <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="club">club</th>
       <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="n">n</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="week">week</th>
     </tr>
   </thead>
   <tbody class="gt_table_body">
     <tr><td headers="displayName" class="gt_row gt_left">Dak Prescott</td>
 <td headers="jerseyNumber" class="gt_row gt_right">4</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Ezekiel Elliott</td>
 <td headers="jerseyNumber" class="gt_row gt_right">21</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Tyler Biadasz</td>
 <td headers="jerseyNumber" class="gt_row gt_right">63</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Connor McGovern</td>
 <td headers="jerseyNumber" class="gt_row gt_right">66</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Zack Martin</td>
 <td headers="jerseyNumber" class="gt_row gt_right">70</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Tyler Smith</td>
 <td headers="jerseyNumber" class="gt_row gt_right">73</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Terence Steele</td>
 <td headers="jerseyNumber" class="gt_row gt_right">78</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Noah Brown</td>
 <td headers="jerseyNumber" class="gt_row gt_right">85</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Dalton Schultz</td>
 <td headers="jerseyNumber" class="gt_row gt_right">86</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Jake Ferguson</td>
 <td headers="jerseyNumber" class="gt_row gt_right">87</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">CeeDee Lamb</td>
 <td headers="jerseyNumber" class="gt_row gt_right">88</td>
 <td headers="club" class="gt_row gt_left">DAL</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Joe Tryon</td>
 <td headers="jerseyNumber" class="gt_row gt_right">9</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Carlton Davis</td>
 <td headers="jerseyNumber" class="gt_row gt_right">24</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Antoine Winfield</td>
 <td headers="jerseyNumber" class="gt_row gt_right">31</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Mike Edwards</td>
 <td headers="jerseyNumber" class="gt_row gt_right">32</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Jamel Dean</td>
 <td headers="jerseyNumber" class="gt_row gt_right">35</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Devin White</td>
 <td headers="jerseyNumber" class="gt_row gt_right">45</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Vita Vea</td>
 <td headers="jerseyNumber" class="gt_row gt_right">50</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Lavonte David</td>
 <td headers="jerseyNumber" class="gt_row gt_right">54</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Shaquil Barrett</td>
 <td headers="jerseyNumber" class="gt_row gt_right">58</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">William Gholston</td>
 <td headers="jerseyNumber" class="gt_row gt_right">92</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">Akiem Hicks</td>
 <td headers="jerseyNumber" class="gt_row gt_right">96</td>
 <td headers="club" class="gt_row gt_left">TB</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
     <tr><td headers="displayName" class="gt_row gt_left">football</td>
 <td headers="jerseyNumber" class="gt_row gt_right">NA</td>
 <td headers="club" class="gt_row gt_left">football</td>
-<td headers="n" class="gt_row gt_right">49</td></tr>
+<td headers="n" class="gt_row gt_right">49</td>
+<td headers="week" class="gt_row gt_left">week_1</td></tr>
   </tbody>
   
   
@@ -2044,7 +2068,7 @@ Dusty Turner
 <section id="section-4" class="slide level2">
 <h2></h2>
 <center>
-<div class="cell" data-hash="ADDM_Preliminary_Presentation_cache/revealjs/unnamed-chunk-6_b6000ab6c08b42459975965440ab8e89">
+<div class="cell" data-hash="ADDM_Preliminary_Presentation_cache/revealjs/unnamed-chunk-6_a8bd7637152fc006924537e2f9c180dc">
 <div class="cell-output-display">
 <p><img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-6-1.gif"></p>
 </div>
@@ -2625,7 +2649,10 @@ Dusty Turner
 <section id="alignment-clusters" class="slide level2">
 <h2>Alignment Clusters</h2>
 
-<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-15-1.png" width="960" class="r-stretch"></section></section>
+<img data-src="ADDM_Preliminary_Presentation_files/figure-revealjs/unnamed-chunk-15-1.png" width="960" class="r-stretch"></section>
+<section id="section-6" class="slide level2">
+<h2></h2>
+</section></section>
 <section id="part-2-conducting-a-literature-review" class="title-slide slide level1 center">
 <h1>Part 2: Conducting a Literature Review</h1>
 <ul>
