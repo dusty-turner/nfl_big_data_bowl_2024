@@ -1,7 +1,10 @@
 ---
-title: "ADDM Preliminary Presentation"
+title: "Quantifying Defensive Impact in Football"
+subtitle: "A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques"
 author: "Dusty Turner"
-format: revealjs
+format: 
+  revealjs:
+    self-contained: true
 cache: true
 width: 1300
 ---
@@ -57,7 +60,7 @@ source(here::here("02_scripts","data_cleaning.R"))
 
 <br>
 <center>
-**Ultimately: Assign a tackles over expected value for each player**
+**Ultimately: Assign a 'tackles over expected' value for each player**
 </center>
 
 # Data Available 
@@ -274,13 +277,13 @@ week_1 |>
   filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
   filter(defensiveTeam == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
-  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next,o, jerseyNumber) %>% 
+  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing,o, jerseyNumber) %>% 
 {
   ggplot(data = ., aes(x = x, y = y)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
   geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   # geom_text(aes(label = jerseyNumber), color = "red", nudge_x = 0, nudge_y = -1) +
-  geom_segment(aes(xend = x_next, yend = y_next), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
+  geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
   # geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
   scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
   # facet_wrap(~playId) +
@@ -290,6 +293,30 @@ week_1 |>
 }
 ```
 
+## Orientation Fan
+
+```{r}
+week_1 |>  
+  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
+  filter(defensiveTeam == club | is_football == "football") |> 
+        select(frameId, x, y, is_football, time, oriented_towards_ball, oriented_towards_ball, turning_towards, new_x, new_y, contains("fan"), absoluteYardlineNumber, jerseyNumber, is_football, playDescription) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = oriented_towards_ball, shape = is_football)) +
+  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
+  geom_point(show.legend = FALSE, size = 5) +
+  # geom_segment(aes(xend = new_x, yend = new_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  geom_segment(aes(xend = fan_left_x, yend = fan_right_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  geom_segment(aes(xend = fan_right_x, yend = fan_right_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  # geom_text(aes(label = jerseyNumber), color = "black") +
+  transition_states(states = frameId, transition_length = .1, state_length = .01, wrap = TRUE) +
+  # labs(y = "", x = "Yards To Line of Scrimmage", title = "str_wrap(.$playDescription[1], width = 80)") +
+  labs(y = "", x = "Yards To Line of Scrimage", title = str_wrap(.$playDescription[1], width = 80)) +
+       # title = 'FrameId: {closest_state}') +
+  theme_field +  guides(shape = "none") 
+}
+```
+
+
 ## Projected Movement with Orientation
 
 ```{r}
@@ -298,15 +325,15 @@ week_1 |>
   filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
   # filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
   filter(defensiveTeam == club | is_football == "football") |> 
-  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
-  select(displayName, x, y, x_facing, y_facing, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next,o, jerseyNumber) %>% 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>
+  select(displayName, x, y, new_x, new_y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing,o, jerseyNumber) %>% 
 {
   ggplot(data = ., aes(x = x, y = y)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
   geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   # geom_text(aes(label = jerseyNumber), color = "red", nudge_x = 0, nudge_y = -1) +
-  geom_segment(aes(xend = x_next, yend = y_next), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
-  geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  geom_segment(aes(xend = x_facing, yend = y_facing), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
+  geom_segment(aes(xend = new_x, yend = new_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
   scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
   # facet_wrap(~playId) +
   transition_time(time) + ease_aes("linear") +
@@ -326,8 +353,8 @@ week_1 |>
   filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
   filter(defensiveTeam == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
-  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, x_ball_next, y_ball_next) %>% 
-  # filter(is_football == "football") |> select(x, y, x_next, y_next)
+  select(displayName, x, y, x_ball, y_ball, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing, x_ball_next, y_ball_next) %>% 
+  # filter(is_football == "football") |> select(x, y, x_facing, y_facing)
 {
   ggplot(data = ., aes(x = x, y = y, color = is_football)) +
   geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
@@ -349,7 +376,7 @@ week_1 |>
 <!--   filter(frameId == 1) |>  -->
 <!--   filter(defensiveTeam == club | is_football == "football") |>  -->
 <!--   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>  -->
-<!--   select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment) %>%  -->
+<!--   select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing, alignment) %>%  -->
 
 <!--   { -->
 <!--   ggplot(data = ., aes(x = x, y = y, color = alignment)) + -->
@@ -375,7 +402,7 @@ defensive_model_building_data |>
   filter(frameId == 1) |>
   filter(defensiveTeam == club | is_football == "football") |>
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>
-  select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, position) %>%
+  select(gameId, displayName, x, y, v_approach, color, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing, position) %>%
 
   {
   ggplot(data = ., aes(x = x, y = y, color = position)) +
@@ -416,7 +443,7 @@ defensive_model_building_data |>
   filter(defensiveTeam == club | is_football == "football") |> 
   filter(is.na(passResult))  |> 
   # mutate(color = as.factor(alignment_cluster)) |>
-  select(gameId, displayName, x, x_from_los, y, v_approach, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_next, y_next, alignment, alignment_cluster) %>%
+  select(gameId, displayName, x, x_from_los, y, v_approach, absoluteYardlineNumber, ball_carrier, playId, time, is_football, club, distance_to_ball, playDescription, x_facing, y_facing, alignment, alignment_cluster) %>%
   
   {
   ggplot(data = ., aes(x = x_from_los, y = y, color = alignment_cluster)) +
@@ -433,120 +460,92 @@ defensive_model_building_data |>
 
 ```
 
+# Literature Review
+
+##
+
+<div style="text-align: center; width: 100%;">
+  <img src="01_images/football_r.jpg" style="width: 40%;">
+</div>
+
+<!-- <center> -->
+<!-- ![](01_images/football_r.jpg){width=80%} -->
+<!-- </center> -->
+
 ## 
 
-```{r, eval=FALSE}
-# week_1 |>  
-#   filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
-#   filter(defensiveTeam == club | is_football == "football") |> 
-#   mutate(
-#     # Calculate the angle difference correctly, considering the coordinate system
-#     angle_to_ball = (atan2(y_ball - y, x_ball - x) * 180 / pi + 360) %% 360,
-#     o_corrected = (o + 360) %% 360,
-#     oriented_towards_ball = abs(o_corrected - angle_to_ball) <= 30 | abs(o_corrected - angle_to_ball) >= 330,
-#     
-#     # Adjust the difference in the direction of the player and the direction towards the ball
-#     dir_corrected = (dir + 360) %% 360,
-#     diff_dir = dir_corrected - angle_to_ball,
-#     diff_dir_adjusted = ifelse(diff_dir > 180, diff_dir - 360, ifelse(diff_dir < -180, diff_dir + 360, diff_dir)),
-#     turning_towards = sign(diff_dir_adjusted) < 0,
-#     
-#     # Calculate new x/y coordinates 1 unit away in the direction the player is facing, 
-#     # using radians for orientation and normalizing the direction
-#     unit_vector_x = cos(o * pi / 180),
-#     unit_vector_y = sin(o * pi / 180),
-#     # Normalize the unit vector to have a length of 1
-#     norm_factor = sqrt(unit_vector_x^2 + unit_vector_y^2),
-#     new_x = x + unit_vector_x / norm_factor,
-#     new_y = y + unit_vector_y / norm_factor
-#   ) |> 
-#         select(frameId, x, y, is_football, time, oriented_towards_ball, oriented_towards_ball, turning_towards, new_x, new_y, absoluteYardlineNumber, jerseyNumber) |> 
-week_1 |>  
-  filter(gameId == dak$gameId[2], playId %in% unique(dak$playId)[2]) |> 
-  filter(defensiveTeam == club | is_football == "football") |> 
-  mutate(
-    z_units = 1, 
-    # Calculate the angle difference correctly, considering the coordinate system
-    angle_to_ball = (atan2(y_ball - y, x_ball - x) * 180 / pi + 360) %% 360,
-    o_corrected = (o + 360) %% 360,
-    oriented_towards_ball = abs(o_corrected - angle_to_ball) <= 30 | abs(o_corrected - angle_to_ball) >= 330,
-    
-    # Adjust the difference in the direction of the player and the direction towards the ball
-    dir_corrected = (dir + 360) %% 360,
-    diff_dir = dir_corrected - angle_to_ball,
-    diff_dir_adjusted = ifelse(diff_dir > 180, diff_dir - 360, ifelse(diff_dir < -180, diff_dir + 360, diff_dir)),
-    turning_towards = sign(diff_dir_adjusted) < 0,
-    
-    # Calculate new x/y coordinates at a specified distance in the direction the player is facing
-    unit_vector_x = cos(o * pi / 180),
-    unit_vector_y = sin(o * pi / 180),
-    # Normalize the unit vector to have a length of 'z_units'
-    norm_factor = sqrt(unit_vector_x^2 + unit_vector_y^2),
-    new_x = x + (unit_vector_x / norm_factor) * z_units,
-    new_y = y + (unit_vector_y / norm_factor) * z_units,
-    
-    # Calculate two additional points forming a 30-degree fan oriented towards the ball
-    fan_angle = 30,  # Half of 30 degrees for the fan spread
-    # Point to the left of the fan
-    fan_left_x = x + cos((o - fan_angle) * pi / 180) * z_units,
-    fan_left_y = y + sin((o - fan_angle) * pi / 180) * z_units,
-    # Point to the right of the fan
-    fan_right_x = x + cos((o + fan_angle) * pi / 180) * z_units,
-    fan_right_y = y + sin((o + fan_angle) * pi / 180) * z_units
-  ) |> 
-        select(frameId, x, y, is_football, time, oriented_towards_ball, oriented_towards_ball, turning_towards, new_x, new_y, contains("fan"), absoluteYardlineNumber, jerseyNumber) |> 
-        # select(gameId, playId, nflId, frameId, x, y, absoluteYardlineNumber, is_football, time, jerseyNumber, oriented_towards_ball, direction_to_ball, diff_dir, turning_towards, new_x, new_y) 
-    
-    
-  ggplot(aes(x = x, y = y, color = oriented_towards_ball)) +
-  geom_vline(aes(xintercept = absoluteYardlineNumber), color = "blue") +
-  geom_point(show.legend = FALSE, size = 5) +
-  # geom_segment(aes(xend = new_x, yend = new_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
-  geom_segment(aes(xend = fan_left_x, yend = fan_right_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
-  geom_segment(aes(xend = fan_right_x, yend = fan_right_y), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
-  geom_text(aes(label = jerseyNumber), color = "black") +
-  transition_states(states = frameId, transition_length = .1, state_length = .01, wrap = TRUE) +
-  # ease_aes("linear") +
-      # facet_wrap(~time) +
-  labs(y = "", x = "Yards To Line of Scrimage", title = 'FrameId: {closest_state}') +
-  theme_field +  guides(shape = "none") 
+:::: {.columns}
 
-# }
+::: {.column width="50%"}
+
+### Previous NFL Big Data Bowl Competitions
+
+::: {.r-fit-text}
+- [2020](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020): How many yards will an NFL player gain after receiving a handoff?  
+- [2021](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021): Evaluate defensive performance on passing plays  
+- [2022](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022): Evaluate special teams performance  
+- [2023](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023): Evaluate linemen on pass plays  
+:::
+
+:::
+
+::: {.column width="50%"}
+
+![](01_images/next_gen.png)
+
+:::
+
+::::
+
+## Analyzing the Data
+
+:::: {.columns}
+
+::: {.column width="50%"}
 
 
+  - Penalized Regression
+  - Random Forest
+  - XGBoost
+  - Neural Network
 
-```
+:::
 
+::: {.column width="50%"}
 
+![](01_images/theme.png)
 
+:::
 
+::::
 
-# Part 2: Conducting a Literature Review
-  - Methodology for literature review
-  - Summary of key findings from existing literature
-  - Gaps identified in the current body of knowledge
-  - How this project contributes to filling those gaps
+## Points Above or Below Expected
 
-# Part 3: Finding Appropriate Data
-  - Criteria for data selection
-  - Sources of data (primary/secondary)
-  - Challenges encountered in data collection
-  - Ensuring data quality and relevance
+<br>
+<br>
 
-# Part 4: Analyzing the Data
-  - Methods and tools used for data analysis
-  - Overview of the analytical process
-  - Presentation of preliminary findings
-  - Discussion of challenges and limitations in data analysis
+::: {.r-fit-text}
+$\sum_{i=1}^{N} (\mathbb{I}_{\text{tackle}_i} - P(\text{tackle}_i))$
 
-# Conclusion
-  - Recap of key points
-  - Implications of the findings so far
-  - Next steps and future directions for the project
+Where:
 
-# References
-  - List of all references cited in the presentation
+1. $N$ is the total number of plays  
+2. $P(\text{tackle}_i)$ is the probability of a tackle on play $i$  
+3. $\mathbb{I}_{\text{tackle}_i}$ is the indicator function which is 1 if a tackle occurred on play $i$ and 0 otherwise  
+:::
 
-# Appendix
-  - Any additional materials, charts, or data
+## Next Steps
+
+::: {.r-fit-text}
+1. **Model Creation**: Enhance the predictive algorithms by integrating advanced analytics and machine learning techniques.
+2. **Model Tuning**: Optimize model parameters through validation processes to improve accuracy and reliability.
+3. **Feature Development**: Innovate and engineer new features to capture the dynamic aspects of player actions and game events for real-time analysis.
+:::
+
+## Thanks
+
+<div style="text-align: center; width: 100%;">
+  <img src="01_images/final_image.png" style="width: 40%;">
+</div>
+
 
