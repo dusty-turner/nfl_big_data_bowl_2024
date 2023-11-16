@@ -2,10 +2,12 @@ library(tidyverse)
 library(tidymodels)
 source("02_scripts/data_cleaning.R")
 
-running_data <- dplyr::filter(defensive_model_building_data_model, is.na(passResult)) |> select(-passResult)
+running_data <- dplyr::filter(defensive_model_building_data_model, is.na(passResult)) |> select(-passResult) |> 
+  mutate(ball_in_fan = as.factor(ball_in_fan))
 
 set.seed(49)
-splits <- group_initial_validation_split(running_data, prop = c(.01,.0025), group = gameIdPlayId)
+splits <- group_initial_validation_split(running_data, prop = c(.02,.005), group = gameIdPlayId)
+# splits <- group_initial_validation_split(running_data, prop = c(.01,.0025), group = gameIdPlayId)
 # splits <- group_initial_validation_split(running_data, prop = c(.6,.2), group = gameIdPlayId)
 
 defense_training <- training(splits) 
@@ -18,23 +20,27 @@ mod <-
   set_engine("glmnet") |> 
   set_mode("classification") 
 
-# mod <- 
-#   rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>% 
-#   set_engine("ranger", importance = "impurity") |> 
-#   set_mode("classification") 
+mod <-
+  rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("classification")
 
 
 # tackle, position, rank, defendersInTheBox, alignment, s, a, rank, v_approach
 
+defense_training |> 
+  select(-c(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_going, y_going, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
+            time, defensiveTeam, displayName, playDescription, is_football, rank, v_approach))
+
 recipe <-
   recipe(tackle ~ ., data = defense_training) |> 
-  step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_next, y_next, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
-          time, defensiveTeam, displayName, playDescription, is_football, rank) |> 
+  step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_going, y_going, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
+          time, defensiveTeam, displayName, playDescription, is_football, rank, v_approach) |> 
   # step_rm(gameIdPlayId, gameId, playId, nflId, frameId, club, x, y, x_next, y_next, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber,
   #         time, defensiveTeam, displayName, playDescription, is_football, tackle, position, rank, defendersInTheBox, alignment, alignment_cluster) 
   step_impute_mode(position) |>
-  step_dummy(all_nominal_predictors()) |> 
-  step_impute_mean(v_approach)  
+  step_dummy(all_nominal_predictors())  
+  # step_impute_mean(v_approach)  
   # step_interact(terms = ~starts_with("position"):starts_with("alignment_cluster"))
 
 
@@ -43,9 +49,9 @@ workflow <-
   workflow(spec = mod) |> 
   add_recipe(recipe = recipe)
   
-grid <- expand_grid(penalty = 10^seq(-4, -1, length.out = 30), mixture = 10^seq(-4, -1, length.out = 30))
+# grid <- expand_grid(penalty = 10^seq(-4, -1, length.out = 30), mixture = 10^seq(-4, -1, length.out = 30))
 
-# grid <- grid_latin_hypercube(trees(), min_n(), mtry(range = c(4,17)), size = 10)
+grid <- grid_latin_hypercube(trees(), min_n(), mtry(range = c(4,17)), size = 10)
 
 res <- 
   workflow %>% 
@@ -53,6 +59,8 @@ res <-
             grid = grid,
             control = control_grid(save_pred = TRUE),
             metrics = metric_set(roc_auc, accuracy))
+
+# trained_recipe <- recipe %>% prep(training = defense_training) |> bake(new_data = NULL)
 
 # best_parameters <- select_best(lr_res, "roc_auc")
 
