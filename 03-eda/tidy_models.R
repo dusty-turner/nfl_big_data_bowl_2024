@@ -39,9 +39,9 @@ recipe <-
   # step_rm(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, x, y, x_next, y_next, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number,
   #         time, defensive_team, display_name, play_description, is_football, tackle, position, rank, defendersInTheBox, alignment, alignment_cluster) 
   step_impute_mode(position) |>
-  step_dummy(all_nominal_predictors())  
+  step_dummy(all_nominal_predictors())  |> 
   # step_impute_mean(v_approach)  
-  # step_interact(terms = ~starts_with("position"):starts_with("alignment_cluster"))
+  step_interact(terms = ~starts_with("position"):starts_with("alignment_cluster"))
 
 
 
