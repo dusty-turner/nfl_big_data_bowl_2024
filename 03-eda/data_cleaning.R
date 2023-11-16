@@ -1,7 +1,7 @@
 library(tidyverse)
 library(gganimate)
 library(arrow)
-source(here::here("02_scripts","ggtheme_field.R"))
+source(here::here("03-eda","ggtheme_field.R"))
 
 week_1 <-
 # temp2 <-
