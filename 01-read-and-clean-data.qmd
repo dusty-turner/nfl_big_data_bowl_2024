@@ -1,0 +1,481 @@
+---
+title: "Loading in the data"
+format: 
+  html:
+    embed-resources: true # if false, formatting wont work for giving .html
+knitr:
+  opts_chunk: 
+    fig-format: svg
+    collapse: true
+    comment: "#"
+---
+
+
+
+This file 
+
+* unzips the data from Kaggle in `01-raw-data` into that same directory; 
+* parses the resulting `.csv` files into more efficient `.parquet` files, saving them in `02-clean-data`; and
+* takes some basic looks at the structure of those files.
+
+
+
+
+## Packages required
+
+We'll start by loading a few packages:
+
+```{r}
+library("glue")
+library("here", warn.conflicts = FALSE)
+library("fs", warn.conflicts = FALSE)
+library("arrow", warn.conflicts = FALSE)
+library("tidyverse")
+```
+
+
+
+
+## Clear out any older files from previous runs
+
+
+The main data file from Kaggle is `nfl-big-data-bowl-2024.zip`. It's saved in
+`01-raw-data`, whose absolute path will vary from computer to computer:
+
+```{r}
+(raw_data_zip_file <- here("01-raw-data", "nfl-big-data-bowl-2024.zip"))
+```
+
+Let's delete any files created from previous runs:
+
+```{r}
+here("01-raw-data") |> 
+  dir_ls() |> 
+  setdiff( raw_data_zip_file ) |> 
+  file_delete()
+
+here("02-clean-data") |> 
+  dir_ls() |> 
+  file_delete()
+```
+
+This is the overall file structure of this package:
+
+```{r}
+dir_tree(recurse = FALSE)
+```
+
+This document works with `01-raw-data` and `02-clean-data`, which look like this:
+
+```{r}
+here("01-raw-data") |> dir_tree()
+
+here("02-clean-data") |> dir_tree()
+```
+
+
+
+
+
+
+## Unzip the data into `01-raw-data` and look at them
+
+We start by unzipping the contents of `nfl-big-data-bowl-2024.zip` from Kaggle
+into `01-raw-data`:
+
+```{r}
+unzip(
+  zipfile = raw_data_zip_file,
+  exdir = here::here("01-raw-data")
+)
+```
+
+We can check we've succeeded by looking at its contents:
+
+```{r}
+here("01-raw-data") |> dir_tree()
+```
+
+Let's take a look at these files to see their contents and size.
+
+```{r}
+options(readr.show_col_types = FALSE)
+```
+
+
+
+#### The `games.csv` file
+
+```{r}
+games <- here("01-raw-data", "games.csv") |> 
+  read_csv(
+    col_types = cols(
+      "gameId" = col_character(),
+      "season" = col_integer(),
+      "week" = col_integer(),
+      "gameDate" = col_date(format = "%m/%d/%Y"),
+      "gameTimeEastern" = col_time(),
+      "homeTeamAbbr" = col_character(),
+      "visitorTeamAbbr" = col_character(),
+      "homeFinalScore" = col_integer(),
+      "visitorFinalScore" = col_integer()
+    )
+  ) 
+
+games |> glimpse()
+```
+
+Let's clean:
+
+```{r}
+games <- games |> 
+  janitor::clean_names() |> 
+  mutate(
+    "game_dttm" = ymd_hms(
+      paste(
+        strftime(game_date, "%Y-%m-%d"),
+        as.character(game_time_eastern)
+      )
+    ) |> 
+      force_tz("America/New_York")
+  )
+
+games |> glimpse()
+```
+
+Let's write:
+
+```{r}
+write_parquet( games, here("02-clean-data", "games.parquet") )
+```
+
+
+
+
+
+#### The `players.csv` file
+
+```{r}
+players <- here("01-raw-data", "players.csv") |> 
+  read_csv(
+    col_type = cols(
+      "nflId" = col_character(),
+      "height" = col_character(),
+      "weight" = col_integer(),
+      "birthDate" = col_character(), # column is a mess
+      "collegeName" = col_character(),
+      "position" = col_factor(),
+      "displayName" = col_character()
+    )
+  )
+  
+players |> glimpse()
+```
+
+Let's start by cleaning names:
+
+```{r}
+players <- players |> janitor::clean_names()
+```
+
+Then the height column, let's convert its units to feet, instead of e.g. `6-4`
+
+```{r}
+players <- players |> 
+  separate(height, c("height_ft", "height_in"), sep = "-") |> 
+  mutate(
+    across( c(height_ft, height_in), as.double ),
+    height = height_ft + height_in/12
+  ) |> 
+  relocate( height, .after = nfl_id ) |> 
+  select( -height_ft, -height_in )
+```
+
+`birth_date`{.R} is a mess of a column. At the top it looks mostly like `%Y-%m-%d`; however, that's not the only encoding, and a lot of the data is missing:
+
+```{r}
+players |> 
+  mutate(
+    birth_date_format = case_when(
+      is.na(birth_date) ~ NA_character_,
+      str_detect(birth_date, "\\d{2}/\\d{2}/\\d{4}") ~ "%m/%d/%Y",
+      str_detect(birth_date, "\\d{4}-\\d{2}-\\d{2}") ~ "%Y-%m-%d",
+      TRUE ~ "other"
+    )
+  ) |> 
+  count( birth_date_format )
+```
+
+This fixes that, which can be checked with the code above if desired:
+
+```{r}
+players <- players |> 
+  mutate(
+    "birth_date" = str_replace( birth_date, "(\\d{2})/(\\d{2})/(\\d{4})", "\\3-\\1-\\2" ) |> 
+      ymd()
+  )
+
+players |> glimpse()
+```
+
+Looks clean; let's write: 
+
+```{r}
+write_parquet( players, here("02-clean-data", "players.parquet") )
+```
+
+
+
+
+
+
+
+#### The `plays.csv` file
+
+`plays.csv` has a lot of variables:
+
+```{r}
+plays <- here("01-raw-data", "plays.csv") |> 
+  read_csv(
+    col_type = cols(
+      "gameId" = col_character(),
+      "playId" = col_character(),
+      "ballCarrierId" = col_character(),
+      "ballCarrierDisplayName" = col_character(),
+      "playDescription" = col_character(),
+      "quarter" = col_integer(),
+      "down" = col_integer(),
+      "yardsToGo" = col_integer(), # verified: no decimals
+      "possessionTeam" = col_character(),
+      "defensiveTeam" = col_character(),
+      "yardlineSide" = col_character(),
+      "yardlineNumber" = col_integer(), # verified: no decimals
+      "gameClock" = col_time(), # e.g. 7:52, fix later
+      "preSnapHomeScore" = col_integer(),
+      "preSnapVisitorScore" = col_integer(),
+      "passResult" = col_character(),
+      "passLength" = col_integer(), # verified: no decimals
+      "penaltyYards" = col_integer(),
+      "prePenaltyPlayResult" = col_integer(), # verified: no decimals
+      "playResult" = col_integer(), # verified: no decimals
+      "playNullifiedByPenalty" = col_character(), # "N" or "Y", fix later
+      "absoluteYardlineNumber" = col_integer(), # verified: no decimals
+      "offenseFormation" = col_character(), # factor, fix later
+      "defendersInTheBox" = col_integer(),
+      "passProbability" = col_double(),
+      "preSnapHomeTeamWinProbability" = col_double(),
+      "preSnapVisitorTeamWinProbability" = col_double(),
+      "homeTeamWinProbabilityAdded" = col_double(),
+      "visitorTeamWinProbilityAdded" = col_double(),
+      "expectedPoints" = col_double(),
+      "expectedPointsAdded" = col_double(),
+      "foulName1" = col_factor(),
+      "foulName2" = col_character(), # subset of foulName1 fouls, fix later
+      "foulNFLId1" = col_character(), # a code?
+      "foulNFLId2" = col_character() # a code?
+    )
+  ) 
+```
+
+Let's fix names:
+
+```{r}
+plays <- plays |> janitor::clean_names()
+```
+
+Let's fix the notes above:
+
+```{r}
+plays <- plays |> 
+  mutate(
+    "play_nullified_by_penalty" = (play_nullified_by_penalty == TRUE),
+    "offense_formation" = offense_formation |>
+      str_replace("_", " ") |>
+      str_to_lower() |> str_to_title() |>
+      factor(),
+    "foul_name2" = factor(foul_name2, levels = levels(foul_name1))
+  ) 
+```
+
+Time is perhaps the hardest to "fix". It communicates the time remaining in the
+quarter following the format of e.g. `7:52` or `13:12`. These are minutes and
+seconds, which **hms** doesn't have a nice data structure for. **lubridate** has
+`ms()`{.R}, but it converts it to a `Period` object, a colloquial span of time
+instead of a concrete number of seconds remaining. In the future it may make
+sense to make this into other variables: seconds remaining in game? seconds
+remaining in quarter? Fractional minutes in those? Not clear. I think I'll make
+two variables out of it, both `time` objects: `time_remaining_in_quarter` and
+`time_remaining_in_game`:
+
+```{r}
+plays <- plays |> 
+  mutate(
+    "time_remaining_in_quarter" = hms::hms(
+      seconds = minute(game_clock),
+      minutes = hour(game_clock),
+      hour = 0 * hour(game_clock)
+    ),
+    "time_remaining_in_game" = hms::hms(
+      seconds = minute(game_clock),
+      minutes = hour(game_clock) + (quarter-1)*15,
+      hour = 0 * hour(game_clock)
+    )
+  ) |> 
+  relocate( starts_with("time_remaining"), .before = game_clock) |> 
+  select( -game_clock )
+```
+
+_Note: It's not quite clear what `pass_result` is; it has values `C`, `R`, and
+`NA`. Should this be a character or a factor?_
+
+Let's look:
+
+```{r}
+plays |> glimpse()
+```
+
+
+Time to write:
+
+```{r}
+write_parquet( plays, here("02-clean-data", "plays.parquet") )
+```
+
+
+
+#### The `tackles.csv` file
+
+`tackles.csv` is relatively simple:
+
+```{r}
+tackles <- here("01-raw-data", "tackles.csv") |> 
+  read_csv(
+    col_type = cols(
+      "gameId" = col_character(),
+      "playId" = col_character(),
+      "nflId" = col_character(),
+      "tackle" = col_logical(), # verified 0 or 1
+      "assist" = col_logical(), # verified 0 or 1
+      "forcedFumble" = col_logical(), # verified 0 or 1
+      "pff_missedTackle" = col_logical() # verified 0 or 1
+    )
+  )
+```
+
+Clean names then write.
+
+```{r}
+tackles <- tackles |> 
+  janitor::clean_names()
+
+tackles |> glimpse()
+
+write_parquet( tackles, here("02-clean-data", "tackles.parquet") )
+```
+
+
+
+
+
+
+
+#### The `tracking_week` files
+
+There are 9 `tracking_week_#.csv` files. They each have this structure:
+
+```{r}
+here("01-raw-data", "tracking_week_1.csv") |> read_csv_arrow() |> glimpse()
+```
+
+To read them in, let's make a function that does it for us:
+
+```{r}
+read_tracking <- function (path) {
+  read_csv(path,
+    col_type = cols(
+      "gameId" = col_character(),
+      "playId" = col_character(),
+      "nflId" = col_character(),
+      "displayName" = col_character(),
+      "frameId" = col_integer(), # verified
+      "time" = col_datetime(), # "2022-09-08 20:24:05.900000"; timezone?
+      "jerseyNumber" = col_integer(), # verified
+      "club" = col_character(),
+      "playDirection" = col_character(), # "left" or "right"
+      "x" = col_double(),
+      "y" = col_double(),
+      "s" = col_double(), # speed; magnitude of velocity
+      "a" = col_double(), # magnitude of acceleration
+      "dis" = col_double(), # ?
+      "o" = col_double(), # ?
+      "dir" = col_double(), # ?
+      "event" = col_character()
+    )
+  )
+}
+
+here("01-raw-data", "tracking_week_1.csv") |> read_tracking() |> glimpse()
+```
+
+Now we'll map that function over each of the `tracking_week_#.csv` files and
+stack the results into a single data frame:
+
+```{r}
+tracking <- here("01-raw-data") |> 
+  dir_ls() |> 
+  str_subset( "tracking_week" ) |> 
+  map_dfr( read_tracking )
+
+tracking |> glimpse()
+```
+
+12 million is big, but it doesn't appear to be too big to work with. Here's how
+big it is in memory:
+
+```{r}
+pryr::object_size( tracking )
+```
+
+Big, but manageable. Let's write to disk:
+
+```{r}
+write_parquet( tackles, here("02-clean-data", "tracking.parquet") )
+```
+
+
+#### Reviewing changes
+
+Now the cleaned data directory has the following format:
+
+```{r}
+here("02-clean-data") |> 
+  dir_tree()
+```
+
+
+
+
+
+## Deleting `csv` files to save some space
+
+It probably doesn't make sense to just have those un-zipped `csv` files sitting
+around, so let's delete those:
+
+```{r}
+here("01-raw-data") |> 
+  dir_ls() |> 
+  setdiff( raw_data_zip_file ) |> 
+  file_delete()
+
+here("01-raw-data") |> 
+  dir_tree()
+```
+
+
+
+
+
+
+
+
+
