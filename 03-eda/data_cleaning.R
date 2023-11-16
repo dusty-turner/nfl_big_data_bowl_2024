@@ -11,18 +11,49 @@ week_1 <-
   left_join(read_parquet(here::here("01_data","players.parquet"))) |> 
   
   ## rearrange tackle
+  mutate(position = as.factor(position)) |> 
   mutate(tackle = as.factor(tackle)) |> 
   mutate(tackle = fct_rev(fct_na_value_to_level(tackle, level = "0"))) |> 
   
   ## indicator for ball carrier
   mutate(ball_carrier = displayName == ballCarrierDisplayName) |> 
   
-  ## where is the ball
+  ## indicator for football
+  mutate(is_football = fct_rev(ifelse(displayName == "football", "football", "not_football"))) |> 
+  
+  ######
+  ## Begin: where is the ball and what are all the ball attributes on the play
+  ######
   mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
   mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
-  
-# week_1 |> select(displayName, gameId, playId, x_ball, y_ball, x, y, dir, o, s, a) |> 
-  # filter(displayName == "football") |> 
+  mutate(s_ball = ifelse(displayName == "football", s, NA)) |> 
+  mutate(dir_ball = ifelse(displayName == "football", dir, NA))  |> 
+  mutate(o_ball = ifelse(displayName == "football", o, NA))  |> 
+  group_by(gameId, playId, frameId) |> 
+  mutate(x_ball = mean(x_ball,na.rm = T)) |>
+  mutate(y_ball = mean(y_ball,na.rm = T)) |>
+  mutate(s_ball = mean(s_ball,na.rm = T)) |>
+  mutate(dir_ball = mean(dir_ball,na.rm = T)) |> 
+  mutate(o_ball = mean(o_ball,na.rm = T)) |>
+  ungroup()  |> 
+  ######
+  ## End: where is the ball and what are all the ball attributes on the play
+  ######
+
+  ## very few defenders in the box were NA so replace with median
+  mutate(defendersInTheBox = ifelse(is.na(defendersInTheBox), median(defendersInTheBox, na.rm = TRUE), defendersInTheBox)) |> 
+
+  ## find distance from each player to the ball
+  group_by(gameId, playId, frameId) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  mutate(distance_to_ball = sqrt((x-x_ball)^2 +  (y - y_ball)^2)) |> 
+  ungroup()  |> 
+
+  ######
+  # Begin: This creates projected location of all players and ball
+  ######
+
   ## put in projected location at next step
   group_by(displayName, gameId, playId) |> 
   mutate(
@@ -39,42 +70,16 @@ week_1 <-
     a_x = a * cos(o_rad),
     a_y = a * sin(o_rad),
     # Project forward using the timestep (delta_t).
-    x_next = x + v_x * delta_t + 0.5 * a_x * delta_t^2,
-    y_next = y + v_y * delta_t + 0.5 * a_y * delta_t^2
+    x_going = x + v_x * delta_t + 0.5 * a_x * delta_t^2,
+    y_going = y + v_y * delta_t + 0.5 * a_y * delta_t^2
   ) %>%
-  mutate(across(.cols = c(x_next,y_next), .fns = ~lag(.))) |> 
-  ungroup() |> 
-  mutate(x_next = ifelse(is.nan(x_next), x, x_next)) |> 
-  mutate(y_next = ifelse(is.nan(y_next), y, y_next)) |>
-  mutate(x_next = ifelse(is.na(x_next), x, x_next)) |> 
-  mutate(y_next = ifelse(is.na(y_next), y, y_next)) |>
-
-  # fill(x_next, y_next, .direction = "up") |> 
-  # select(displayName, x, x_next, y, y_next, s, v_x, v_y) |> 
+  mutate(across(.cols = c(x_going,y_going), .fns = ~lag(.))) |> 
+  ungroup() |>
+  select(-delta_t, -adjusted_dir, -adjusted_o, -dir_rad, -o_rad, -v_x, -v_y, -a_x, -a_y)  |> 
   
-  ## find distance from each player to the ball
-  group_by(gameId, playId) |> 
-  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
-  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
-  mutate(distance_to_ball = sqrt((x-x_ball)^2 +  (y - y_ball)^2)) |> 
-  ungroup() |> 
-  
-  
-  # week_1 |> select(distance_to_ball_next)  
-# temp2 |>
-  # filter(gameId == temp$gameId[1], playId == temp$playId[1], displayName == temp$displayName[1]) |>  
-  # select(displayName, frameId, x, y, x_next, x_ball, y_next, y_ball, gameId, playId, a, s) |> 
-  ## find distance from each projected player to the projected ball
-  # select(-x_ball, -y_ball) |> 
-  ## find speed of ball and estimated distance to next location
-# week_1 <-
-# temp |> 
+  ## do the same for the ball
   mutate(delta_t = 1) |> 
-  # select(gameId, playId, displayName, x, y, s, a, dis, frameId, delta_t) |> 
   group_by(displayName, gameId, playId) |> 
-  # filter(displayName == "football") |>
-  # filter(cur_group_id() == 1) |> 
-
   mutate(
     vx = ifelse(frameId == 1, 0, (x - lag(x)) / delta_t),
     vy = ifelse(frameId == 1, 0, (y - lag(y)) / delta_t)
@@ -84,40 +89,45 @@ week_1 <-
     y_pred_ball = y + vy * delta_t + 0.5 * (a * delta_t^2 * (vy / s))
   ) |> 
   ungroup() |> 
-    
-  mutate(x_next = ifelse(displayName == "football", x_pred_ball, x_next)) |> 
-  mutate(y_next = ifelse(displayName == "football", y_pred_ball, y_next))  |> 
-  select(-c(x_pred_ball, y_pred_ball, vx, vy)) |> 
 
-  # week_1 |> 
-  # select(-c(vx_initial, vy_initial, delta_t, dist_moved_x, dist_moved_y)) |> 
+  ## clean up last edits about where the ball is going
+  mutate(x_going = ifelse(displayName == "football", x_pred_ball, x_going)) |> 
+  mutate(y_going = ifelse(displayName == "football", y_pred_ball, y_going))  |> 
   
-  ## very few defenders in the box were NA so replace with median
-  mutate(defendersInTheBox = ifelse(is.na(defendersInTheBox), median(defendersInTheBox, na.rm = TRUE), defendersInTheBox)) |> 
-  mutate(is_football = fct_rev(ifelse(displayName == "football", "football", "not_football"))) |> 
-
+  select(-c(x_pred_ball, y_pred_ball, vx, vy)) |> 
+  
+  mutate(x_going = ifelse(is.nan(x_going), x, x_going)) |> 
+  mutate(y_going = ifelse(is.nan(y_going), y, y_going)) |>
+  mutate(x_going = ifelse(is.na(x_going), x, x_going)) |> 
+  mutate(y_going = ifelse(is.na(y_going), y, y_going)) |> 
+  ######
+  # End: This creates projected location of all players and ball
+  ######
+  ## Start: where is the ball next
+  ######
+  mutate(x_ball_next = ifelse(displayName == "football", x_going, NA)) |> 
+  mutate(y_ball_next = ifelse(displayName == "football", y_going, NA)) |>
+  group_by(gameId, playId, frameId) |> 
+  mutate(x_ball_next = mean(x_ball_next, na.rm = TRUE)) |> 
+  mutate(y_ball_next = mean(y_ball_next, na.rm = TRUE)) |>  
+  ungroup() |> 
+  mutate(x_ball_next = ifelse(is.nan(x_ball_next), x_ball, x_ball_next)) |> 
+  mutate(y_ball_next = ifelse(is.nan(y_ball_next), y_ball, y_ball_next)) |> 
+  ######
+  ## End: where is the ball next
+  ######
+  
+  ## find distance from each projected player to the projected ball
+  mutate(distance_to_ball_next = sqrt((x_going-x_ball_next)^2 +  (y_going - y_ball_next)^2)) |> 
+  
+  ######
+  # Begin: This creates the v_approach vector
+  ######
 
 ## # `v_approach` Interpretation:
 # Positive: Objects moving towards each other.
 # Negative: Objects moving away from each other.
 # Near 0: Movement mostly perpendicular to line connecting their positions.
-# week_1 |> 
-  # distinct(gameId, playId, nflId, displayName)  |> count(gameId, playId) |> filter(n!=23) 
-  # filter(gameId == 2022091101, playId == 109) |> 
-  # select(x,y,s,dir, ball_carrier, displayName, gameId, playId, frameId) |> 
-  # filter(ball_carrier)
-  mutate(x_ball = ifelse(ball_carrier, x, NA)) |> 
-  mutate(y_ball = ifelse(ball_carrier, y, NA)) |> 
-  mutate(s_ball = ifelse(ball_carrier, s, NA)) |> 
-  mutate(dir_ball = ifelse(ball_carrier, dir, NA))  |> 
-  group_by(gameId, playId, frameId) |> 
-  mutate(x_ball = mean(x_ball,na.rm = T)) |>
-  mutate(y_ball = mean(y_ball,na.rm = T)) |>
-  mutate(s_ball = mean(s_ball,na.rm = T)) |>
-  mutate(dir_ball = mean(dir_ball,na.rm = T)) |> 
-  ungroup()  |> 
-    
-
   mutate(
     # Compute relative position vector
     dx = x_ball - x,
@@ -136,44 +146,60 @@ week_1 <-
     v_rel_y = v_y_ball - v_y,
     # Compute the relative speed along the line joining their positions
     v_approach = v_rel_x * dx_unit + v_rel_y * dy_unit
-  ) |> 
-
-
-## where is the ball next
-  mutate(x_ball_next = ifelse(displayName == "football", x_next, NA)) |> 
-  mutate(y_ball_next = ifelse(displayName == "football", y_next, NA)) |>
-  
-  group_by(gameId, playId, frameId) |> 
-  mutate(x_ball_next = mean(x_ball_next, na.rm = TRUE)) |> 
-  mutate(y_ball_next = mean(y_ball_next, na.rm = TRUE)) |>  
-  ungroup() |> 
-  mutate(x_ball_next = ifelse(is.nan(x_ball_next), x_ball, x_ball_next)) |> 
-  mutate(y_ball_next = ifelse(is.nan(y_ball_next), y_ball, y_ball_next)) |> 
-
-  # filter(gameId == temp$gameId[1], playId == temp$playId[1], displayName == "football") |>  
-  # select(displayName, frameId, x, y, x_next, x_ball_next, y_next, y_ball_next, gameId, playId, a, s) #distance_to_ball_next) 
-  
-  ## find distance from each projected player to the projected ball
-  mutate(distance_to_ball_next = sqrt((x_next-x_ball_next)^2 +  (y_next - y_ball_next)^2)) |> 
-  
-  ## which are the players facing?
+  )  |> 
+  select(-c(dx, dy, r_magnitude, dx_unit, dy_unit, v_x, v_y, v_x_ball, v_y_ball, v_rel_x, v_rel_y)) |> 
+  ######
+  # End: This creates the v_approach vector
+  ######
+  ######
+  # Begin: This creates the orientation and the range fan
+  ######
   mutate(
-    n = 1,
-    radians = (90 - o) * pi / 180, # Adjust the orientation directly from the positive y-axis
-    x_facing = x + (cos(radians) * n),  # Calculate new x based on the orientation and distance n
-    y_facing = y - (sin(radians) * n)   # Calculate new y based on the orientation and distance n (negated due to y-axis direction)
-  ) |> select(-n)
+    x_facing = x + 1 * cos((90 - o) * (pi / 180)),
+    y_facing = y + 1 * sin((90 - o) * (pi / 180))
+  ) |> 
+  mutate(
+    x_left = x_facing + 1 * cos((90 - o - 30) * (pi / 180)),
+    y_left = y_facing + 1 * sin((90 - o - 30) * (pi / 180)),
+    x_right = x_facing + 1 * cos((90 - o + 30) * (pi / 180)),
+    y_right = y_facing + 1 * sin((90 - o + 30) * (pi / 180))
+  )  |> 
+  ######
+  # Begin: This identifies if they are 3 yards away and inside that range fan
+  ######
+  mutate(
+    # Convert orientation to radians for calculations
+    o_rad = (90-o) * pi / 180,
+    # Calculate angle to the ball
+    angle_to_ball = atan2(y_ball - y, x_ball - x) - o_rad,
+    # Normalize angle between -pi and pi
+    angle_to_ball = (angle_to_ball + pi) %% (2 * pi) - pi,
+    # Check if ball is within 'the fan' (30 degrees on either side)
+    ball_in_fan = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3 # Assuming 3 unit is the radius of the fan
+    )  
 
 
+#### add in clusters for defense
 
+clust_dat <-
+week_1 |> 
+  filter(str_detect(event, "snap")) |> 
+  filter(club != possessionTeam) |> 
+  select(gameId, playId, nflId, position, x, y, yardlineNumber, absoluteYardlineNumber, event) |> 
+  mutate(x_from_los = abs(absoluteYardlineNumber - x)) |> 
+  select(gameId, playId, nflId, x_from_los, y)
 
+library(mclust)
+set.seed(1)
+mclust_mod <- Mclust(data = clust_dat[, c("x_from_los","y")], G = 6)
 
+# mclust_mod
 
-  # filter(is.nan(v_approach)) |> 
-  # select(-c(dx,dy,r_magnitude,dx_unit,dy_unit,v_x,v_y,v_x_ball,v_y_ball,v_rel_x,v_rel_y)) |> 
-# week_1 |> 
-  # select(displayName, gameId, playId, frameId, x, y, s, dir, x_ball, y_ball, s_ball, dir_ball, v_approach, ball_carrier, dx,dy,r_magnitude,dx_unit,dy_unit,v_x,v_y,v_x_ball,v_y_ball,v_rel_x,v_rel_y)  
-# count(v_approach,ball_carrier)
+# summary(mclust_mod)
+# plot(mclust_mod, what = "classification")
+
+clust_dat_with_cluster <- clust_dat |> mutate(alignment_cluster = as.factor(mclust_mod$classification)) |> select(-y)
+
 
 defensive_model_building_data <- 
   week_1 |> 
@@ -225,12 +251,15 @@ week_1 |>
   select(nflId, gameId, playId, pass_alignment)
 
 
-defensive_model_building_data <- 
+defensive_model_building_data <-
 defensive_model_building_data |> 
   left_join(run_play_alignments) |>
   left_join(pass_play_alignment) |>
+  left_join(clust_dat_with_cluster, by = c("gameId", "playId", "nflId")) |> 
   mutate(alignment = ifelse(is.na(run_alignment), pass_alignment, run_alignment)) |> 
-  select(-run_alignment, -pass_alignment)
+  select(-run_alignment, -pass_alignment) 
+  # select(gameId:frameId, y.x, y.y, contains("alignment"), contains("cluster"), event) 
+# |> filter(!is.na(alignment_cluster))
 
 
 temp <-
@@ -249,12 +278,15 @@ defensive_model_building_data <-
   select(-temp) |> 
   mutate(gameIdPlayId = str_c(gameId,playId))
 
-defensive_model_building_data_model <- 
+defensive_model_building_data_model <-
   defensive_model_building_data |> 
-  select(gameIdPlayId, gameId, playId, nflId, frameId, club, tackle, x, y, x_next, y_next, s, a, 
+  select(gameIdPlayId, gameId, playId, nflId, frameId, club, tackle, x, y, x_going, y_going, s, a, position,
          rank, club, defendersInTheBox, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber, 
-         time, defensiveTeam, displayName, distance_to_ball, distance_to_ball_next, playDescription, is_football, alignment, 
-         passResult, v_approach) 
+         time, defensiveTeam, displayName, distance_to_ball, distance_to_ball_next, playDescription, is_football, alignment,
+         alignment_cluster, passResult, v_approach, ball_in_fan) |> 
+  filter(frameId > 5)
+
+# I don't have clusters built in for passing plays
 
 # ## some plays don't end in tackles.  Some plays have a forced fumble
 # week_1 |> 
@@ -268,3 +300,9 @@ defensive_model_building_data_model <-
 # week_1 |> distinct(playId, gameId)
 # week_1 |> filter(tackle == 1) |> distinct(playId, gameId) 
 # week_1 |> filter(playId == 146) |> filter(gameId == 2022090800) |> count(prePenaltyPlayResult)
+
+week_1 |> 
+  group_by(gameId) |> filter(cur_group_id() %in% 1) |>   ungroup() |> 
+  write_csv("week_1.csv")
+
+dak <- week_1 |> filter(displayName == "Dak Prescott") |> distinct(gameId, playId)
