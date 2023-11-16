@@ -4,6 +4,7 @@
 *bayesian_model.rds
 *.csv
 *.zip
+*cache
 
 # mac files
 *.DS_Store

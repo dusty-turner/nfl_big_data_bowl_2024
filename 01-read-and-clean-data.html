@@ -3047,19 +3047,19 @@ vertical-align: -.125em;
 <section id="packages-required" class="level2">
 <h2 class="anchored" data-anchor-id="packages-required">Packages required</h2>
 <p>We’ll start by loading a few packages:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-1_46434416366885dee83a157317f3b62f">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;glue&quot;</span>)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;here&quot;</span>, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># here() starts at /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># here() starts at C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;fs&quot;</span>, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;arrow&quot;</span>, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">&quot;tidyverse&quot;</span>)</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ dplyr     1.1.3     ✔ readr     2.1.4</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ dplyr     1.1.2     ✔ readr     2.1.4</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ forcats   1.0.0     ✔ stringr   1.5.0</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ ggplot2   3.4.4     ✔ tibble    3.2.1</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ lubridate 1.9.3     ✔ tidyr     1.3.0</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ purrr     1.0.2</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ lubridate 1.9.2     ✔ tidyr     1.3.0</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ✔ purrr     1.0.1</span></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co"># ✖ lubridate::duration() masks arrow::duration()</span></span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co"># ✖ dplyr::filter()       masks stats::filter()</span></span>
@@ -3070,12 +3070,12 @@ vertical-align: -.125em;
 <section id="clear-out-any-older-files-from-previous-runs" class="level2">
 <h2 class="anchored" data-anchor-id="clear-out-any-older-files-from-previous-runs">Clear out any older files from previous runs</h2>
 <p>The main data file from Kaggle is <code>nfl-big-data-bowl-2024.zip</code>. It’s saved in <code>01-raw-data</code>, whose absolute path will vary from computer to computer:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-2_00fdd519c15fad1480d28851a994527e">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>(raw_data_zip_file <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;nfl-big-data-bowl-2024.zip&quot;</span>))</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># [1] &quot;/Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/01-raw-data/nfl-big-data-bowl-2024.zip&quot;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># [1] &quot;C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/01-raw-data/nfl-big-data-bowl-2024.zip&quot;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s delete any files created from previous runs:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-3_33e1bae8a04b6ae5dd474b3b2531fd58">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_ls</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setdiff</span>( raw_data_zip_file ) <span class="sc">|&gt;</span> </span>
@@ -3086,43 +3086,45 @@ vertical-align: -.125em;
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">file_delete</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>This is the overall file structure of this package:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-4_d5cbd6899028d132f5a390dfa89ec272">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dir_tree</span>(<span class="at">recurse =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># .</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-raw-data</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.html</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.qmd</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.rmarkdown</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 02-clean-data</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 02-data-augmentation.qmd</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 03-eda</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 99-addm</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 99-fail-duckdb.qmd</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co"># └── nfl_big_data_bowl_2024.Rproj</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-data</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-raw-data</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.html</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.qmd</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data.rmarkdown</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 01-read-and-clean-data_cache</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 02-clean-data</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 03-eda</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 09-misc</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── 99-addm</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── nfl_big_data_bowl_2024.Rproj</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co"># └── week_1.csv</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>This document works with <code>01-raw-data</code> and <code>02-clean-data</code>, which look like this:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-5_f97b53ba7b7b0e79448c6a946667eadf">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">dir_tree</span>()</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/01-raw-data</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/01-raw-data</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"># └── nfl-big-data-bowl-2024.zip</span></span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">dir_tree</span>()</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/02-clean-data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/02-clean-data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="unzip-the-data-into-01-raw-data-and-look-at-them" class="level2">
 <h2 class="anchored" data-anchor-id="unzip-the-data-into-01-raw-data-and-look-at-them">Unzip the data into <code>01-raw-data</code> and look at them</h2>
 <p>We start by unzipping the contents of <code>nfl-big-data-bowl-2024.zip</code> from Kaggle into <code>01-raw-data</code>:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-6_c1d2ed654d1d48f8e36c168f49ffad77">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">unzip</span>(</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">zipfile =</span> raw_data_zip_file,</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">exdir =</span> here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>)</span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>We can check we’ve succeeded by looking at its contents:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-7_c237935a86ded6aa94c526454f10881c">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">dir_tree</span>()</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/01-raw-data</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/01-raw-data</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── games.csv</span></span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── nfl-big-data-bowl-2024.zip</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── players.csv</span></span>
@@ -3139,12 +3141,12 @@ vertical-align: -.125em;
 <span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="co"># └── tracking_week_9.csv</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s take a look at these files to see their contents and size.</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-8_7af71077cb7703ed89ea69a12c259102">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">readr.show_col_types =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="the-games.csv-file" class="level4">
 <h4 class="anchored" data-anchor-id="the-games.csv-file">The <code>games.csv</code> file</h4>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-9_55595b3156930326d139f739222a0231">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>games <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;games.csv&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_types =</span> <span class="fu">cols</span>(</span>
@@ -3174,7 +3176,7 @@ vertical-align: -.125em;
 <span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="co"># $ visitorFinalScore &lt;int&gt; 31, 27, 26, 10, 23, 38, 20, 7, 24, 22, 44, 19, 7, 21…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s clean:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-10_b455400f37cd90f2c2b846d5c74519e3">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>games <span class="ot">&lt;-</span> games <span class="sc">|&gt;</span> </span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  janitor<span class="sc">::</span><span class="fu">clean_names</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
@@ -3202,13 +3204,13 @@ vertical-align: -.125em;
 <span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="co"># $ game_dttm           &lt;dttm&gt; 2022-09-08 20:20:00, 2022-09-11 13:00:00, 2022-09…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s write:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-11_a16bd8c373b61ceb49b066a415cab2e6">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_parquet</span>( games, <span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>, <span class="st">&quot;games.parquet&quot;</span>) )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="the-players.csv-file" class="level4">
 <h4 class="anchored" data-anchor-id="the-players.csv-file">The <code>players.csv</code> file</h4>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-12_0dc31225cf701d378ddaec944a96f188">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>players <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;players.csv&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(</span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_type =</span> <span class="fu">cols</span>(</span>
@@ -3217,12 +3219,12 @@ vertical-align: -.125em;
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;weight&quot;</span> <span class="ot">=</span> <span class="fu">col_integer</span>(),</span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;birthDate&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>(), <span class="co"># column is a mess</span></span>
 <span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;collegeName&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>(),</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;position&quot;</span> <span class="ot">=</span> <span class="fu">col_factor</span>(),</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;position&quot;</span> <span class="ot">=</span> readr<span class="sc">::</span><span class="fu">col_factor</span>(),</span>
 <span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;displayName&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>()</span>
 <span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>players <span class="sc">|&gt;</span> <span class="fu">glimpse</span>()</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>players <span class="sc">|&gt;</span> <span class="fu">glimpse</span>() </span>
 <span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows: 1,683</span></span>
 <span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Columns: 7</span></span>
 <span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># $ nflId       &lt;chr&gt; &quot;25511&quot;, &quot;29550&quot;, &quot;29851&quot;, &quot;30842&quot;, &quot;33084&quot;, &quot;33099&quot;, &quot;331…</span></span>
@@ -3234,11 +3236,11 @@ vertical-align: -.125em;
 <span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="co"># $ displayName &lt;chr&gt; &quot;Tom Brady&quot;, &quot;Jason Peters&quot;, &quot;Aaron Rodgers&quot;, &quot;Marcedes Le…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s start by cleaning names:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-13_fd329efeabd72e48747457744bda6198">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>players <span class="ot">&lt;-</span> players <span class="sc">|&gt;</span> janitor<span class="sc">::</span><span class="fu">clean_names</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Then the height column, let’s convert its units to feet, instead of e.g. <code>6-4</code></p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-14_ba66fb2c6554d7bdc226c7822c5104b3">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>players <span class="ot">&lt;-</span> players <span class="sc">|&gt;</span> </span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">separate</span>(height, <span class="fu">c</span>(<span class="st">&quot;height_ft&quot;</span>, <span class="st">&quot;height_in&quot;</span>), <span class="at">sep =</span> <span class="st">&quot;-&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
@@ -3249,7 +3251,7 @@ vertical-align: -.125em;
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>( <span class="sc">-</span>height_ft, <span class="sc">-</span>height_in )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p><code class="sourceCode r">birth_date</code> is a mess of a column. At the top it looks mostly like <code>%Y-%m-%d</code>; however, that’s not the only encoding, and a lot of the data is missing:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-15_04766e836fda5670fc231992f8b33326">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>players <span class="sc">|&gt;</span> </span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">birth_date_format =</span> <span class="fu">case_when</span>(</span>
@@ -3268,7 +3270,7 @@ vertical-align: -.125em;
 <span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 3 &lt;NA&gt;                479</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>This fixes that, which can be checked with the code above if desired:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-16_a63bae880b7da800dcb357c531593308">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>players <span class="ot">&lt;-</span> players <span class="sc">|&gt;</span> </span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;birth_date&quot;</span> <span class="ot">=</span> <span class="fu">str_replace</span>( birth_date, <span class="st">&quot;(</span><span class="sc">\\</span><span class="st">d{2})/(</span><span class="sc">\\</span><span class="st">d{2})/(</span><span class="sc">\\</span><span class="st">d{4})&quot;</span>, <span class="st">&quot;</span><span class="sc">\\</span><span class="st">3-</span><span class="sc">\\</span><span class="st">1-</span><span class="sc">\\</span><span class="st">2&quot;</span> ) <span class="sc">|&gt;</span> </span>
@@ -3287,14 +3289,14 @@ vertical-align: -.125em;
 <span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a><span class="co"># $ display_name &lt;chr&gt; &quot;Tom Brady&quot;, &quot;Jason Peters&quot;, &quot;Aaron Rodgers&quot;, &quot;Marcedes L…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Looks clean; let’s write:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-17_8cf927de50a15f07172c404a3cec7893">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_parquet</span>( players, <span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>, <span class="st">&quot;players.parquet&quot;</span>) )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="the-plays.csv-file" class="level4">
 <h4 class="anchored" data-anchor-id="the-plays.csv-file">The <code>plays.csv</code> file</h4>
 <p><code>plays.csv</code> has a lot of variables:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-18_2946f5d79fdd7ab5b1f0372266c1c5bb">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>plays <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;plays.csv&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_type =</span> <span class="fu">cols</span>(</span>
@@ -3329,7 +3331,7 @@ vertical-align: -.125em;
 <span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;visitorTeamWinProbilityAdded&quot;</span> <span class="ot">=</span> <span class="fu">col_double</span>(),</span>
 <span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;expectedPoints&quot;</span> <span class="ot">=</span> <span class="fu">col_double</span>(),</span>
 <span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;expectedPointsAdded&quot;</span> <span class="ot">=</span> <span class="fu">col_double</span>(),</span>
-<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;foulName1&quot;</span> <span class="ot">=</span> <span class="fu">col_factor</span>(),</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;foulName1&quot;</span> <span class="ot">=</span> readr<span class="sc">::</span><span class="fu">col_factor</span>(),</span>
 <span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;foulName2&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>(), <span class="co"># subset of foulName1 fouls, fix later</span></span>
 <span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;foulNFLId1&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>(), <span class="co"># a code?</span></span>
 <span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;foulNFLId2&quot;</span> <span class="ot">=</span> <span class="fu">col_character</span>() <span class="co"># a code?</span></span>
@@ -3337,11 +3339,11 @@ vertical-align: -.125em;
 <span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>  ) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s fix names:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-19_58a85acb5097fd8207d6e84345d1d499">
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>plays <span class="ot">&lt;-</span> plays <span class="sc">|&gt;</span> janitor<span class="sc">::</span><span class="fu">clean_names</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s fix the notes above:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-20_3ee0999988e659fe36f4d1211d2487ca">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>plays <span class="ot">&lt;-</span> plays <span class="sc">|&gt;</span> </span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;play_nullified_by_penalty&quot;</span> <span class="ot">=</span> (play_nullified_by_penalty <span class="sc">==</span> <span class="cn">TRUE</span>),</span>
@@ -3353,7 +3355,7 @@ vertical-align: -.125em;
 <span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  ) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Time is perhaps the hardest to “fix”. It communicates the time remaining in the quarter following the format of e.g. <code>7:52</code> or <code>13:12</code>. These are minutes and seconds, which <strong>hms</strong> doesn’t have a nice data structure for. <strong>lubridate</strong> has <code class="sourceCode r"><span class="fu">ms</span>()</code>, but it converts it to a <code>Period</code> object, a colloquial span of time instead of a concrete number of seconds remaining. In the future it may make sense to make this into other variables: seconds remaining in game? seconds remaining in quarter? Fractional minutes in those? Not clear. I think I’ll make two variables out of it, both <code>time</code> objects: <code>time_remaining_in_quarter</code> and <code>time_remaining_in_game</code>:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-21_aebc4aa6b8c6de766eb40d04982a3e1e">
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>plays <span class="ot">&lt;-</span> plays <span class="sc">|&gt;</span> </span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;time_remaining_in_quarter&quot;</span> <span class="ot">=</span> hms<span class="sc">::</span><span class="fu">hms</span>(</span>
@@ -3372,7 +3374,7 @@ vertical-align: -.125em;
 </div>
 <p><em>Note: It’s not quite clear what <code>pass_result</code> is; it has values <code>C</code>, <code>R</code>, and <code>NA</code>. Should this be a character or a factor?</em></p>
 <p>Let’s look:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-22_a253b77bfec30f860921dee807bed964">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>plays <span class="sc">|&gt;</span> <span class="fu">glimpse</span>()</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows: 12,486</span></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Columns: 36</span></span>
@@ -3414,14 +3416,14 @@ vertical-align: -.125em;
 <span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a><span class="co"># $ foul_nfl_id2                          &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, …</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Time to write:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-23_a4e3d22759708f0d9d6b9dd223eba349">
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_parquet</span>( plays, <span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>, <span class="st">&quot;plays.parquet&quot;</span>) )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="the-tackles.csv-file" class="level4">
 <h4 class="anchored" data-anchor-id="the-tackles.csv-file">The <code>tackles.csv</code> file</h4>
 <p><code>tackles.csv</code> is relatively simple:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-24_b754fdc3fbe2ebc629a0601a9333d021">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>tackles <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;tackles.csv&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(</span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_type =</span> <span class="fu">cols</span>(</span>
@@ -3436,7 +3438,7 @@ vertical-align: -.125em;
 <span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Clean names then write.</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-25_c2695152e8851b3e71b8c0120a8b9bcc">
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>tackles <span class="ot">&lt;-</span> tackles <span class="sc">|&gt;</span> </span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  janitor<span class="sc">::</span><span class="fu">clean_names</span>()</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -3457,7 +3459,7 @@ vertical-align: -.125em;
 <section id="the-tracking_week-files" class="level4">
 <h4 class="anchored" data-anchor-id="the-tracking_week-files">The <code>tracking_week</code> files</h4>
 <p>There are 9 <code>tracking_week_#.csv</code> files. They each have this structure:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-26_175dc383ae75947ac59f43f635024060">
 <div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>, <span class="st">&quot;tracking_week_1.csv&quot;</span>) <span class="sc">|&gt;</span> <span class="fu">read_csv_arrow</span>() <span class="sc">|&gt;</span> <span class="fu">glimpse</span>()</span>
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows: 1,407,439</span></span>
 <span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Columns: 17</span></span>
@@ -3480,7 +3482,7 @@ vertical-align: -.125em;
 <span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a><span class="co"># $ event         &lt;chr&gt; NA, &quot;pass_arrived&quot;, NA, NA, NA, &quot;pass_outcome_caught&quot;, N…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>To read them in, let’s make a function that does it for us:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-27_c9d500da09d07d6ba17a53ae121cdcc4">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>read_tracking <span class="ot">&lt;-</span> <span class="cf">function</span> (path) {</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">read_csv</span>(path,</span>
 <span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">col_type =</span> <span class="fu">cols</span>(</span>
@@ -3527,7 +3529,7 @@ vertical-align: -.125em;
 <span id="cb27-44"><a href="#cb27-44" aria-hidden="true" tabindex="-1"></a><span class="co"># $ event         &lt;chr&gt; NA, &quot;pass_arrived&quot;, NA, NA, NA, &quot;pass_outcome_caught&quot;, N…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Now we’ll map that function over each of the <code>tracking_week_#.csv</code> files and stack the results into a single data frame:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-28_d1c145f0d4a0a9e5444ac937a07897f2">
 <div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>tracking <span class="ot">&lt;-</span> <span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_ls</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">str_subset</span>( <span class="st">&quot;tracking_week&quot;</span> ) <span class="sc">|&gt;</span> </span>
@@ -3555,22 +3557,22 @@ vertical-align: -.125em;
 <span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a><span class="co"># $ event         &lt;chr&gt; NA, &quot;pass_arrived&quot;, NA, NA, NA, &quot;pass_outcome_caught&quot;, N…</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>12 million is big, but it doesn’t appear to be too big to work with. Here’s how big it is in memory:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-29_b389127e8b98881d6ff0aa0715eaf8dc">
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>pryr<span class="sc">::</span><span class="fu">object_size</span>( tracking )</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 1.56 GB</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Big, but manageable. Let’s write to disk:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_parquet</span>( tackles, <span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>, <span class="st">&quot;tracking.parquet&quot;</span>) )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-30_623bb8e2b4580424079634fd5ae2fc6c">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write_parquet</span>( tracking, <span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>, <span class="st">&quot;tracking.parquet&quot;</span>) )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="reviewing-changes" class="level4">
 <h4 class="anchored" data-anchor-id="reviewing-changes">Reviewing changes</h4>
 <p>Now the cleaned data directory has the following format:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-31_f595a7e692ba532163535462fa8f7e57">
 <div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;02-clean-data&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_tree</span>()</span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co"># /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/02-clean-data</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co"># C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/02-clean-data</span></span>
 <span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── games.parquet</span></span>
 <span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── players.parquet</span></span>
 <span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ├── plays.parquet</span></span>
@@ -3582,7 +3584,7 @@ vertical-align: -.125em;
 <section id="deleting-csv-files-to-save-some-space" class="level2">
 <h2 class="anchored" data-anchor-id="deleting-csv-files-to-save-some-space">Deleting <code>csv</code> files to save some space</h2>
 <p>It probably doesn’t make sense to just have those un-zipped <code>csv</code> files sitting around, so let’s delete those:</p>
-<div class="cell">
+<div class="cell" data-hash="01-read-and-clean-data_cache/html/unnamed-chunk-32_df7d173ecc2e65d57be757027a6fe0fe">
 <div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_ls</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setdiff</span>( raw_data_zip_file ) <span class="sc">|&gt;</span> </span>
@@ -3590,7 +3592,7 @@ vertical-align: -.125em;
 <span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="fu">here</span>(<span class="st">&quot;01-raw-data&quot;</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dir_tree</span>()</span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co"># /Users/david_kahle/Dropbox/dev/nfl_big_data_bowl_2024/nfl_big_data_bowl_2024/01-raw-data</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co"># C:/Users/Dusty_Turner1/OneDrive - Baylor University/nfl_big_data_bowl_2024/01-raw-data</span></span>
 <span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="co"># └── nfl-big-data-bowl-2024.zip</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>

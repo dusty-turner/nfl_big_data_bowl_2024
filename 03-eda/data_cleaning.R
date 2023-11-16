@@ -4,48 +4,53 @@ library(arrow)
 source(here::here("03-eda","ggtheme_field.R"))
 
 week_1 <-
-# temp2 <-
-  read_parquet(here::here("01_data","tracking_week_1.parquet")) |> 
-  left_join(y = read_parquet(here::here("01_data","tackles.parquet"))) |> 
-  left_join(read_parquet(here::here("01_data","plays.parquet"))) |> 
-  left_join(read_parquet(here::here("01_data","players.parquet"))) |> 
+  read_parquet(here::here("02-clean-data","tracking.parquet")) |> filter(week_id == "week_1") |> 
+  left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |> 
+  left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |> 
+  left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |> 
+  select(-week_id) |> 
+# week_1 <-
+#   read_parquet(here::here("01_data","tracking_week_1.parquet")) |> 
+#   left_join(y = read_parquet(here::here("01_data","tackles.parquet"))) |> 
+#   left_join(read_parquet(here::here("01_data","plays.parquet"))) |> 
+#   left_join(read_parquet(here::here("01_data","players.parquet"))) |> 
   
   ## rearrange tackle
   mutate(position = as.factor(position)) |> 
   mutate(tackle = as.factor(tackle)) |> 
   mutate(tackle = fct_rev(fct_na_value_to_level(tackle, level = "0"))) |> 
-  
+
   ## indicator for ball carrier
-  mutate(ball_carrier = displayName == ballCarrierDisplayName) |> 
+  mutate(ball_carrier = display_name == ball_carrier_display_name) |> 
   
   ## indicator for football
-  mutate(is_football = fct_rev(ifelse(displayName == "football", "football", "not_football"))) |> 
+  mutate(is_football = fct_rev(ifelse(display_name == "football", "football", "not_football"))) |> 
   
   ######
   ## Begin: where is the ball and what are all the ball attributes on the play
   ######
-  mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
-  mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
-  mutate(s_ball = ifelse(displayName == "football", s, NA)) |> 
-  mutate(dir_ball = ifelse(displayName == "football", dir, NA))  |> 
-  mutate(o_ball = ifelse(displayName == "football", o, NA))  |> 
-  group_by(gameId, playId, frameId) |> 
+  mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
+  mutate(s_ball = ifelse(display_name == "football", s, NA)) |> 
+  mutate(dir_ball = ifelse(display_name == "football", dir, NA))  |> 
+  mutate(o_ball = ifelse(display_name == "football", o, NA))  |> 
+  group_by(game_id, play_id, frame_id) |> 
   mutate(x_ball = mean(x_ball,na.rm = T)) |>
   mutate(y_ball = mean(y_ball,na.rm = T)) |>
   mutate(s_ball = mean(s_ball,na.rm = T)) |>
   mutate(dir_ball = mean(dir_ball,na.rm = T)) |> 
   mutate(o_ball = mean(o_ball,na.rm = T)) |>
-  ungroup()  |> 
+  ungroup() |> 
   ######
   ## End: where is the ball and what are all the ball attributes on the play
   ######
-
+  
   ## very few defenders in the box were NA so replace with median
-  mutate(defendersInTheBox = ifelse(is.na(defendersInTheBox), median(defendersInTheBox, na.rm = TRUE), defendersInTheBox)) |> 
+  mutate(defenders_in_the_box = ifelse(is.na(defenders_in_the_box), median(defenders_in_the_box, na.rm = TRUE), defenders_in_the_box)) |> 
 
   ## find distance from each player to the ball
-  group_by(gameId, playId, frameId) |> 
-  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  group_by(game_id, play_id, frame_id) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE))  |> 
   mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
   mutate(distance_to_ball = sqrt((x-x_ball)^2 +  (y - y_ball)^2)) |> 
   ungroup()  |> 
@@ -55,7 +60,7 @@ week_1 <-
   ######
 
   ## put in projected location at next step
-  group_by(displayName, gameId, playId) |> 
+  group_by(display_name, game_id, play_id) |> 
   mutate(
     delta_t = .5,
     # Adjust the angle 
@@ -79,10 +84,10 @@ week_1 <-
   
   ## do the same for the ball
   mutate(delta_t = 1) |> 
-  group_by(displayName, gameId, playId) |> 
+  group_by(display_name, game_id, play_id) |> 
   mutate(
-    vx = ifelse(frameId == 1, 0, (x - lag(x)) / delta_t),
-    vy = ifelse(frameId == 1, 0, (y - lag(y)) / delta_t)
+    vx = ifelse(frame_id == 1, 0, (x - lag(x)) / delta_t),
+    vy = ifelse(frame_id == 1, 0, (y - lag(y)) / delta_t)
   ) |> 
   mutate(
     x_pred_ball = x + vx * delta_t + 0.5 * (a * delta_t^2 * (vx / s)),
@@ -91,8 +96,8 @@ week_1 <-
   ungroup() |> 
 
   ## clean up last edits about where the ball is going
-  mutate(x_going = ifelse(displayName == "football", x_pred_ball, x_going)) |> 
-  mutate(y_going = ifelse(displayName == "football", y_pred_ball, y_going))  |> 
+  mutate(x_going = ifelse(display_name == "football", x_pred_ball, x_going)) |> 
+  mutate(y_going = ifelse(display_name == "football", y_pred_ball, y_going))  |> 
   
   select(-c(x_pred_ball, y_pred_ball, vx, vy)) |> 
   
@@ -105,9 +110,10 @@ week_1 <-
   ######
   ## Start: where is the ball next
   ######
-  mutate(x_ball_next = ifelse(displayName == "football", x_going, NA)) |> 
-  mutate(y_ball_next = ifelse(displayName == "football", y_going, NA)) |>
-  group_by(gameId, playId, frameId) |> 
+
+  mutate(x_ball_next = ifelse(display_name == "football", x_going, NA)) |> 
+  mutate(y_ball_next = ifelse(display_name == "football", y_going, NA)) |>
+  group_by(game_id, play_id, frame_id) |> 
   mutate(x_ball_next = mean(x_ball_next, na.rm = TRUE)) |> 
   mutate(y_ball_next = mean(y_ball_next, na.rm = TRUE)) |>  
   ungroup() |> 
@@ -184,10 +190,10 @@ week_1 <-
 clust_dat <-
 week_1 |> 
   filter(str_detect(event, "snap")) |> 
-  filter(club != possessionTeam) |> 
-  select(gameId, playId, nflId, position, x, y, yardlineNumber, absoluteYardlineNumber, event) |> 
-  mutate(x_from_los = abs(absoluteYardlineNumber - x)) |> 
-  select(gameId, playId, nflId, x_from_los, y)
+  filter(club != possession_team) |> 
+  select(game_id, play_id, nfl_id, position, x, y, yardline_number, absolute_yardline_number, event) |> 
+  mutate(x_from_los = abs(absolute_yardline_number - x)) |> 
+  select(game_id, play_id, nfl_id, x_from_los, y)
 
 library(mclust)
 set.seed(1)
@@ -203,68 +209,68 @@ clust_dat_with_cluster <- clust_dat |> mutate(alignment_cluster = as.factor(mclu
 
 defensive_model_building_data <- 
   week_1 |> 
-  filter(defensiveTeam == club) |> 
-  group_by(gameId, playId, frameId) |> 
+  filter(defensive_team == club) |> 
+  group_by(game_id, play_id, frame_id) |> 
   mutate(rank = as.factor(rank(distance_to_ball))) |> 
   ungroup()
 
 run_play_alignments <-
   week_1 |> 
-  filter(is.na(passResult)) |> filter(frameId == 1) |>
+  filter(is.na(pass_result)) |> filter(frame_id == 1) |>
   
-  mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
-  mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
+  mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
   
   ## find distance from each player to the ball
-  group_by(gameId, playId) |>
+  group_by(game_id, play_id) |>
   mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
   mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
   ungroup() |> 
   
-  filter(club == defensiveTeam | displayName == "football") |> 
+  filter(club == defensive_team | display_name == "football") |> 
 
-  select(displayName, nflId, defensiveTeam, frameId, gameId, playId, club, x, y , x_ball, y_ball, yardlineNumber, position, playDescription) |> 
+  select(display_name, nfl_id, defensive_team, frame_id, game_id, play_id, club, x, y , x_ball, y_ball, yardline_number, position, play_description) |> 
   mutate(run_alignment = case_when(abs(x_ball-x) < 2 &  abs(y_ball-y) < 6 ~ "on_line",
                                abs(x_ball-x) < 10 & abs(y_ball-y) < 5 ~ "backer",
                                                     abs(y_ball-y) > 5 ~ "outside_pass",
                                                                  TRUE ~ "inside_pass")) |> 
-  select(nflId, gameId, playId, run_alignment)
+  select(nfl_id, game_id, play_id, run_alignment)
     
 
 pass_play_alignment <-
 week_1 |> 
-  filter(!is.na(passResult)) |> filter(frameId == 1) |>
+  filter(!is.na(pass_result)) |> filter(frame_id == 1) |>
   
-  mutate(x_ball = ifelse(displayName == "football", x, NA)) |> 
-  mutate(y_ball = ifelse(displayName == "football", y, NA)) |> 
+  mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
   
   ## find distance from each player to the ball
-  group_by(gameId, playId) |>
+  group_by(game_id, play_id) |>
   mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
   mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
   ungroup() |> 
   
-  filter(club == defensiveTeam | displayName == "football") |> 
+  filter(club == defensive_team | display_name == "football") |> 
   
   mutate(pass_alignment = position) |> 
-  # group_by(gameId, playId) |> filter(cur_group_id() == 1) |> ungroup() |> 
-  select(nflId, gameId, playId, pass_alignment)
+  # group_by(game_id, play_id) |> filter(cur_group_id() == 1) |> ungroup() |> 
+  select(nfl_id, game_id, play_id, pass_alignment)
 
 
 defensive_model_building_data <-
 defensive_model_building_data |> 
   left_join(run_play_alignments) |>
   left_join(pass_play_alignment) |>
-  left_join(clust_dat_with_cluster, by = c("gameId", "playId", "nflId")) |> 
+  left_join(clust_dat_with_cluster, by = c("game_id", "play_id", "nfl_id")) |> 
   mutate(alignment = ifelse(is.na(run_alignment), pass_alignment, run_alignment)) |> 
   select(-run_alignment, -pass_alignment) 
-  # select(gameId:frameId, y.x, y.y, contains("alignment"), contains("cluster"), event) 
+  # select(game_id:frame_id, y.x, y.y, contains("alignment"), contains("cluster"), event) 
 # |> filter(!is.na(alignment_cluster))
 
 
 temp <-
   defensive_model_building_data |> 
-  group_by(gameId, playId)  |> 
+  group_by(game_id, play_id)  |> 
   mutate(temp = cur_group_id()) |> 
   relocate(temp) |> 
   ungroup()
@@ -276,33 +282,33 @@ temp_sample <- sample(unique(temp$temp),1473, replace = F)
 defensive_model_building_data <- 
   temp |> filter(temp %in% temp_sample) |> 
   select(-temp) |> 
-  mutate(gameIdPlayId = str_c(gameId,playId))
+  mutate(game_idplay_id = str_c(game_id,play_id))
 
 defensive_model_building_data_model <-
   defensive_model_building_data |> 
-  select(gameIdPlayId, gameId, playId, nflId, frameId, club, tackle, x, y, x_going, y_going, s, a, position,
-         rank, club, defendersInTheBox, ball_carrier, ballCarrierId, ballCarrierDisplayName, absoluteYardlineNumber, 
-         time, defensiveTeam, displayName, distance_to_ball, distance_to_ball_next, playDescription, is_football, alignment,
-         alignment_cluster, passResult, v_approach, ball_in_fan) |> 
-  filter(frameId > 5)
+  select(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, tackle, x, y, x_going, y_going, s, a, position,
+         rank, club, defenders_in_the_box, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number, 
+         time, defensive_team, display_name, distance_to_ball, distance_to_ball_next, play_description, is_football, alignment,
+         alignment_cluster, pass_result, v_approach, ball_in_fan) |> 
+  filter(frame_id > 5)
 
 # I don't have clusters built in for passing plays
 
 # ## some plays don't end in tackles.  Some plays have a forced fumble
 # week_1 |> 
 #   # filter(forcedFumble == 1, tackle == 0) |> 
-#   filter(playId == 896, gameId == 2022090800)  |> 
-#   filter(defensiveTeam == club) |> 
-#   select(forcedFumble, tackle, event, displayName, frameId) |> 
+#   filter(play_id == 896, game_id == 2022090800)  |> 
+#   filter(defensive_team == club) |> 
+#   select(forcedFumble, tackle, event, display_name, frame_id) |> 
 #   print(n = Inf)
 # 
 # ## i do not know the conlcusion of this play
-# week_1 |> distinct(playId, gameId)
-# week_1 |> filter(tackle == 1) |> distinct(playId, gameId) 
-# week_1 |> filter(playId == 146) |> filter(gameId == 2022090800) |> count(prePenaltyPlayResult)
+# week_1 |> distinct(play_id, game_id)
+# week_1 |> filter(tackle == 1) |> distinct(play_id, game_id) 
+# week_1 |> filter(play_id == 146) |> filter(game_id == 2022090800) |> count(prePenaltyPlayResult)
 
-week_1 |> 
-  group_by(gameId) |> filter(cur_group_id() %in% 1) |>   ungroup() |> 
-  write_csv("week_1.csv")
+# week_1 |> 
+#   group_by(game_id) |> filter(cur_group_id() %in% 1) |>   ungroup() |> 
+#   write_csv("week_1.csv")
 
-dak <- week_1 |> filter(displayName == "Dak Prescott") |> distinct(gameId, playId)
+dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, play_id)

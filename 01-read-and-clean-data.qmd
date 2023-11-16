@@ -8,6 +8,7 @@ knitr:
     fig-format: svg
     collapse: true
     comment: "#"
+cache: refresh
 ---
 
 
@@ -164,12 +165,14 @@ players <- here("01-raw-data", "players.csv") |>
       "weight" = col_integer(),
       "birthDate" = col_character(), # column is a mess
       "collegeName" = col_character(),
-      "position" = col_factor(),
+      "position" = readr::col_factor(),
       "displayName" = col_character()
     )
   )
   
-players |> glimpse()
+players |> glimpse() 
+
+
 ```
 
 Let's start by cleaning names:
@@ -269,7 +272,7 @@ plays <- here("01-raw-data", "plays.csv") |>
       "visitorTeamWinProbilityAdded" = col_double(),
       "expectedPoints" = col_double(),
       "expectedPointsAdded" = col_double(),
-      "foulName1" = col_factor(),
+      "foulName1" = readr::col_factor(),
       "foulName2" = col_character(), # subset of foulName1 fouls, fix later
       "foulNFLId1" = col_character(), # a code?
       "foulNFLId2" = col_character() # a code?
@@ -354,7 +357,7 @@ tackles <- here("01-raw-data", "tackles.csv") |>
       "gameId" = col_character(),
       "playId" = col_character(),
       "nflId" = col_character(),
-      "tackle" = col_logical(), # verified 0 or 1
+      "tackle" = readr::col_factor(), # verified 0 or 1
       "assist" = col_logical(), # verified 0 or 1
       "forcedFumble" = col_logical(), # verified 0 or 1
       "pff_missedTackle" = col_logical() # verified 0 or 1
@@ -411,7 +414,8 @@ read_tracking <- function (path) {
       "dir" = col_double(), # ?
       "event" = col_character()
     )
-  )
+  ) |> 
+    mutate(week_id = str_sub(path, -10, -5))
 }
 
 here("01-raw-data", "tracking_week_1.csv") |> read_tracking() |> glimpse()
@@ -436,10 +440,15 @@ big it is in memory:
 pryr::object_size( tracking )
 ```
 
-Big, but manageable. Let's write to disk:
+Big, but manageable. Let's write to disk after cleaning names:
 
 ```{r}
-write_parquet( tackles, here("02-clean-data", "tracking.parquet") )
+tracking <- tracking |> 
+  janitor::clean_names()
+
+tracking |> glimpse()
+
+write_parquet( tracking, here("02-clean-data", "tracking.parquet") )
 ```
 
 
