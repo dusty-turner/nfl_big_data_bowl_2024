@@ -1,0 +1,141 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(reticulate)
+source(here::here("03-eda", "data_cleaning.R"))
+```
+
+```{r}
+
+deff <-
+defensive_model_building_data %>% 
+  mutate(position = as.character(position)) %>%
+  mutate(position = replace_na(position, "unknown")) %>%
+  mutate(position = factor(position)) |> 
+  mutate(ball_in_fan = if_else(ball_in_fan, "yes", "no")) |> 
+  mutate(offense_formation = if_else(is.na(offense_formation), "unk", offense_formation)) |> 
+  mutate(alignment_cluster = if_else(is.na(alignment_cluster), "unk", alignment_cluster)) |> 
+  select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
+           position, offense_formation, quarter, down, rank,
+           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle))
+
+```
+
+
+```{r}
+library(reticulate)
+Sys.setenv(RETICULATE_PYTHON = "C:/Users/Dusty_Turner1/AppData/Local/Programs/Python/Python311/python.exe")
+options(reticulate.use_condaenv = FALSE)
+use_python("C:/Users/Dusty_Turner1/AppData/Local/Programs/Python/Python311/python.exe", required = TRUE)
+# "C:/Users/Dusty_Turner1/AppData/Local/Programs/Python/Python311/python.exe" -m pip install pandas
+
+```
+
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
+# Load and preprocess data
+# Assuming r.deff is your DataFrame loaded previously
+data = r.deff  
+data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
+
+# Define feature categories
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball',  'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'o_ball', 'dir_ball', 'angle_to_ball']
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+
+# Set up preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline([
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numerical_features),
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features)
+    ]
+)
+
+# Split data
+X = data.drop('tackle', axis=1)
+y = data['tackle'].astype(int)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+# Build the model
+def build_model(input_shape):
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=[input_shape]),
+        Dense(64, activation='relu'),
+        Dense(64, activation='relu'),
+        Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+model = build_model(X_train_transformed.shape[1])
+
+# Create the pipeline
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('model', model)
+])
+
+# Train the pipeline
+pipeline = Pipeline([('preprocessor', preprocessor), ('model', build_model(preprocessor.fit_transform(X_train).shape[1]))])
+history = pipeline.fit(X_train, y_train, model__epochs=7, model__validation_split=0.2)
+
+# Evaluate model
+test_loss, test_accuracy = pipeline.named_steps['model'].evaluate(pipeline.named_steps['preprocessor'].transform(X_test), y_test, verbose=2)
+print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
+
+```
+
+## Make Predictions
+
+```{python}
+# Transform the test data using the preprocessor in the pipeline
+X_test_transformed = pipeline.named_steps['preprocessor'].transform(X_test)
+
+# Use the model to make predictions on the transformed test data
+predictions = pipeline.named_steps['model'].predict(X_test_transformed)
+
+# Since predictions will be in the form of probabilities (due to the sigmoid activation), 
+# you might want to convert these to a binary form (0 or 1) based on a threshold (usually 0.5)
+predicted_classes = (predictions > 0.5).astype(int)
+
+# predicted_classes now holds the vector of predictions (0 or 1) for the test set
+
+```
+
+```{r}
+library(reticulate)
+py$X_test |> as_tibble() |> 
+  mutate(tackle = as.factor(py$y_test), prediction = py$predictions[,1], class = as.factor(py$predicted_classes[,1])) |> 
+  select(tackle, prediction, class) |> 
+  yardstick::accuracy(truth = tackle, estimate = class)
+```
+

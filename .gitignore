@@ -5,6 +5,7 @@
 *.csv
 *.zip
 *cache
+.RDataTmp1
 
 # mac files
 *.DS_Store

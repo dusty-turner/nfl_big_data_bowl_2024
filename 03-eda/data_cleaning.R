@@ -289,7 +289,7 @@ defensive_model_building_data_model <-
   select(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, tackle, x, y, x_going, y_going, s, a, position,
          rank, club, defenders_in_the_box, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number, 
          time, defensive_team, display_name, distance_to_ball, distance_to_ball_next, play_description, is_football, alignment,
-         alignment_cluster, pass_result, v_approach, ball_in_fan) |> 
+         alignment_cluster, pass_result, v_approach, ball_in_fan, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball) |> 
   filter(frame_id > 5)
 
 # I don't have clusters built in for passing plays
