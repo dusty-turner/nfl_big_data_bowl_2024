@@ -37,12 +37,11 @@ defensive_model_building_data %>%
   mutate(position = as.character(position)) %>%
   mutate(position = replace_na(position, "unknown")) %>%
   mutate(position = factor(position)) |> 
-  mutate(ball_in_fan = if_else(ball_in_fan, "yes", "no")) |> 
   mutate(offense_formation = if_else(is.na(offense_formation), "unk", offense_formation)) |> 
   mutate(alignment_cluster = if_else(is.na(alignment_cluster), "unk", alignment_cluster)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
            position, offense_formation, quarter, down, rank,
-           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id)) 
+           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id)) 
 
 
 
@@ -53,8 +52,6 @@ defensive_model_building_data %>%
 
 
 ```{python}
-# Define feature categories
-
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -63,20 +60,29 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import classification_report
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.regularizers import l2
 
 # Load and preprocess data
 # Replace 'r.deff' with your actual DataFrame name
 data = r.deff
 data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
 
+nan_counts = data.isna().sum()
+print(nan_counts)
+
 # Define feature categories
-numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'o_ball', 'dir_ball', 'angle_to_ball']
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
 categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+
+# For numerical columns
+# data['numerical_column'] = data['numerical_column'].fillna(data['numerical_column'].mean())
+
+# For categorical columns
+# data['categorical_column'] = data['categorical_column'].fillna('Unknown')
+
 
 # Set up preprocessing pipeline
 preprocessor = ColumnTransformer(
@@ -95,21 +101,20 @@ preprocessor = ColumnTransformer(
 # Split data based on 'game_id'
 group_column = 'game_id'
 target_column = 'tackle'
-frames_from_tackle_column = 'frames_from_tackle'  # Specify the frames_from_tackle column
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle']  # Specify additional columns to keep
 
 gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
 for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
     train_data = data.iloc[train_idx]
     test_data = data.iloc[test_idx]
 
-# Retain the frames_from_tackle column for analysis
-frames_from_tackle_train = train_data[frames_from_tackle_column]
-frames_from_tackle_test = test_data[frames_from_tackle_column]
+# Store additional columns and then drop them from the feature set
+additional_columns_train = train_data[additional_columns].copy()
+additional_columns_test = test_data[additional_columns].copy()
 
-# Drop the target, group, and frames_from_tackle columns from the feature sets
-X_train = train_data.drop([target_column, group_column, frames_from_tackle_column], axis=1)
+X_train = train_data.drop([target_column] + additional_columns, axis=1)
 y_train = train_data[target_column].astype(int)
-X_test = test_data.drop([target_column, group_column, frames_from_tackle_column], axis=1)
+X_test = test_data.drop([target_column] + additional_columns, axis=1)
 y_test = test_data[target_column].astype(int)
 
 # Build the model
@@ -117,15 +122,12 @@ def build_model(input_shape):
     model = Sequential([
         Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.0005)),
         Dropout(0.1),
-        # Dense(64, activation='relu', kernel_regularizer=l2(0.0005)),
-        # Dropout(0.1),
         Dense(64, activation='relu', kernel_regularizer=l2(0.0005)),
         Dropout(0.1),
         Dense(1, activation='sigmoid')
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
-
 
 # Preprocess the data
 X_train_transformed = preprocessor.fit_transform(X_train)
@@ -155,27 +157,112 @@ evaluation = model.evaluate(X_test_transformed, y_test_np)
 print("Test loss:", evaluation[0])
 print("Test accuracy:", evaluation[1])
 
-# Optional: print(classification_report(y_test_np, predicted_classes, target_names=['Class 0', 'Class 1']))
-
+# Now, you can use additional_columns_test in R for your analysis along with predictions
 
 
 ```
 
 ```{r}
 
-py$predicted_classes |> as_tibble() |> count(V1)
+test_set_with_predictions <-
+  as_tibble(py$X_test) %>% 
+  mutate(tackle = as.factor(py$y_test), 
+         pred_class = as.factor(py$predicted_classes),
+         pred = py$predictions[,1],
+         game_id = py$additional_columns_test$game_id,
+         play_id = py$additional_columns_test$play_id,
+         nfl_id = py$additional_columns_test$nfl_id,
+         frame_id = py$additional_columns_test$frame_id,
+         frames_from_tackle = py$additional_columns_test$frames_from_tackle)  |>  filter(frames_from_tackle >= -40) |> 
+  relocate(game_id, play_id, pred, frames_from_tackle, tackle)  
 
-as_tibble(py$X_test) |> 
-  mutate(tackle = as.factor(py$y_test)) |> 
-  mutate(pred = as.factor(py$predicted_classes)) |>
-  mutate(frames_from_tackle =   py$frames_from_tackle_test) |> filter(frames_from_tackle >= -40) |> 
-  relocate(pred, frames_from_tackle, tackle) |> 
+test_set_with_predictions |> 
   group_by(frames_from_tackle) |> 
-  yardstick::accuracy(truth = tackle, pred) |> 
+  yardstick::accuracy(truth = tackle, pred_class) |> 
   ggplot(aes(x = frames_from_tackle, y = .estimate)) +
   geom_line()
 
+animated_plot <-
+week_1 |> 
+  left_join(test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, pred)) |> 
+  filter(!is.na(pred)) |> 
+  group_by(game_id, play_id) |> filter(cur_group_id() == 1) |> ungroup() |> 
+  ggplot(aes(x = frame_id, y = pred)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3) + # Add a point for each line
+  facet_wrap(~jersey_number) +
+  transition_reveal(frame_id) # Animate the points along the line
+
+anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+animated_plot2 <-
+week_1 |> 
+  filter(play_id %in% test_set_with_predictions$play_id) |> 
+  filter(game_id %in% test_set_with_predictions$game_id) |> 
+  left_join(
+    test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, pred) |> 
+      mutate(pred = ifelse(is.na(pred), 0, pred))
+    ) |> 
+  group_by(game_id, play_id) |> 
+  filter(cur_group_id() == 1) |>
+  mutate(pred = ifelse(club == defensive_team & is.na(pred), 0, pred)) |> 
+  ungroup()  |> 
+  mutate(color = pred) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, defensive_team) %>%
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
+
+
+
+
+
+
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  group_by(frame_id) |> 
+    mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  ungroup() |> 
+  select(distance_to_ball, display_name, x, y, x_ball, y_ball, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_segment(aes(xend = x_ball, yend = y_ball), color = "black") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  scale_color_continuous(high = "grey", low = "black") +
+  # facet_wrap(~play_id) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
 ```
+
+```{r}
+preds_in_r <-
+as_tibble(py$X_test) |> 
+  mutate(tackle = as.factor(py$y_test)) |> 
+  mutate(pred = as.factor(py$predicted_classes))
+
+
+
+```
+
 
 ## This works on work computer
 

@@ -9,12 +9,7 @@ week_1 <-
   left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |> 
   left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |> 
   select(-week_id) |> 
-# week_1 <-
-#   read_parquet(here::here("01_data","tracking_week_1.parquet")) |> 
-#   left_join(y = read_parquet(here::here("01_data","tackles.parquet"))) |> 
-#   left_join(read_parquet(here::here("01_data","plays.parquet"))) |> 
-#   left_join(read_parquet(here::here("01_data","players.parquet"))) |> 
-  
+
   ## rearrange tackle
   mutate(position = as.factor(position)) |> 
   mutate(tackle = as.factor(tackle)) |> 
@@ -32,13 +27,13 @@ week_1 <-
   mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
   mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
   mutate(s_ball = ifelse(display_name == "football", s, NA)) |> 
-  mutate(dir_ball = ifelse(display_name == "football", dir, NA))  |> 
-  mutate(o_ball = ifelse(display_name == "football", o, NA))  |> 
+  mutate(dir_ball = ifelse(ball_carrier, dir, NA))  |> 
+  mutate(o_ball = ifelse(ball_carrier, o, NA))  |>
   group_by(game_id, play_id, frame_id) |> 
   mutate(x_ball = mean(x_ball,na.rm = T)) |>
   mutate(y_ball = mean(y_ball,na.rm = T)) |>
   mutate(s_ball = mean(s_ball,na.rm = T)) |>
-  mutate(dir_ball = mean(dir_ball,na.rm = T)) |> 
+  mutate(dir_ball = mean(dir_ball,na.rm = T)) |>
   mutate(o_ball = mean(o_ball,na.rm = T)) |>
   ungroup() |> 
   ######
@@ -181,7 +176,9 @@ week_1 <-
     # Normalize angle between -pi and pi
     angle_to_ball = (angle_to_ball + pi) %% (2 * pi) - pi,
     # Check if ball is within 'the fan' (30 degrees on either side)
-    ball_in_fan = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3 # Assuming 3 unit is the radius of the fan
+    ball_in_fan = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3, # Assuming 3 unit is the radius of the fan,
+    ball_in_fan = if_else(ball_in_fan, "yes", "no") 
+      
     )  
 
 
