@@ -6,6 +6,7 @@
 *.zip
 *cache
 .RDataTmp1
+*.RDS
 
 # mac files
 *.DS_Store

@@ -64,6 +64,7 @@ from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.metrics import classification_report
+from tensorflow.keras.layers import LSTM
 
 # Load and preprocess data
 # Replace 'r.deff' with your actual DataFrame name
@@ -128,6 +129,17 @@ def build_model(input_shape):
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
+  
+# def build_lstm_model(input_shape):
+#     model = Sequential([
+#         LSTM(64, return_sequences=True, input_shape=[None, input_shape], kernel_regularizer=l2(0.0005)),
+#         Dropout(0.1),
+#         LSTM(64, return_sequences=False, kernel_regularizer=l2(0.0005)),
+#         Dropout(0.1),
+#         Dense(1, activation='sigmoid')
+#     ])
+#     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+#     return model
 
 # Preprocess the data
 X_train_transformed = preprocessor.fit_transform(X_train)
@@ -139,6 +151,7 @@ y_test_np = y_test.values if isinstance(y_test, pd.Series) else y_test
 
 # Now build the model with the correct input shape
 model = build_model(X_train_transformed.shape[1])
+# model = build_lstm_model(X_train_transformed.shape[1])
 
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=10, verbose=1),
@@ -146,7 +159,7 @@ callbacks = [
 ]
 
 # Train the model with callbacks
-history = model.fit(X_train_transformed, y_train_np, epochs=5, validation_split=0.2, callbacks=callbacks)
+history = model.fit(X_train_transformed, y_train_np, epochs=7, validation_split=0.2, callbacks=callbacks)
 
 # After making predictions
 predictions = model.predict(X_test_transformed)
@@ -177,7 +190,7 @@ test_set_with_predictions <-
   relocate(game_id, play_id, pred, frames_from_tackle, tackle)  
 
 test_set_with_predictions |> 
-  group_by(frames_from_tackle) |> 
+  group_by(frames_from_tackle) |>
   yardstick::accuracy(truth = tackle, pred_class) |> 
   ggplot(aes(x = frames_from_tackle, y = .estimate)) +
   geom_line()
@@ -226,30 +239,6 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
 
 
-
-
-week_1 |> 
-  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
-  filter(defensive_team == club | is_football == "football") |> 
-  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
-  group_by(frame_id) |> 
-    mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
-  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
-  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
-  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
-  ungroup() |> 
-  select(distance_to_ball, display_name, x, y, x_ball, y_ball, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball) %>% 
-{
-  ggplot(data = ., aes(x = x, y = y, color = color)) +
-  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
-  geom_segment(aes(xend = x_ball, yend = y_ball), color = "black") +
-  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
-  scale_color_continuous(high = "grey", low = "black") +
-  # facet_wrap(~play_id) +
-  transition_time(time) + ease_aes("linear") +
-  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
-  theme_field
-}
 
 ```
 

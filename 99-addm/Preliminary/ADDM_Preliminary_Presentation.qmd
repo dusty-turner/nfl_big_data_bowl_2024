@@ -1,0 +1,556 @@
+---
+title: "Quantifying Defensive Impact in Football"
+subtitle: "A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques"
+author: "Dusty Turner"
+format: 
+  revealjs:
+    self-contained: true
+cache: true
+width: 1300
+---
+
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+source(here::here("03-eda","data_cleaning.R"))
+```
+
+# 
+
+![](01_images/kaggle-logo-gray-300.png)
+
+## Understanding Kaggle
+
+### What is Kaggle?
+- **Online platform** for data science and machine learning
+- **Founded** in 2010, subsidiary of Google LLC
+- **Global community** of data scientists and machine learning practitioners
+
+## Key Features of Kaggle
+- **Competitions**: Solve real-world problems, win prizes
+- **Datasets**: Access a vast repository of free datasets
+- **Kernels**: Write and execute Python/R code, share work
+- **Community**: Share insights and collaborate globally
+
+<!-- ## Real-World Impact -->
+<!-- - Competitions addressing issues from ocean health to healthcare improvement -->
+<!-- - Overview of the project -->
+<!-- - Importance and relevance of the topic -->
+<!-- - Objectives of the project -->
+
+##
+
+![](01_images/competition_info.PNG)
+
+<center>
+**This year's competition offers up a general goal — create metrics that assign value to elements of tackling.**
+</center>
+
+. . .
+
+<br>
+<center>
+**Research Question: Can we determine each defensive player's probability that they make a tackle on each play on the football field?**
+</center>
+
+. . .
+
+<br>
+<center>
+**Ultimately: Assign a 'tackles over expected' value for each player**
+</center>
+
+# Data Available 
+
+## {.small-text}
+
+```{r}
+list <- list.files(here::here("01-data")) |> 
+  as.tibble() |> 
+  filter(str_detect(value, "tracking")) |> pull() 
+
+reader <- function(string){
+  read_parquet(here::here("01-data/", string)) |> 
+    mutate(weekId = string)
+}
+
+games_info <- map_dfr(.x = list, .f = ~reader(string = .x)) |>  
+  mutate(weekId = str_c("weekId",parse_number(weekId)))
+```
+
+#### Lots of Plays
+
+```{r}
+games_info |> 
+  distinct(weekId, gameId) |> 
+  count(weekId, name = "Games") |> 
+
+  left_join(
+
+games_info |> 
+  count(weekId, playId) |> 
+  count(weekId, name = "Plays") 
+) |> 
+  gt::gt() 
+
+```
+
+## {.scrollable}
+
+#### Every Play, Every Week
+
+```{r}
+dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, play_id)
+
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  count(display_name, jersey_number, club) |> 
+  arrange(club, jersey_number) |> 
+  mutate(week = "week_1") |> 
+  gt::gt()
+```
+
+## Player Location Data Every .1 Seconds
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+
+```{r}
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(display_name == "Dak Prescott") |> 
+  select(frame_id, time, x, y, s, a, dis, o, dir) |> 
+  mutate(time = lubridate::round_date(time, ".1 sec")) |> 
+  slice(11:20) |> 
+  gt::gt() |> 
+  gt::tab_header(title = "Dak Prescott")
+```
+
+:::
+
+::: {.column width="50%"}
+
+![](01_images/data_explaination.png)
+
+:::
+
+::::
+
+## Data Available {.small-text}
+
+<div style="font-size: 24px;">
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+#### Player & Game Identifiers
+- **Game and Play IDs**: Unique identifiers for games and individual plays
+- **Player Information**: Names, jersey numbers, team, position, physical attributes, college
+
+#### In-Game Player Movements
+- **Spatial Data**: Player positions, movement direction, speed, and orientation
+- **Time and Motion**: Specific moments in play, distance covered
+
+#### Detailed Play Information
+- **Play Attributes**: Description, quarter, down, yards needed
+- **Team & Field Position**: Possessing team, defensive team, yardline positions
+
+:::
+
+::: {.column width="50%"}
+
+
+#### Scoring and Game Probabilities
+- **Scores & Results**: Pre-snap scores, play outcomes
+- **Probabilities**: Win probabilities for home and visitor teams
+- **Expected Points**: Points added or expected by play outcomes
+
+#### Tackles, Penalties, and Formations
+- **Tackles & Fouls**: Tackles, assists, fouls committed, and missed tackles
+- **Ball Carrier Info**: Identifiers and names of ball carriers
+- **Team Formations**: Offensive formations and number of defenders
+
+:::
+
+::::
+
+
+</div>
+
+##
+
+<center>
+
+```{r}
+
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+                           tackle == "1" ~ "tackler",
+                           is_football == "football" ~ "football",
+                           club == defensive_team ~ "defense",
+                           club != defensive_team ~ "offense")) |> 
+  select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+```
+
+</center>
+
+## {.scrollable}
+
+```{r}
+week_1 |> count(event, sort = T) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 0)
+```
+
+
+# Created Features
+
+[Example Play](https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12)
+
+## Distance to the ball
+
+```{r}
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  group_by(frame_id) |> 
+    mutate(x_ball = ifelse(display_name == "football", x, NA)) |> 
+  mutate(y_ball = ifelse(display_name == "football", y, NA)) |> 
+  mutate(x_ball = mean(x_ball, na.rm = TRUE)) |> 
+  mutate(y_ball = mean(y_ball, na.rm = TRUE)) |> 
+  ungroup() |> 
+  select(distance_to_ball, display_name, x, y, x_ball, y_ball, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_segment(aes(xend = x_ball, yend = y_ball), color = "black") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  scale_color_continuous(high = "grey", low = "black") +
+  # facet_wrap(~play_id) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+```
+
+## Speed Vector Similarity
+
+```{r}
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[3]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, color = v_approach)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  scale_color_gradient2(na.value = "dodgerblue", low = "green", high = "green", mid = "red", midpoint = 0) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+```
+
+## Projected Movement
+
+```{r}
+
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going,o, jersey_number) %>% 
+{
+  ggplot(data = ., aes(x = x, y = y)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  # geom_text(aes(label = jersey_number), color = "red", nudge_x = 0, nudge_y = -1) +
+  geom_segment(aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
+  # geom_segment(aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~play_id) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+```
+
+## Orientation Fan
+
+```{r}
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(ball_in_fan == "yes" | is_football == "football", "No", "Yes")) |> 
+  select(frame_id, display_name, x, y, x_facing, y_facing, x_left, x_right, y_left, y_right, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going,o, jersey_number) %>%
+{
+  ggplot(data = ., aes(x = x, y = y, color = color, shape = is_football)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(show.legend = FALSE, size = 5) +
+  geom_segment(aes(xend = x_left, yend = y_left), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  geom_segment(aes(xend = x_right, yend = y_right), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+  transition_states(states = frame_id, transition_length = .1, state_length = .01, wrap = TRUE) +
+  labs(y = "", x = "Yards To Line of Scrimage", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field +  guides(shape = "none")
+}
+```
+
+
+## Projected Movement with Orientation Fan
+
+```{r}
+
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(ball_in_fan == "yes" | is_football == "football", "No", "Yes")) |> 
+  select(frame_id, display_name, x, y, x_facing, y_facing, x_left, x_right, y_left, y_right, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going,o, jersey_number) %>% 
+  {
+    ggplot(data = ., aes(x = x, y = y)) +
+      geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+      geom_point(aes(shape = is_football, color = color), show.legend = FALSE, size = 5) +
+      geom_segment(aes(xend = x_left, yend = y_left), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+      geom_segment(aes(xend = x_right, yend = y_right), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
+      transition_states(states = frame_id, transition_length = .1, state_length = .01, wrap = TRUE) +
+      # transition_time(time) + ease_aes("linear") +
+      labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+      theme_field
+  }
+
+```
+
+<!-- ## -->
+
+<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/X3N2tcxgUAM?si=2qHa5V12JeAeXSu_&amp;start=12" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe> -->
+
+## Projected Movement to The Ball
+
+```{r}
+week_1 |> 
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
+  select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going, x_ball_next, y_ball_next) %>% 
+  # filter(is_football == "football") |> select(x, y, x_going, y_going)
+{
+  ggplot(data = ., aes(x = x, y = y, color = is_football)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
+  geom_segment(aes(xend = x_ball_next, yend = y_ball_next), color = "black") +
+  # scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
+  # facet_wrap(~play_id) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+```
+
+<!-- ## Position Identifiers -->
+
+<!-- ```{r} -->
+<!-- defensive_model_building_data_model |>  -->
+<!--   filter(game_id == dak$game_id[1], play_id %in% unique(dak$play_id)[c(2,3,6,7)]) |>  -->
+<!--   filter(frame_id == 1) |>  -->
+<!--   filter(defensive_team == club | is_football == "football") |>  -->
+<!--   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>  -->
+<!--   select(game_id, display_name, x, y, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going, alignment) %>%  -->
+
+<!--   { -->
+<!--   ggplot(data = ., aes(x = x, y = y, color = alignment)) + -->
+<!--   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") + -->
+<!--   geom_point(aes(shape = is_football), show.legend = TRUE, size = 5) + -->
+<!--   # transition_time(time) + ease_aes("linear") + -->
+<!--   facet_wrap(~play_id, labeller = labeller(play_id = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) + -->
+<!--   labs(y = "", x = "Yards To Endzone", title = "") + -->
+<!--   theme_field + -->
+<!--       guides(shape = "none") + -->
+<!--   theme(legend.position = "bottom")  -->
+
+<!-- } -->
+
+<!-- ``` -->
+
+## Positions
+
+```{r}
+
+defensive_model_building_data |>
+  filter(game_id == dak$game_id[1], play_id %in% unique(dak$play_id)[c(2,3,7,8)]) |>
+  filter(frame_id == 1) |>
+  filter(defensive_team == club | is_football == "football") |>
+  mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |>
+  select(game_id, display_name, x, y, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going, position) %>%
+
+  {
+  ggplot(data = ., aes(x = x, y = y, color = position)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = TRUE, size = 4) +
+  # transition_time(time) + ease_aes("linear") +
+  facet_wrap(~play_id, labeller = labeller(play_id = c("89" = "Play 1","110" = "Play 2","200" = "Play 3","246" = "Play 4"))
+             ) +
+  labs(y = "", x = "Yards To Endzone", title = "") +
+  theme_field +
+      guides(shape = "none") +
+  theme(legend.position = "bottom")
+
+}
+```
+
+## Start Points
+
+```{r}
+week_1 |> 
+  filter(str_detect(event, "snap")) |> 
+  filter(club != possession_team) |> 
+  select(position, x, y, yardline_number, absolute_yardline_number, event) |> 
+  mutate(x_from_los = abs(absolute_yardline_number - x)) |> 
+  ggplot(aes(x = x_from_los, y = y)) +
+  ggdensity::geom_hdr() +
+  theme_field +
+  theme(legend.position = "none") +
+  labs(x = "Distance from Line of Scrimage", y = "")
+```
+
+## Alignment Clusters
+
+```{r}
+defensive_model_building_data |> 
+  # filter(game_id == dak$game_id[1], play_id %in% unique(dak$play_id)[c(2,3,6,7)]) |> 
+  filter(frame_id == 6) |> 
+  filter(defensive_team == club | is_football == "football") |> 
+  filter(is.na(pass_result))  |> 
+  # mutate(color = as.factor(alignment_cluster)) |>
+  select(game_id, display_name, x, x_from_los, y, v_approach, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going, alignment, alignment_cluster) %>%
+  
+  {
+  ggplot(data = ., aes(x = x_from_los, y = y, color = alignment_cluster)) +
+  # geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), show.legend = TRUE, size = 1) +
+  # transition_time(time) + ease_aes("linear") +
+  # facet_wrap(~play_id, labeller = labeller(play_id = c("89" = "Play 1","110" = "Play 2","179" = "Play 3","200" = "Play 4"))) +
+  labs(y = "", x = "Yards To Line of Scrimage", title = "", color = "Alignment Cluster") +
+  theme_field +
+      guides(shape = "none") +
+  theme(legend.position = "bottom") 
+  
+}
+
+```
+
+# Literature Review
+
+##
+
+<div style="text-align: center; width: 100%;">
+  <img src="01_images/football_r.jpg" style="width: 40%;">
+</div>
+
+<!-- <center> -->
+<!-- ![](01_images/football_r.jpg){width=80%} -->
+<!-- </center> -->
+
+## 
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+### Previous NFL Big Data Bowl Competitions
+
+::: {.r-fit-text}
+- [2020](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020): How many yards will an NFL player gain after receiving a handoff?  
+- [2021](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021): Evaluate defensive performance on passing plays  
+- [2022](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022): Evaluate special teams performance  
+- [2023](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023): Evaluate linemen on pass plays  
+:::
+
+:::
+
+::: {.column width="50%"}
+
+![](01_images/next_gen.png)
+
+:::
+
+::::
+
+## Analysis
+
+::: {.r-fit-text}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+#### Modeling
+
+- Penalized Regression
+- Random Forest
+- XGBoost
+- Neural Network
+
+#### Cross Validation
+
+- 70/30 Split
+- May need more compute power
+
+
+:::
+
+::: {.column width="50%"}
+
+![](01_images/theme.png)
+
+:::
+
+::::
+
+:::
+
+## Points Above or Below Expected
+
+<br>
+<br>
+
+::: {.r-fit-text}
+$\sum_{i=1}^{N} (\mathbb{I}_{\text{tackle}_i} - P(\text{tackle}_i))$
+
+Where:
+
+1. $N$ is the total number of plays  
+2. $P(\text{tackle}_i)$ is the probability of a tackle on play $i$  
+3. $\mathbb{I}_{\text{tackle}_i}$ is the indicator function which is 1 if a tackle occurred on play $i$ and 0 otherwise  
+:::
+
+## Next Steps
+
+::: {.r-fit-text}
+1. **Model Creation**: Enhance the predictive algorithms by integrating advanced analytics and machine learning techniques.
+2. **Model Tuning**: Optimize model parameters through validation processes to improve accuracy and reliability.
+3. **Feature Development**: Innovate and engineer new features to capture the dynamic aspects of player actions and game events for real-time analysis.
+:::
+
+## Thanks
+
+<div style="text-align: center; width: 100%;">
+  <img src="01_images/final_image.png" style="width: 40%;">
+</div>
+
+
