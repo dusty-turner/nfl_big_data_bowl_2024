@@ -41,15 +41,9 @@ defensive_model_building_data %>%
   mutate(alignment_cluster = if_else(is.na(alignment_cluster), "unk", alignment_cluster)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
            position, offense_formation, quarter, down, rank,
-           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id)) 
-
-
+           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
 ```
-
-
-
-
 
 ```{python}
 import numpy as np
@@ -63,27 +57,28 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from sklearn.metrics import classification_report
 from tensorflow.keras.layers import LSTM
 
 # Load and preprocess data
-# Replace 'r.deff' with your actual DataFrame name
 data = r.deff
-data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
 
-nan_counts = data.isna().sum()
-print(nan_counts)
+# Impute missing numerical values with mean
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+for col in numerical_features:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mean(), inplace=True)
+
+# Impute missing categorical values with mode (or a placeholder like 'missing')
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+for col in categorical_features + ['frame_id']:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mode()[0], inplace=True)
+
+data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
 
 # Define feature categories
 numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
 categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
-
-# For numerical columns
-# data['numerical_column'] = data['numerical_column'].fillna(data['numerical_column'].mean())
-
-# For categorical columns
-# data['categorical_column'] = data['categorical_column'].fillna('Unknown')
-
 
 # Set up preprocessing pipeline
 preprocessor = ColumnTransformer(
@@ -102,7 +97,7 @@ preprocessor = ColumnTransformer(
 # Split data based on 'game_id'
 group_column = 'game_id'
 target_column = 'tackle'
-additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle']  # Specify additional columns to keep
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle', 'display_name']  # Specify additional columns to keep
 
 gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
 for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
@@ -121,25 +116,49 @@ y_test = test_data[target_column].astype(int)
 # Build the model
 def build_model(input_shape):
     model = Sequential([
-        Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.0005)),
-        Dropout(0.1),
-        Dense(64, activation='relu', kernel_regularizer=l2(0.0005)),
-        Dropout(0.1),
-        Dense(1, activation='sigmoid')
+        Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.001)),
+        Dropout(0.3),
+        Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
+        Dropout(0.3),
+        Dense(64, activation='tanh', kernel_regularizer=l2(0.001)),
+        Dropout(0.3),
+        Dense(1, activation='sigmoid', kernel_regularizer=l2(0.001))  # Apply L2 regularization here
     ])
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
-  
-# def build_lstm_model(input_shape):
+
+from tensorflow.keras.layers import BatchNormalization
+
+def build_model(input_shape):
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(64, activation='tanh', kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(1, activation='sigmoid', kernel_regularizer=l2(0.001))  # Apply L2 regularization here
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+
+
+# def build_model(input_shape, lstm_units=64):
 #     model = Sequential([
-#         LSTM(64, return_sequences=True, input_shape=[None, input_shape], kernel_regularizer=l2(0.0005)),
+#         Masking(mask_value=0.0, input_shape=(None, input_shape)),  # Use None for variable sequence length
+#         LSTM(lstm_units, return_sequences=True),  # LSTM layer with return_sequences=True
 #         Dropout(0.1),
-#         LSTM(64, return_sequences=False, kernel_regularizer=l2(0.0005)),
+#         LSTM(lstm_units),  # LSTM layer without return_sequences
 #         Dropout(0.1),
 #         Dense(1, activation='sigmoid')
 #     ])
 #     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 #     return model
+
 
 # Preprocess the data
 X_train_transformed = preprocessor.fit_transform(X_train)
@@ -149,9 +168,8 @@ X_test_transformed = preprocessor.transform(X_test)
 y_train_np = y_train.values if isinstance(y_train, pd.Series) else y_train
 y_test_np = y_test.values if isinstance(y_test, pd.Series) else y_test
 
-# Now build the model with the correct input shape
+# Now build and train the model
 model = build_model(X_train_transformed.shape[1])
-# model = build_lstm_model(X_train_transformed.shape[1])
 
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=10, verbose=1),
@@ -170,10 +188,10 @@ evaluation = model.evaluate(X_test_transformed, y_test_np)
 print("Test loss:", evaluation[0])
 print("Test accuracy:", evaluation[1])
 
-# Now, you can use additional_columns_test in R for your analysis along with predictions
-
 
 ```
+
+
 
 ```{r}
 
@@ -186,9 +204,12 @@ test_set_with_predictions <-
          play_id = py$additional_columns_test$play_id,
          nfl_id = py$additional_columns_test$nfl_id,
          frame_id = py$additional_columns_test$frame_id,
-         frames_from_tackle = py$additional_columns_test$frames_from_tackle)  |>  filter(frames_from_tackle >= -40) |> 
+         frames_from_tackle = py$additional_columns_test$frames_from_tackle,
+         display_name = py$additional_columns_test$display_name)  |>
+  # filter(frames_from_tackle >= -40) |> 
   relocate(game_id, play_id, pred, frames_from_tackle, tackle)  
 
+accuracy_over_time <-
 test_set_with_predictions |> 
   group_by(frames_from_tackle) |>
   yardstick::accuracy(truth = tackle, pred_class) |> 
@@ -236,9 +257,22 @@ week_1 |>
 
 anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
+accuracy <- py$evaluation[[2]]
 
+nn_briar <- 
+  test_set_with_predictions |> 
+  select(game_id, play_id, nfl_id, display_name,tackle, pred) |> 
+  filter(!is.na(pred)) |> 
+  mutate(tackle  = as.integer(as.character(tackle))) |> 
+  group_by(game_id, play_id, nfl_id, display_name) |> 
+  reframe(expected_prob_of_tackle = mean(pred), tackle = mean(tackle)) |> 
+  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  group_by(nfl_id, display_name) |> 
+  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  arrange(-tackles_over_expected)
 
-
+list(nn_anim1 = anm1, nn_anim2 = anm2, accuracy = accuracy, accuracy_over_time = accuracy_over_time, nn_briar = nn_briar) |> 
+  write_rds(file = "99-addm/nn.RDS")
 
 ```
 
@@ -357,3 +391,273 @@ py$X_test |> as_tibble() |>
   yardstick::accuracy(truth = tackle, estimate = class)
 ```
 
+## lstm attempt
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, LSTM
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+# Load and preprocess data
+data = r.deff
+
+# Define numerical and categorical features
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+
+# Impute missing numerical values with mean
+for col in numerical_features:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mean(), inplace=True)
+
+# Impute missing categorical values with mode (or a placeholder like 'missing')
+for col in categorical_features + ['frame_id']:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mode()[0], inplace=True)
+        
+data.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+# Define preprocessing steps for numerical and categorical features
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline([
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numerical_features),
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features)
+    ]
+)
+
+# Function to extract feature names
+def get_feature_names(column_transformer):
+    output_features = []
+
+    for name, pipe, features in column_transformer.transformers_:
+        if name == 'num':
+            output_features.extend(features)
+        elif name == 'cat':
+            for i in pipe.named_steps['onehot'].get_feature_names(input_features=features):
+                output_features.append(i)
+
+    return output_features
+
+# Split data
+group_column = 'game_idplay_id'
+target_column = 'tackle'
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle', 'game_idplay_id']
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+
+# Apply preprocessor to training and test data
+X_train = train_data.drop([target_column] + additional_columns, axis=1)
+X_test = test_data.drop([target_column] + additional_columns, axis=1)
+X_train_transformed = preprocessor.fit_transform(X_train)
+X_test_transformed = preprocessor.transform(X_test)
+
+new_feature_names = get_feature_names(preprocessor)
+
+# Create DataFrames with the new feature names
+X_train_transformed_df = pd.DataFrame(X_train_transformed, columns=new_feature_names)
+X_test_transformed_df = pd.DataFrame(X_test_transformed, columns=new_feature_names)
+
+# Add the 'game_idplay_id' column back for grouping
+train_data.reset_index(drop=True, inplace=True)
+X_train_transformed_df['game_idplay_id'] = train_data['game_idplay_id']
+
+# Group by 'game_idplay_id'
+grouped_train = [group.drop(columns='game_idplay_id') for _, group in X_train_transformed_df.groupby('game_idplay_id')]
+
+# Repeat for the test set
+test_data.reset_index(drop=True, inplace=True)
+X_test_transformed_df['game_idplay_id'] = test_data['game_idplay_id']
+grouped_test = [group.drop(columns='game_idplay_id') for _, group in X_test_transformed_df.groupby('game_idplay_id')]
+
+# Pad sequences
+padded_sequences_train = pad_sequences([g.values for g in grouped_train], padding='post', dtype='float32')
+padded_sequences_test = pad_sequences([g.values for g in grouped_test], padding='post', dtype='float32')
+
+# Aggregate y_train and y_test to match the number of sequences based on 'game_idplay_id'
+y_train_aggregated = train_data.groupby('game_idplay_id')[target_column].agg(lambda x: x.mode()[0]).astype(int).values
+y_test_aggregated = test_data.groupby('game_idplay_id')[target_column].agg(lambda x: x.mode()[0]).astype(int).values
+
+# Define LSTM model
+def build_lstm_model(input_shape):
+    model = Sequential([
+        LSTM(64, return_sequences=True, input_shape=[None, input_shape], kernel_regularizer=l2(0.0005)),
+        Dropout(0.1),
+        LSTM(64, return_sequences=False, kernel_regularizer=l2(0.0005)),
+        Dropout(0.1),
+        Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+# Build the model
+model = build_lstm_model(padded_sequences_train.shape[2])  # Adjust for the correct input shape
+
+# Callbacks
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+    ModelCheckpoint('best_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
+]
+
+# Train the model
+history = model.fit(padded_sequences_train, y_train_aggregated, epochs=5, validation_split=0.2, callbacks=callbacks)
+
+# Making predictions with the test set
+predictions = model.predict(padded_sequences_test)
+predicted_classes = (predictions > 0.5).astype(int)
+
+# Evaluate the model
+evaluation = model.evaluate(padded_sequences_test, y_test_aggregated)
+print("Test loss:", evaluation[0])
+print("Test accuracy:", evaluation[1])
+
+
+# Assuming you have predictions and test_data DataFrames
+predictions_df = pd.DataFrame({'predicted_class': predicted_classes.flatten(), 'pred': predictions.flatten()})
+result_df = pd.concat([test_data, predictions_df], axis=1)
+
+
+```
+
+### back up pre lstm
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.layers import LSTM
+
+# Load and preprocess data
+data = r.deff
+
+# Impute missing numerical values with mean
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+for col in numerical_features:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mean(), inplace=True)
+
+# Impute missing categorical values with mode (or a placeholder like 'missing')
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+for col in categorical_features + ['frame_id']:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mode()[0], inplace=True)
+
+data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
+
+# Define feature categories
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+
+# Set up preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline([
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numerical_features),
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features)
+    ]
+)
+
+# Split data based on 'game_id'
+group_column = 'game_id'
+target_column = 'tackle'
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle']  # Specify additional columns to keep
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+
+# Store additional columns and then drop them from the feature set
+additional_columns_train = train_data[additional_columns].copy()
+additional_columns_test = test_data[additional_columns].copy()
+
+X_train = train_data.drop([target_column] + additional_columns, axis=1)
+y_train = train_data[target_column].astype(int)
+X_test = test_data.drop([target_column] + additional_columns, axis=1)
+y_test = test_data[target_column].astype(int)
+
+# Build the model
+def build_model(input_shape):
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.0005)),
+        Dropout(0.1),
+        Dense(64, activation='relu', kernel_regularizer=l2(0.0005)),
+        Dropout(0.1),
+        Dense(1, activation='sigmoid')
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+# def build_model(input_shape, lstm_units=64):
+#     model = Sequential([
+#         Masking(mask_value=0.0, input_shape=(None, input_shape)),  # Use None for variable sequence length
+#         LSTM(lstm_units, return_sequences=True),  # LSTM layer with return_sequences=True
+#         Dropout(0.1),
+#         LSTM(lstm_units),  # LSTM layer without return_sequences
+#         Dropout(0.1),
+#         Dense(1, activation='sigmoid')
+#     ])
+#     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+#     return model
+
+
+# Preprocess the data
+X_train_transformed = preprocessor.fit_transform(X_train)
+X_test_transformed = preprocessor.transform(X_test)
+
+# Convert the target variable to numpy array if it's a pandas Series
+y_train_np = y_train.values if isinstance(y_train, pd.Series) else y_train
+y_test_np = y_test.values if isinstance(y_test, pd.Series) else y_test
+
+# Now build and train the model
+model = build_model(X_train_transformed.shape[1])
+
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+    ModelCheckpoint('best_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
+]
+
+# Train the model with callbacks
+history = model.fit(X_train_transformed, y_train_np, epochs=2, validation_split=0.2, callbacks=callbacks)
+
+# After making predictions
+predictions = model.predict(X_test_transformed)
+predicted_classes = (predictions > 0.5).astype(int)
+
+# Evaluate the model
+evaluation = model.evaluate(X_test_transformed, y_test_np)
+print("Test loss:", evaluation[0])
+print("Test accuracy:", evaluation[1])
+
+
+```
