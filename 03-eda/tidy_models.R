@@ -28,28 +28,28 @@ baseline_accuracy <- defense_test |> reframe(accuracy = (1-mean(as.numeric(as.ch
 
 
 
-# mod <-
-#   logistic_reg(penalty = tune(), mixture = tune()) %>%
-#   set_engine("glmnet") |>
-#   set_mode("classification")
+mod <-
+  logistic_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet") |>
+  set_mode("classification")
 
 # mod <-
 #   rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
 #   set_engine("ranger", importance = "impurity") |>
 #   set_mode("classification")
 
-mod <-
-  boost_tree(
-             tree_depth = tune(),
-             trees = tune(),
-             learn_rate = tune(),
-             min_n = tune(),
-             loss_reduction = tune(),
-             sample_size = tune()
-             # stop_iter = tune()
-             ) %>%
-  set_engine('xgboost') %>%
-  set_mode('classification')
+# mod <-
+#   boost_tree(
+#              tree_depth = tune(),
+#              trees = tune(),
+#              learn_rate = tune(),
+#              min_n = tune(),
+#              loss_reduction = tune(),
+#              sample_size = tune()
+#              # stop_iter = tune()
+#              ) %>%
+#   set_engine('xgboost') %>%
+#   set_mode('classification')
 
 
 recipe <-
@@ -59,32 +59,28 @@ recipe <-
   # step_rm(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, x, y, x_going, y_going, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number,
   #         time, defensive_team, display_name, play_description, is_football, rank, v_approach) |>
   step_impute_mode(position) |>
-  step_dummy(all_nominal_predictors())  |> 
+  step_dummy(all_nominal_predictors()) |> 
   # step_impute_mean(v_approach)  
   step_interact(terms = ~starts_with("position"):starts_with("alignment_cluster"))
-
-# trained_recipe <- prep(recipe, training = defense_training)
-# summary(trained_recipe)
-# juice(trained_recipe) |> count(position_DB)
 
 workflow <-
   workflow(spec = mod) |> 
   add_recipe(recipe = recipe)
   
-# grid <- expand_grid(penalty = 10^seq(-4, 1, length.out = 30)/10, mixture = 10^seq(-4, 1, length.out = 30)/10)
+grid <- expand_grid(penalty = 10^seq(-4, 1, length.out = 30)/10, mixture = 10^seq(-4, 1, length.out = 30)/10)
 
 # grid <- grid_latin_hypercube(trees(), min_n(), mtry(range = c(4,17)), size = 20)
 
-grid <- grid_latin_hypercube(
-                     tree_depth(range = c(1, 10)),
-                             trees(range = c(50, 1000)),
-                             learn_rate(range = c(0.001, 0.1)),
-                     min_n(range = c(1, 10)),
-                     loss_reduction(range = c(-1, 2), trans = log10_trans()),
-                     sample_prop(range = c(1/10,1)),  # Assuming 'sample_size' is an integer and you're tuning it over a reasonable range
-                     # stop_iter(range = c(2, 10)),
-                     size = 20
-)
+# grid <- grid_latin_hypercube(
+#                      tree_depth(range = c(1, 10)),
+#                              trees(range = c(50, 1000)),
+#                              learn_rate(range = c(0.001, 0.1)),
+#                      min_n(range = c(1, 10)),
+#                      loss_reduction(range = c(-1, 2), trans = log10_trans()),
+#                      sample_prop(range = c(1/10,1)),  # Assuming 'sample_size' is an integer and you're tuning it over a reasonable range
+#                      # stop_iter(range = c(2, 10)),
+#                      size = 20
+# )
 
 # Register a parallel backend to use multicore processing
 doParallel::registerDoParallel(cores = parallel::detectCores())
@@ -96,11 +92,15 @@ res <-
             control = control_grid(save_pred = TRUE),
             metrics = metric_set(roc_auc, accuracy))
 
-
-
 # best_parameters <- select_best(lr_res, "roc_auc")
 
-best_parameters <- show_best(res, "accuracy", n = 1) #|> slice(5)
+best_parameters <-
+  show_best(res, "accuracy", n = 900) |> filter(mean == max(mean)) |> 
+    filter(mixture != 1) |> 
+  arrange(desc(penalty)) |> 
+    arrange(desc(mixture)) |> 
+  slice(1)
+# best_parameters <- show_best(res, "accuracy", n = 1) #|> slice(5)
 
 update_wflow <- finalize_workflow(workflow, best_parameters)
 
@@ -108,11 +108,11 @@ defense_fit <- last_fit(update_wflow, split = splits, add_validation_set = TRUE)
 
 collect_metrics(defense_fit)
 
-interpret <- defense_fit |> extract_fit_parsnip() |> vip::vip()
-# interpret <- defense_fit |> extract_fit_parsnip() |> tidy() |> print(n = Inf)
+# interpret <- defense_fit |> extract_fit_parsnip() |> vip::vip()
+interpret <- defense_fit |> extract_fit_parsnip() |> tidy() |> print(n = Inf)
 
-# extract_fit_engine(defense_fit) |> tidy() |> print(n = Inf) filter(lambda == best_parameters$penalty)
-# extract_fit_engine(defense_fit) |> tidy() |> filter(step ==1) |> pull(lambda)
+# extract_fit_engine(defense_fit) |> tidy() |> print(n = Inf) filter(Lambda == best_parameters$penalty)
+# extract_fit_engine(defense_fit) |> tidy() |> filter(step ==1) |> pull(Lambda)
 
 prob_of_tackle <- defense_fit |> select(.predictions) |> unnest(.predictions) |> pull(.pred_1) 
 
@@ -196,20 +196,22 @@ grid |>
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(title = "Penalized Regression Tuning Parameters")
 
-pen_grid_results <-
+# pen_grid_results <-
 res$.metrics[[1]] |> 
   select(penalty, mixture, .estimate) |>
-  ggplot(aes(x = penalty, y = mixture, fill = .estimate)) +
-  geom_tile() +  # Use geom_tile() for the heatmap
-  scale_fill_gradient2(low = "blue", high = "red", midpoint = .6) +  # Use a gradient from low to high .estimate values
+  ggplot(aes(x = penalty, y = mixture, color = .estimate)) +
+  # geom_tile() +  # Use geom_tile() for the heatmap
+  geom_point() +  # Use geom_tile() for the heatmap
+  scale_color_gradient2(low = "blue", high = "red", midpoint = .6) +  # Use a gradient from low to high .estimate values
+  # scale_fill_gradient2(low = "blue", high = "red", midpoint = .6) +  # Use a gradient from low to high .estimate values
   theme_minimal() +
   labs(x = "Penalty(Lambda)", y = "Mixture(Alpha)", fill = "Accuracy") +
-  scale_x_log10() +
-  scale_y_log10() +
+  # scale_x_log10() +
+  # scale_y_log10() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   labs(title = "Optimal Tuning Parameters")
 
-list(pen_grid = pen_grid, pen_grid_results = pen_grid_results, best_parameters = best_parameters, pen_briar = pen_briar, interpret = interpret,
+list(pen_grid = pen_grid, pen_grid_results = pen_grid_results, best_parameters = best_parameters, pen_briar = pen_briar, interpret = interpret, pen_accuracy = collect_metrics(defense_fit),
      nrow_train = nrow_train, nrow_val = nrow_val, nrow_test = nrow_test, baseline_accuracy = baseline_accuracy) |>  
   write_rds(file = "99-addm/penalty.RDS")
   

@@ -178,9 +178,25 @@ week_1 <-
     # Check if ball is within 'the fan' (30 degrees on either side)
     ball_in_fan = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3, # Assuming 3 unit is the radius of the fan,
     ball_in_fan = if_else(ball_in_fan, "yes", "no") 
-      
-    )  
-
+    )  |> 
+  ######
+  # End: This identifies if they are 3 yards away and inside that range fan
+  ######
+  # Add in single game/play grouping variable
+  mutate(game_idplay_id = str_c(game_id,play_id)) |> 
+  # Remove several NA values
+  mutate(offense_formation = if_else(is.na(offense_formation), "unk", offense_formation)) |> 
+  ######
+  # Begin: Create Frames from Tackle Column
+  ######
+  group_by(game_id,play_id, nfl_id) |> 
+  mutate(row_with_tackle = mean(ifelse(event == "tackle", cur_group_rows(), NA ), na.rm = TRUE)) |> 
+  mutate(frames_from_tackle = cur_group_rows() - row_with_tackle) |> 
+  ungroup() |> 
+  select(-row_with_tackle) 
+  ######
+  # End: Create Frames from Tackle Column
+  ######
 
 #### add in clusters for defense
 
@@ -196,12 +212,11 @@ library(mclust)
 set.seed(1)
 mclust_mod <- Mclust(data = clust_dat[, c("x_from_los","y")], G = 6)
 
-# mclust_mod
+clust_dat_with_cluster <- 
+  clust_dat |> 
+  mutate(alignment_cluster = as.factor(mclust_mod$classification)) |> 
+  select(-y) 
 
-# summary(mclust_mod)
-# plot(mclust_mod, what = "classification")
-
-clust_dat_with_cluster <- clust_dat |> mutate(alignment_cluster = as.factor(mclust_mod$classification)) |> select(-y)
 
 
 defensive_model_building_data <- 
@@ -258,28 +273,31 @@ defensive_model_building_data <-
 defensive_model_building_data |> 
   left_join(run_play_alignments) |>
   left_join(pass_play_alignment) |>
-  left_join(clust_dat_with_cluster, by = c("game_id", "play_id", "nfl_id")) |> 
+  left_join(clust_dat_with_cluster, by = c("game_id", "play_id", "nfl_id"), relationship = "many-to-many") |> 
   mutate(alignment = ifelse(is.na(run_alignment), pass_alignment, run_alignment)) |> 
+  # Puts values in for NAS with alignment_cluster
+  mutate(alignment_cluster = if_else(is.na(alignment_cluster), "unk", alignment_cluster)) |> 
+  ######
   select(-run_alignment, -pass_alignment) 
   # select(game_id:frame_id, y.x, y.y, contains("alignment"), contains("cluster"), event) 
 # |> filter(!is.na(alignment_cluster))
 
 
-temp <-
-  defensive_model_building_data |> 
-  group_by(game_id, play_id)  |> 
-  mutate(temp = cur_group_id()) |> 
-  relocate(temp) |> 
-  ungroup()
+# temp <-
+#   defensive_model_building_data |> 
+#   group_by(game_id, play_id)  |> 
+#   mutate(temp = cur_group_id()) |> 
+#   relocate(temp) |> 
+#   ungroup()
+# 
+# set.seed(49)
+# temp_sample <- sample(unique(temp$temp),1473, replace = F)
+# # temp_sample <- sample(unique(temp$temp),100, replace = F)
+# 
+# defensive_model_building_data <- 
+#   temp |> filter(temp %in% temp_sample) |> 
+#   select(-temp) |> 
 
-set.seed(49)
-temp_sample <- sample(unique(temp$temp),1473, replace = F)
-# temp_sample <- sample(unique(temp$temp),100, replace = F)
-
-defensive_model_building_data <- 
-  temp |> filter(temp %in% temp_sample) |> 
-  select(-temp) |> 
-  mutate(game_idplay_id = str_c(game_id,play_id))
 
 defensive_model_building_data_model <-
   defensive_model_building_data |> 
@@ -299,7 +317,7 @@ defensive_model_building_data_model <-
 #   select(forcedFumble, tackle, event, display_name, frame_id) |> 
 #   print(n = Inf)
 # 
-# ## i do not know the conlcusion of this play
+# ## i do not know the conclusion of this play
 # week_1 |> distinct(play_id, game_id)
 # week_1 |> filter(tackle == 1) |> distinct(play_id, game_id) 
 # week_1 |> filter(play_id == 146) |> filter(game_id == 2022090800) |> count(prePenaltyPlayResult)

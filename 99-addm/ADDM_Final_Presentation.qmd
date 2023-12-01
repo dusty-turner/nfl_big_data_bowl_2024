@@ -1,5 +1,5 @@
 ---
-title: "Quantifying Tackeling in Football"
+title: "Quantifying Tackling in Football"
 subtitle: "A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques"
 author: "Dusty Turner"
 format: 
@@ -30,7 +30,7 @@ dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, pla
 
 <br>
 <center>
-**Research Question: Can we determine each defensive player's probability that they make a tackle on each play on the football field?**
+**Research Question: Can we determine each defensive player's probability that they make a tackle on each running play on the football field?**
 </center>
 
 . . .
@@ -380,7 +380,7 @@ nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
 ::: {.column width="50%"}
 
 **Rows**: 393,536  
-**Technique**: Group Splitting   
+**Technique**: Group Splitting  (Game ID / Play ID)
 
 **Factors to Consider**:  
 - Tackle (0/1)   
@@ -399,9 +399,11 @@ nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
 ::: {.column width="50%"}
 
 **Concerns**:  
-- Computational time  
-- Limited tuning parameters  
-- Limited data for train/test/validation
+
+* Computational time  
+    + Limits tuning parameter options    
+    + Impacts choices for train/test/validation splits  
+* Different coding languages  
 
 :::
 
@@ -420,30 +422,38 @@ nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
 ::: {.column width="50%"}
 
 
-* Penalized Regression: {GLMNET}
-    + Train: `r pen_rds$nrow_train`
-    + Test: `r pen_rds$nrow_test`
-    + Validate: `r pen_rds$nrow_val`
+* **Penalized Regression**: {GLMNET}
+* **Random Forest**: {Ranger}
+* **XGBoost**: {XGBoost}
+    + Train: `r format(pen_rds$nrow_train, big.mark = ",")`: 5%
+    + Validate: `r format(pen_rds$nrow_val, big.mark = ",")`: 1%
+    + Test: `r format(pen_rds$nrow_test, big.mark = ",")`: 96%
     + Baseline Accuracy: `r rf_rds$baseline_accuracy`
-* Random Forest: {Ranger}
-    + Train: `r rf_rds$nrow_train`
-    + Test: `r rf_rds$nrow_test`
-    + Validate: `r rf_rds$nrow_val`
-    + Baseline Accuracy: `r rf_rds$baseline_accuracy`
+
+<!-- * Penalized Regression: {GLMNET} -->
+<!--     + Train: `r format(pen_rds$nrow_train, big.mark = ",")` -->
+<!--     + Validate: `r format(pen_rds$nrow_val, big.mark = ",")` -->
+<!--     + Test: `r format(pen_rds$nrow_test, big.mark = ",")` -->
+<!--     + Baseline Accuracy: `r rf_rds$baseline_accuracy` -->
+<!-- * Random Forest: {Ranger} -->
+<!--     + Train: `r format(rf_rds$nrow_train, big.mark = ",")` -->
+<!--     + Validate: `r format(rf_rds$nrow_val, big.mark = ",")` -->
+<!--     + Test: `r format(rf_rds$nrow_test, big.mark = ",")` -->
+<!--     + Baseline Accuracy: `r rf_rds$baseline_accuracy` -->
 
 :::
 
 ::: {.column width="50%"}
 
-* XGBoost: {XGBoost}
-    + Train: `r xg_rds$nrow_train`
-    + Test: `r xg_rds$nrow_test`
-    + Validate: `r xg_rds$nrow_val`
-    + Baseline Accuracy: `r rf_rds$baseline_accuracy`
-* Neural Network: {Reticulate} (Python Tensor Flow)
-    + Train: `r #nn_rds$nrow_train`
-    + Test: `r #nn_rds$nrow_test`
-    + Validate: `r #nn_rds$nrow_val`
+<!-- * XGBoost: {XGBoost} -->
+<!--     + Train: `r format(xg_rds$nrow_train, big.mark = ",")` -->
+<!--     + Validate: `r format(xg_rds$nrow_val, big.mark = ",")` -->
+<!--     + Test: `r format(xg_rds$nrow_test, big.mark = ",")` -->
+<!--     + Baseline Accuracy: `r rf_rds$baseline_accuracy` -->
+* **Neural Network**: {Reticulate} (Python Tensor Flow)
+    + Train: `r format(nn_rds$train, big.mark = ",")`: 57%
+    + Validate: `r format(nn_rds$val, big.mark = ",")`: 15%
+    + Test: `r format(nn_rds$test, big.mark = ",")`: 28%
     + Baseline Accuracy: 92.94%
 
 :::
@@ -455,6 +465,12 @@ nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
 ## Penalized Regression {.smaller}
 
 $$\text{Minimize } \left\{ \frac{1}{N} \sum_{i=1}^{N} (y_i - \mathbf{x}_i^T \boldsymbol{\beta})^2 + \lambda \left[ \frac{1 - \alpha}{2} \|\boldsymbol{\beta}\|_2^2 + \alpha \|\boldsymbol{\beta}\|_1 \right] \right\}$$
+
+
+:::: {.columns}
+
+::: {.column width="70%"}
+
 <center>
 
 ```{r}
@@ -464,20 +480,55 @@ pen_rds$pen_grid
 
 </center>
 
+:::
+
+::: {.column width="30%"}
+
+<br>
+<br>
+
+* Tuning Parameters
+    + Alpha
+    + Lambda
+
+:::
+
+::::
 ## Penalized Regression {.smaller}
 
 ```{r, cache = FALSE}
 options(scipen = 999)
 ```
 
-The best parameters are: Lambda = `r round(as.numeric(pen_rds$best_parameters$penalty), 5)` and Alpha = `r as.character(round(as.numeric(pen_rds$best_parameters$mixture), 7))` with an accuracy of `r stringr::str_c(round(pen_rds$best_parameters$mean,4)*100, "%")`
+:::: {.columns}
 
-<center>
+::: {.column width="70%"}
 
 ```{r}
 pen_rds$pen_grid_results +
-  geom_point(aes(x = pen_rds$best_parameters$penalty, y = pen_rds$best_parameters$penalty), shape = 4, color = "black", size = 5)
+  geom_point(aes(x = (pen_rds$best_parameters$penalty), y = pen_rds$best_parameters$mixture), shape = 4, color = "black", size = 5) 
+
 ```
+
+:::
+
+::: {.column width="30%"}
+
+<br>
+
+The best parameters are: 
+
+Lambda = `r round(as.numeric(pen_rds$best_parameters$penalty), 5)`  
+Alpha = `r as.character(round(as.numeric(pen_rds$best_parameters$mixture), 7))`  
+
+Accuracy of `r stringr::str_c(round(pen_rds$best_parameters$mean,4)*100, "%")`
+
+:::
+
+::::
+
+<center>
+
 
 </center>
 
@@ -491,7 +542,8 @@ pen_rds$interpret |>
   ggplot(aes(x = term, y = estimate, fill = estimate)) +
   geom_col(show.legend = FALSE) +
   coord_flip() +
-  labs(x = "")
+  labs(x = "") +
+  theme_minimal()
 
 # pen_rds$interpret |> as_tibble() |> select(-penalty) |> 
 #   mutate(mag = abs(estimate)) |> 
@@ -503,12 +555,30 @@ pen_rds$interpret |>
 
 ## Random Forest {.smaller}
 
+:::: {.columns}
+
+::: {.column width="70%"}
+
 ```{r}
-rf_rds <- read_rds(here::here("99-addm", "rf.RDS"))
 rf_rds$rf_grid
 ```
 
-</center>
+:::
+
+::: {.column width="30%"}
+
+<br>
+<br>
+
+* Tuning Parameters
+    + Mtry
+    + Min_n
+    + Trees
+
+:::
+
+::::
+
 
 ## Random Forest {.smaller}
 
@@ -516,17 +586,39 @@ rf_rds$rf_grid
 options(scipen = 999)
 ```
 
-The best parameters are: Mtry = `r round(as.numeric(rf_rds$best_parameters$mtry), 1)`, Min_n = `r round(as.numeric(rf_rds$best_parameters$min_n), 1)`, and Trees = `r round(as.numeric(rf_rds$best_parameters$trees), 1)` with an accuracy of `r stringr::str_c(round(as.numeric(rf_rds$rf_accuracy$.estimate[1]),4)*100, "%")`.
+:::: {.columns}
+
+::: {.column width="70%"}
 
 ```{r}
 rf_rds$rf_grid_results +
-    geom_point(aes(x = rf_rds$best_parameters$min_n, y = rf_rds$best_parameters$mtry), shape = 4, color = "black")
+    geom_point(aes(x = rf_rds$best_parameters$min_n, y = rf_rds$best_parameters$mtry), shape = 4, color = "black", show.legend = FALSE)
 ```
+
+:::
+
+::: {.column width="30%"}
+
+<br>
+
+The best parameters are: 
+
+Mtry = `r round(as.numeric(rf_rds$best_parameters$mtry), 1)`  
+Min_n = `r round(as.numeric(rf_rds$best_parameters$min_n), 1)`  
+Trees = `r round(as.numeric(rf_rds$best_parameters$trees), 1)`  
+
+Accuracy of `r stringr::str_c(round(as.numeric(rf_rds$rf_accuracy$.estimate[1]),4)*100, "%")`.
+
+:::
+
+::::
 
 ## Random Forest {.smaller}
 
 ```{r}
-rf_rds$interpret
+rf_rds$interpret +
+  labs(title = "Top 10 Factors") +
+  theme_minimal()
 ```
 
 
@@ -534,10 +626,32 @@ rf_rds$interpret
 
 <center>
 
+:::: {.columns}
+
+::: {.column width="70%"}
+
 ```{r}
-xg_rds <- read_rds(here::here("99-addm", "xg.RDS"))
 xg_rds$xg_grid
 ```
+
+:::
+
+::: {.column width="30%"}
+
+<br>
+<br>
+
+* Tuning Parameters
+    + Trees
+    + Min_n
+    + Tree Depth
+    + Learning Rate
+    + Loss Reduction
+    + Sample Size %
+
+:::
+
+::::
 
 </center>
 
@@ -547,20 +661,44 @@ xg_rds$xg_grid
 options(scipen = 999)
 ```
 
-The best parameters are: Trees = `r round(as.numeric(xg_rds$best_parameters$trees), 1)`, Min_n = `r round(as.numeric(xg_rds$best_parameters$min_n), 1)`, Tree Depth = `r round(as.numeric(xg_rds$best_parameters$tree_depth), 1)`, Learn Rate = `r round(as.numeric(xg_rds$best_parameters$learn_rate), 1)`, Loss Reduction = `r round(as.numeric(xg_rds$best_parameters$loss_reduction), 0)`, and Sample Size = `r round(as.numeric(xg_rds$best_parameters$sample_size), 0)` with an accuracy of `r stringr::str_c(round(as.numeric(rf_rds$rf_accuracy$.estimate[1]),4)*100, "%")`.
 
+:::: {.columns}
+
+::: {.column width="70%"}
 <center>
 
 ```{r}
-xg_rds$xg_grid_results
+xg_rds$xg_grid_results + 
+  geom_point(aes(x = xg_rds$best_parameters$tree_depth, y = xg_rds$best_parameters$min_n), shape = 4, color = "black", show.legend = FALSE)
 ```
 
 </center>
+:::
+
+::: {.column width="30%"}
+
+<br>
+
+The best parameters are:   
+
+Trees = `r round(as.numeric(xg_rds$best_parameters$trees), 1)`   
+Min_n = `r round(as.numeric(xg_rds$best_parameters$min_n), 1)`   
+Tree Depth = `r round(as.numeric(xg_rds$best_parameters$tree_depth), 1)`   
+Learn Rate = `r round(as.numeric(xg_rds$best_parameters$learn_rate), 1)`   
+Loss Reduction = `r round(as.numeric(xg_rds$best_parameters$loss_reduction), 0)`   
+Sample Size = `r round(as.numeric(xg_rds$best_parameters$sample_size), 0)`   
+
+Accuracy of `r stringr::str_c(round(as.numeric(rf_rds$rf_accuracy$.estimate[1]),4)*100, "%")`.
+
+:::
+
+::::
+
 
 ## XGBoost {.smaller}
 
 ```{r}
-xg_rds$interpret
+xg_rds$interpret + theme_minimal()
 ```
 
 
@@ -570,7 +708,7 @@ xg_rds$interpret
 nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
 ```
 
-```{.python}
+```{.python code-line-numbers="|3,6,9|4,7,10|5,8,11|14|"}
 def build_model(input_shape):
     model = Sequential([
         Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.001)),
@@ -590,10 +728,13 @@ def build_model(input_shape):
 
 <br>
 
+::: {.fragment}
+
 <center>
 Accuracy: `r stringr::str_c(round(nn_rds$accuracy,4)*100,"%")`
 </center>
 
+:::
 
 ## Neural Network {.smaller}
 
@@ -629,7 +770,23 @@ nn_rds$nn_anim2
 
 ::::
 
+## Neural Network {.smaller}
+
+<center>
+
+```{r}
+nn_rds$accuracy_over_time +
+  labs(x = "Frames Away From Tackle", y = "Probability") +
+  theme_minimal()
+```
+
+</center>
+
 ## Points Above or Below Expected
+
+<br>
+<br>
+<br>
 
 <div style="font-size: 24px;">
 
@@ -646,15 +803,40 @@ Where:
 ## Points Above or Below Expected
 
 ```{r}
+joiner <- defensive_model_building_data_model |> select(nfl_id, position) |> distinct()
+
+library(gt)
+
 make_gt <-  function(data, title, acc = nn_rds$accuracy){
-  acc <- str_c(round(acc,4)*100,"%")
+  
+  acc_stem <- str_c(round(acc,4)*100,"%")
+  
+  if(acc < .929) {
+    sub <- html(paste0("<span style='color: firebrick;'>", "Accuracy: ", acc_stem, "</span>"))
+  } else {
+    sub <- html(paste0("<span style='color: green;'>", "Accuracy: ", acc_stem, "</span>"))
+  }
+  
   data |>
+    left_join(joiner) |> 
   arrange(-tackles_over_expected) |> 
-    rename(`Display Name` = display_name,  `Tackles Over Expected` = tackles_over_expected) |> 
+    rename(`Display Name` = display_name,  `TOE` = tackles_over_expected, `Position` = position) |> 
   slice(c(1:4,(n() - 3):n())) |> 
   select(-nfl_id) |> 
   gt::gt() |> gt::fmt_number() |>  
-    gt::tab_header(title = title,subtitle = str_c("Accuracy: ", acc))
+    gt::tab_header(title = title,
+                   # subtitle = str_c("Accuracy: ", acc)
+                   subtitle = sub
+                   ) |> 
+    tab_style(
+    style = list(
+      cell_borders(sides = "top", color = "black", weight = px(2))
+    ),
+    locations = cells_body(
+      rows = 5, 
+      columns = everything()
+    )
+  )
 }
 ```
 
@@ -663,7 +845,7 @@ make_gt <-  function(data, title, acc = nn_rds$accuracy){
 ::: {.column width="25%"}
 
 ```{r}
-pen_rds$pen_briar |> make_gt(title = "Penalized Regression", acc = pen_rds$best_parameters$mean)
+pen_rds$pen_briar |> make_gt(title = "Penalized Regression", acc = pen_rds$pen_accuracy$.estimate[1])
 ```
 
 :::
@@ -671,14 +853,14 @@ pen_rds$pen_briar |> make_gt(title = "Penalized Regression", acc = pen_rds$best_
 ::: {.column width="25%"}
 
 ```{r}
-rf_rds$rf_briar |> make_gt(title = "Penalized Regression", acc = rf_rds$best_parameters$mean)
+rf_rds$rf_briar |> make_gt(title = "Random Forest", acc = rf_rds$rf_accuracy$.estimate[1])
 ```
 :::
 
 ::: {.column width="25%"}
 
 ```{r}
-xg_rds$xg_briar |> make_gt(title = "Penalized Regression", acc = xg_rds$best_parameters$mean)
+xg_rds$xg_briar |>  make_gt(title = "Extreme Gradient Boosting", acc = xg_rds$xg_accuracy$.estimate[1])
 ```
 
 :::
@@ -686,9 +868,17 @@ xg_rds$xg_briar |> make_gt(title = "Penalized Regression", acc = xg_rds$best_par
 ::: {.column width="25%"}
 
 ```{r}
-nn_rds$nn_briar |> make_gt(title = "Neural Net", acc = nn_rds$accuracy)
+nn_rds$nn_briar |>  make_gt(title = "Neural Net", acc = nn_rds$accuracy)
 ```
 
 :::
 
 ::::
+
+##
+
+<center>
+
+![](01_images/final_slide_image.png)
+
+</center>
