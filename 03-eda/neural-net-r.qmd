@@ -1,0 +1,618 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(reticulate)
+library(data.table)
+library(gganimate)
+source(here::here("03-eda","ggtheme_field.R"))
+if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
+source(here::here("03-eda", "data_cleaning.R"))
+} else {
+  defensive_model_building_data <- read_rds(here::here("02-clean-data", "data_cleaning_working.RDS"))
+  week_1 <- read_rds(here::here("02-clean-data", "week_1.RDS"))
+}
+```
+
+```{r}
+
+deff <-
+defensive_model_building_data %>% 
+  filter(is.na(pass_result)) |>
+  filter(frame_id >= 5) |> 
+  filter(frames_from_tackle <=0) |> 
+
+  ## end finds frames from tackle
+  mutate(position = as.character(position)) %>%
+  mutate(position = replace_na(position, "unknown")) %>%
+  mutate(position = factor(position)) |> 
+  select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
+           position, offense_formation, quarter, down, rank,
+           defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
+
+
+library(mltools)
+library(data.table)
+
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
+
+newdata <-
+  deff |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  as.data.table() |> one_hot() |> 
+  as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
+  mutate(game_id = as.numeric(as.character(game_id))) |> 
+  mutate(play_id = as.numeric(as.character(play_id)))
+
+# Set a seed for reproducibility
+set.seed(42)
+
+# Create a resample split with respect to game_id and play_id
+split <- group_initial_split(newdata, prop = 0.8, group = game_idplay_id)
+
+# Create training and testing sets
+train_data <- training(split)
+test_data <- testing(split)
+
+# Now, you can proceed with preprocessing train_data and test_data as before
+
+```
+
+```{r}
+# Load libraries
+library(tensorflow)
+library(keras)
+
+# Normalize your data
+# Selecting a subset of columns for demonstration. You should extend this to all relevant columns.
+numeric_columns <- c('x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight')
+
+# Applying normalization on the selected columns
+# train_data[numeric_columns] <- scale(train_data[numeric_columns])
+# test_data[numeric_columns] <- scale(test_data[numeric_columns])
+
+categorical_features = c('position_CB', 'position_DB', 'position_DE', 'position_DT',
+       'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
+       'position_OLB', 'position_SS', 'position_unknown',
+       'offense_formation_Empty', 'offense_formation_I Form',
+       'offense_formation_Jumbo', 'offense_formation_Pistol',
+       'offense_formation_Shotgun', 'offense_formation_Singleback',
+       'offense_formation_Wildcat', 'quarter_1', 'quarter_2', 'quarter_3',
+       'quarter_4', 'quarter_5', 'down_1', 'down_2', 'down_3', 'down_4',
+       'rank_1', 'rank_10', 'rank_11', 'rank_2', 'rank_3', 'rank_4', 'rank_5',
+       'rank_6', 'rank_7', 'rank_8', 'rank_9', 'defenders_in_the_box_1',
+       'defenders_in_the_box_10', 'defenders_in_the_box_11',
+       'defenders_in_the_box_4', 'defenders_in_the_box_5',
+       'defenders_in_the_box_6', 'defenders_in_the_box_7',
+       'defenders_in_the_box_8', 'defenders_in_the_box_9',
+       'ball_in_fan3_no', 'ball_in_fan3_yes', 'ball_in_fan2_no', 'ball_in_fan2_yes', 'ball_in_fan1_no', 'ball_in_fan1_yes')  # Update with your actual categorical features
+
+train_data <-
+train_data |> 
+  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
+
+test_data <-
+test_data |> 
+  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
+
+# Convert to data.table
+setDT(train_data)
+setDT(test_data)
+
+# Store the reference columns in a separate table
+reference_data <- train_data[, .(nfl_id, frame_id, frames_from_tackle, display_name, game_id, play_id, game_idplay_id)]
+
+# Now create the sequences without the reference columns
+train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
+                               target = list(tackle)),
+                           by = .(game_id, play_id, nfl_id)]
+
+test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
+                                 by = .(game_id, play_id, nfl_id)]
+# # Now create the sequences without the reference columns
+# train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "nfl_id", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
+#                                target = list(tackle)),
+#                            by = .(game_id, play_id)]
+# 
+# test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "nfl_id", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
+#                                  by = .(game_id, play_id)]
+
+# Split sequences and targets into separate objects
+list_of_sequences <- train_data_grouped$sequence
+list_of_test_sequences <- test_data_grouped$sequence
+
+targets <- train_data_grouped$target
+
+# Convert lists to arrays for model input
+# Note: You need to ensure all sequences have the same length. If not, you need to pad them to the same length.
+# Assuming 'max_length' is the length of your longest sequence and 'num_features' is the number of features
+max_length_train <- max(sapply(list_of_sequences, nrow))
+max_length_test <- max(sapply(list_of_test_sequences, nrow))
+max_length <- max(max_length_train, max_length_test)
+num_features <- ncol(list_of_sequences[[1]])
+
+# Prepare x_train with the adjusted max_length
+# Prepare x_train with the adjusted max_length
+x_train <- array(0, dim = c(length(list_of_sequences), max_length, num_features))
+
+for (i in seq_along(list_of_sequences)) {
+  sequence <- list_of_sequences[[i]]
+  len <- nrow(sequence)
+  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  
+  # Ensure the sequence is numeric
+  numeric_sequence <- as.numeric(as.vector(t(sequence)))
+  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
+  
+  x_train[i, , ] <- sequence_resized
+}
+
+# Prepare x_test with the same max_length
+# Assuming 'max_length' and 'num_features' are based on training data excluding 'tackle'
+x_test <- array(0, dim = c(length(list_of_test_sequences), max_length, num_features))
+
+for (i in seq_along(list_of_test_sequences)) {
+  sequence <- list_of_test_sequences[[i]]
+  len <- min(nrow(sequence), max_length)
+  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  
+  # Convert sequence to numeric
+  numeric_sequence <- as.numeric(as.vector(t(sequence)))
+  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
+  
+  x_test[i, , ] <- sequence_resized
+}
+
+y_train <- unlist(targets)
+
+y_test <- test_data[tackle != "NA", tackle]
+
+N <- ncol(x_train)
+
+# model <- keras_model_sequential() %>%
+#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
+#   layer_dropout(rate = 0.5) %>%
+#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
+#   layer_dropout(rate = 0.5) %>%
+#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
+#   layer_dropout(rate = 0.5) %>%
+#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
+#   layer_dropout(rate = 0.5) %>%
+#   layer_lstm(units = 100, return_sequences = TRUE) %>%
+#   layer_dropout(rate = 0.5) %>%
+#   time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
+
+model <- keras_model_sequential() %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.2) %>%
+  # Continue adding more bidirectional LSTM and dropout layers as needed
+  time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
+
+# Compile the model
+model %>% compile(
+  loss = 'binary_crossentropy',  # Use 'binary_crossentropy' for binary classification, 'categorical_crossentropy' for multi-class
+  optimizer = optimizer_adam(),
+  metrics = c('accuracy')
+)
+
+# Fit the model on training data
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 3,  # Number of iterations over the entire dataset
+  batch_size = 32,  # Number of samples per gradient update
+  validation_split = 0.2  # Portion of data to use for validation
+)
+
+# Step 1: Record the original sequence lengths before padding
+original_lengths <- sapply(list_of_test_sequences, nrow)
+
+# Make predictions on the test set
+predictions <- model %>% predict(x_test)
+
+# Step 2: Filter out predictions for padded frames
+# Assuming predictions is a 2D array with the first dimension corresponding to different sequences
+filtered_predictions <- numeric(0)
+for (i in seq_along(original_lengths)) {
+  # Extract and append the relevant predictions for each sequence
+  filtered_predictions <- c(filtered_predictions, predictions[i, 1:original_lengths[i], ])
+}
+
+library(pROC)
+
+# Assuming test_data$tackle is the actual binary label (0 or 1)
+actuals <- test_data$tackle
+predictions <- filtered_predictions
+
+# Convert predictions to binary based on a threshold (e.g., 0.5)
+predicted_classes <- ifelse(predictions > 0.1, 1, 0)
+
+
+
+# Calculate accuracy
+accuracy <- mean(predicted_classes == actuals)
+print(paste("Accuracy:", accuracy))
+
+# Calculate AUC
+roc_result <- roc(actuals, predictions)
+auc_value <- auc(roc_result)
+print(paste("AUC:", auc_value))
+
+# Create the ROC curve plot
+# Create the ROC curve plot
+ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
+  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+
+
+```
+
+
+
+## custom loss function
+
+```{r}
+# Load libraries
+library(tensorflow)
+library(keras)
+
+# Normalize your data
+# Selecting a subset of columns for demonstration. You should extend this to all relevant columns.
+numeric_columns <- c('x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight')
+
+# Applying normalization on the selected columns
+# train_data[numeric_columns] <- scale(train_data[numeric_columns])
+# test_data[numeric_columns] <- scale(test_data[numeric_columns])
+
+categorical_features = c('position_CB', 'position_DB', 'position_DE', 'position_DT',
+       'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
+       'position_OLB', 'position_SS', 'position_unknown',
+       'offense_formation_Empty', 'offense_formation_I Form',
+       'offense_formation_Jumbo', 'offense_formation_Pistol',
+       'offense_formation_Shotgun', 'offense_formation_Singleback',
+       'offense_formation_Wildcat', 'quarter_1', 'quarter_2', 'quarter_3',
+       'quarter_4', 'quarter_5', 'down_1', 'down_2', 'down_3', 'down_4',
+       'rank_1', 'rank_10', 'rank_11', 'rank_2', 'rank_3', 'rank_4', 'rank_5',
+       'rank_6', 'rank_7', 'rank_8', 'rank_9', 'defenders_in_the_box_1',
+       'defenders_in_the_box_10', 'defenders_in_the_box_11',
+       'defenders_in_the_box_4', 'defenders_in_the_box_5',
+       'defenders_in_the_box_6', 'defenders_in_the_box_7',
+       'defenders_in_the_box_8', 'defenders_in_the_box_9',
+       'ball_in_fan3_no', 'ball_in_fan3_yes', 'ball_in_fan2_no', 'ball_in_fan2_yes', 'ball_in_fan1_no', 'ball_in_fan1_yes')  # Update with your actual categorical features
+
+train_data <-
+train_data |> 
+  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
+
+test_data <-
+test_data |> 
+  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
+
+# Convert to data.table
+setDT(train_data)
+setDT(test_data)
+
+# Store the reference columns in a separate table
+reference_data <- train_data[, .(nfl_id, frame_id, frames_from_tackle, display_name, game_id, play_id, game_idplay_id)]
+
+# Now create the sequences without the reference columns
+train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
+                               target = list(tackle)),
+                           by = .(game_id, play_id, nfl_id)]
+
+test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
+                                 by = .(game_id, play_id, nfl_id)]
+
+# Split sequences and targets into separate objects
+list_of_sequences <- train_data_grouped$sequence
+list_of_test_sequences <- test_data_grouped$sequence
+
+targets <- train_data_grouped$target
+
+# Convert lists to arrays for model input
+# Note: You need to ensure all sequences have the same length. If not, you need to pad them to the same length.
+# Assuming 'max_length' is the length of your longest sequence and 'num_features' is the number of features
+max_length_train <- max(sapply(list_of_sequences, nrow))
+max_length_test <- max(sapply(list_of_test_sequences, nrow))
+max_length <- max(max_length_train, max_length_test)
+num_features <- ncol(list_of_sequences[[1]])
+
+# Prepare x_train with the adjusted max_length
+# Prepare x_train with the adjusted max_length
+x_train <- array(0, dim = c(length(list_of_sequences), max_length, num_features))
+
+for (i in seq_along(list_of_sequences)) {
+  sequence <- list_of_sequences[[i]]
+  len <- nrow(sequence)
+  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  
+  # Ensure the sequence is numeric
+  numeric_sequence <- as.numeric(as.vector(t(sequence)))
+  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
+  
+  x_train[i, , ] <- sequence_resized
+}
+
+# Prepare x_test with the same max_length
+# Assuming 'max_length' and 'num_features' are based on training data excluding 'tackle'
+x_test <- array(0, dim = c(length(list_of_test_sequences), max_length, num_features))
+
+for (i in seq_along(list_of_test_sequences)) {
+  sequence <- list_of_test_sequences[[i]]
+  len <- min(nrow(sequence), max_length)
+  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  
+  # Convert sequence to numeric
+  numeric_sequence <- as.numeric(as.vector(t(sequence)))
+  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
+  
+  x_test[i, , ] <- sequence_resized
+}
+
+y_train <- unlist(targets)
+
+y_test <- test_data[tackle != "NA", tackle]
+
+N <- ncol(x_train)
+
+custom_loss <- function(y_true, y_pred) {
+  # Binary cross-entropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Constraint for sum of probabilities to be 1
+  # This will require modification to calculate the sum per group
+  sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
+
+  # Combine the BCE loss and the constraint with a balancing factor (lambda)
+  lambda <- 0.1  # This is a hyperparameter you can tune
+  return(bce + lambda * sum_constraint)
+}
+
+
+num_players <- 22  # Assuming 22 players in each frame, adjust based on your data
+N <- ncol(x_train)
+num_features <- ncol(list_of_sequences[[1]])
+
+model <- keras_model_sequential() %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.2) %>%
+  # Continue adding more bidirectional LSTM and dropout layers as needed
+  time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
+
+
+optimizer <- optimizer_adam()
+
+get_batches <- function(x, y, batch_size) {
+  n <- dim(x)[1]  # Assuming the first dimension is the number of samples
+  perm <- sample(n)
+  
+  list_of_batches <- list()
+  for (i in seq(1, n, by = batch_size)) {
+    idx <- perm[i:min(i+batch_size-1, n)]
+    x_batch <- x[idx,,]
+    y_batch <- y[idx]
+    list_of_batches[[length(list_of_batches) + 1]] <- list(x = x_batch, y = y_batch)
+  }
+
+  list_of_batches
+}
+
+
+# Assuming num_epochs and batch_size are defined
+num_epochs <- 3  # Replace with your actual number of epochs
+batch_size <- 100  # Replace with your actual batch size
+
+# Custom training loop
+library(tictoc)  # For timing
+library(progress)  # For the progress bar
+
+# Custom training loop with a progress bar
+for (epoch in 1:num_epochs) {
+  tic()  # Start timing the epoch
+  cat("Epoch", epoch, "/", num_epochs, "\n")
+  
+  total_loss <- 0
+  num_batches <- length(get_batches(x_train, y_train, batch_size))
+  
+  # Create a progress bar
+  pb <- progress_bar$new(
+    format = "  [:bar] :percent :current/:total (eta: :eta)",
+    total = num_batches, clear = FALSE, width = 60
+  )
+
+  for (i in seq_along(get_batches(x_train, y_train, batch_size))) {
+    batch <- get_batches(x_train, y_train, batch_size)[[i]]
+    tape <- tf$GradientTape()
+    
+    with(tape, {
+      predictions <- model(batch$x)
+      loss <- custom_loss(batch$y,predictions)
+    })
+    
+    gradients <- tape$gradient(loss, model$trainable_variables)
+    grads_and_vars <- lapply(seq_along(gradients), function(j) {
+      list(gradients[[j]], model$trainable_variables[[j]])
+    })
+    
+    optimizer$apply_gradients(grads_and_vars)
+    
+    batch_loss <- as.numeric(loss)
+    total_loss <- total_loss + batch_loss
+
+    # Update the progress bar
+    pb$tick()
+  }
+
+  epoch_loss <- total_loss / num_batches
+  epoch_time <- toc()  # End timing the epoch
+
+  # Log summary at the end of the epoch
+  # cat(sprintf("\nEpoch %d completed in %.2f seconds. Average loss: %.4f\n", 
+  #             epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
+
+  # Evaluate on validation set if available
+  # Add your validation evaluation code here (optional)
+}
+
+original_lengths <- sapply(list_of_test_sequences, nrow)
+
+# Make predictions on the test set
+predictions <- model %>% predict(x_test)
+
+# Step 2: Filter out predictions for padded frames
+# Assuming predictions is a 2D array with the first dimension corresponding to different sequences
+filtered_predictions <- numeric(0)
+for (i in seq_along(original_lengths)) {
+  # Extract and append the relevant predictions for each sequence
+  filtered_predictions <- c(filtered_predictions, predictions[i, 1:original_lengths[i], ])
+}
+
+library(pROC)
+
+# Assuming test_data$tackle is the actual binary label (0 or 1)
+actuals <- test_data$tackle
+predictions <- filtered_predictions
+
+# Convert predictions to binary based on a threshold (e.g., 0.5)
+predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+
+
+
+# Calculate accuracy
+accuracy <- mean(predicted_classes == actuals)
+print(paste("Accuracy:", accuracy))
+
+# Calculate AUC
+roc_result <- roc(actuals, predictions)
+auc_value <- auc(roc_result)
+print(paste("AUC:", auc_value))
+
+# Create the ROC curve plot
+# Create the ROC curve plot
+ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
+  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+
+
+test_set_with_predictions |> 
+  group_by(game_id, play_id, frame_id) |> 
+  filter(!is.na(prediction)) |> 
+  summarise(total = sum(prediction), n = n())
+
+```
+
+
+## Animations
+
+```{r}
+test_set_with_predictions<-
+# Add the predictions directly to test_data if they are in the same order
+ test_data %>%
+  mutate(prediction = filtered_predictions) |> 
+  mutate(prediction_class = as.factor(predicted_classes)) |> 
+  as_tibble() |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  relocate(game_id, play_id, prediction, frames_from_tackle, tackle)  |> 
+  mutate(across(.cols = c(game_id, play_id, nfl_id), .fns = ~as.character(.)))
+
+accuracy_over_time <-
+test_set_with_predictions |> 
+  group_by(frames_from_tackle) |>
+  yardstick::accuracy(truth = tackle, prediction_class) |> 
+  ggplot(aes(x = frames_from_tackle, y = .estimate)) +
+  geom_line() +
+  ylim(NA,1)
+
+animated_plot <-
+week_1 |> 
+  left_join(test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, prediction)) |> 
+  filter(!is.na(prediction)) |> 
+  group_by(game_id, play_id) |> filter(cur_group_id() == 1) |> ungroup() |> 
+  ggplot(aes(x = frame_id, y = prediction)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3) + # Add a point for each line
+  facet_wrap(~jersey_number) +
+  transition_reveal(frame_id) # Animate the points along the line
+
+anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+animated_plot2 <-
+week_1 |> 
+  filter(play_id %in% test_set_with_predictions$play_id) |> 
+  filter(game_id %in% test_set_with_predictions$game_id) |> 
+  left_join(
+    test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, prediction) |> 
+      mutate(prediction = ifelse(is.na(prediction), 0, prediction))
+    ) |> 
+  group_by(game_id, play_id) |> 
+  filter(cur_group_id() == 1) |>
+  filter(frame_id >=5) |> 
+  filter(frame_id <= max(frame_id)-4) |> 
+  mutate(prediction = ifelse(club == defensive_team & is.na(prediction), 0, prediction)) |> 
+  ungroup()  |> 
+  mutate(color = prediction) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, prediction, defensive_team, frame_id) %>%  
+  # filter(club == defensive_team) |> select(prediction, frame_id, display_name) |> print(n = Inf) |> pull(prediction) |> hist()
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
+
+accuracy <- py$evaluation[[2]]
+
+nn_briar <- 
+  test_set_with_predictions |> 
+  select(game_id, play_id, nfl_id, display_name,tackle, pred) |> 
+  filter(!is.na(pred)) |> 
+  mutate(tackle  = as.integer(as.character(tackle))) |> 
+  group_by(game_id, play_id, nfl_id, display_name) |> 
+  reframe(expected_prob_of_tackle = mean(pred), tackle = mean(tackle)) |> 
+  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  group_by(nfl_id, display_name) |> 
+  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  arrange(-tackles_over_expected)
+
+train_rows <- nrow(py$X_train) * .8
+val_rows <- nrow(py$X_train) * .2
+test_rows <- nrow(py$X_test)
+```

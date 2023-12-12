@@ -1,0 +1,2714 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.353">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Dusty Turner">
+
+<title>Quantifying Tackling in Football</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/quarto.js"></script>
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/popper.min.js"></script>
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Quantifying_Tackling_in_Football_Research_Paper_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Quantifying_Tackling_in_Football_Research_Paper_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Quantifying_Tackling_in_Football_Research_Paper_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Quantifying_Tackling_in_Football_Research_Paper_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul class="collapse">
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
+  <li><a href="#methodology" id="toc-methodology" class="nav-link" data-scroll-target="#methodology"><span class="header-section-number">2</span> Methodology</a>
+  <ul class="collapse">
+  <li><a href="#data-sourcing" id="toc-data-sourcing" class="nav-link" data-scroll-target="#data-sourcing"><span class="header-section-number">2.1</span> Data Sourcing</a></li>
+  <li><a href="#feature-development" id="toc-feature-development" class="nav-link" data-scroll-target="#feature-development"><span class="header-section-number">2.2</span> Feature Development</a></li>
+  </ul></li>
+  <li><a href="#model-building" id="toc-model-building" class="nav-link" data-scroll-target="#model-building"><span class="header-section-number">3</span> Model Building</a>
+  <ul class="collapse">
+  <li><a href="#computational-considerations" id="toc-computational-considerations" class="nav-link" data-scroll-target="#computational-considerations"><span class="header-section-number">3.1</span> Computational Considerations</a></li>
+  <li><a href="#penalized-regression" id="toc-penalized-regression" class="nav-link" data-scroll-target="#penalized-regression"><span class="header-section-number">3.2</span> Penalized Regression</a></li>
+  <li><a href="#random-forest" id="toc-random-forest" class="nav-link" data-scroll-target="#random-forest"><span class="header-section-number">3.3</span> Random Forest</a></li>
+  <li><a href="#xgboost" id="toc-xgboost" class="nav-link" data-scroll-target="#xgboost"><span class="header-section-number">3.4</span> XGBoost</a></li>
+  <li><a href="#neural-networks" id="toc-neural-networks" class="nav-link" data-scroll-target="#neural-networks"><span class="header-section-number">3.5</span> Neural Networks</a></li>
+  </ul></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results"><span class="header-section-number">4</span> Results</a>
+  <ul class="collapse">
+  <li><a href="#accuracy" id="toc-accuracy" class="nav-link" data-scroll-target="#accuracy"><span class="header-section-number">4.1</span> Accuracy</a></li>
+  <li><a href="#comparative-analysis-of-model-rankings" id="toc-comparative-analysis-of-model-rankings" class="nav-link" data-scroll-target="#comparative-analysis-of-model-rankings"><span class="header-section-number">4.2</span> Comparative Analysis of Model Rankings</a></li>
+  <li><a href="#tackles-above-expected" id="toc-tackles-above-expected" class="nav-link" data-scroll-target="#tackles-above-expected"><span class="header-section-number">4.3</span> Tackles Above Expected</a></li>
+  </ul></li>
+  <li><a href="#application-and-implications" id="toc-application-and-implications" class="nav-link" data-scroll-target="#application-and-implications"><span class="header-section-number">5</span> Application and Implications</a>
+  <ul class="collapse">
+  <li><a href="#performance-analysis" id="toc-performance-analysis" class="nav-link" data-scroll-target="#performance-analysis"><span class="header-section-number">5.1</span> Performance Analysis</a></li>
+  <li><a href="#career-progression-and-contract-negotiations" id="toc-career-progression-and-contract-negotiations" class="nav-link" data-scroll-target="#career-progression-and-contract-negotiations"><span class="header-section-number">5.2</span> Career Progression and Contract Negotiations</a></li>
+  <li><a href="#enhancing-team-tactics" id="toc-enhancing-team-tactics" class="nav-link" data-scroll-target="#enhancing-team-tactics"><span class="header-section-number">5.3</span> Enhancing Team Tactics</a></li>
+  </ul></li>
+  <li><a href="#limitations-and-directions-for-future-research" id="toc-limitations-and-directions-for-future-research" class="nav-link" data-scroll-target="#limitations-and-directions-for-future-research"><span class="header-section-number">6</span> Limitations and Directions for Future Research</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">7</span> Conclusion</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">8</span> References</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Quantifying Tackling in Football</h1>
+<p class="subtitle lead">A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Dusty Turner </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+<div>
+  <div class="abstract">
+    <div class="abstract-title">Abstract</div>
+    <p>This study presents a novel approach to quantifying tackling effectiveness in football using advanced data analysis and machine learning techniques. Leveraging the NFL Big Data Bowl dataset, we develop models to predict and evaluate defensive players’ tackling probabilities during running plays. Our methodology combines penalized regression, random forest, XGBoost, and neural network models to calculate a ‘tackles over expected’ metric for each player. The findings provide insights into individual and team defensive performances, offering a data-driven perspective to inform coaching and player development strategies.</p>
+  </div>
+</div>
+
+</header>
+
+<section id="introduction" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>Tackling in football is a critical skill influencing game outcomes and presents challenges in quantification due to the complex interplay of player dynamics and game situations. This study employs advanced data analysis and machine learning models to the NFL Big Data Bowl dataset with the objective of determining each defensive player’s probability of making a tackle during running plays and assigning a ‘tackles over expected’ value to quantify performance.</p>
+<p>In recent years, football analytics has seen a significant transformation, largely influenced by the integration of data science and machine learning techniques. Some of the pioneering work in this field is in the book “The Hidden Game of Football” by Bob Carroll, Pete Palmer, and John Thorn<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>, which lays the groundwork for advanced statistical analysis in football.</p>
+<p>The NFL Big Data Bowl competitions hosted on Kaggle have been instrumental in driving forward the field of sports analytics. These competitions have evolved over the years, each focusing on different aspects of the game:</p>
+<ul>
+<li>The NFL Big Data Bowl 2020<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> focused on predicting how many yards a player would gain after receiving a handoff.</li>
+<li>The NFL Big Data Bowl 2021<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a> shifted the focus to evaluating defensive performance on passing plays.</li>
+<li>The NFL Big Data Bowl 2022<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> was centered around evaluating special teams’ performance.</li>
+<li>The NFL Big Data Bowl 2023<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> aimed to evaluate linemen on pass plays.</li>
+</ul>
+<p>These competitions have collectively contributed to the enrichment of football analytics by providing developing innovative approaches to understanding and analyzing the game. This study draws from these diverse approaches, particularly focusing on tackling metrics, to further enhance the defensive strategy analysis in football.</p>
+</section>
+<section id="methodology" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Methodology</h1>
+<section id="data-sourcing" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="data-sourcing"><span class="header-section-number">2.1</span> Data Sourcing</h2>
+<p>The extensive <a href="https://kaggle.com/competitions/nfl-big-data-bowl-2024">NFL Big Data Bowl dataset</a>, hosted on Kaggle, includes detailed tracking data for the first nine weeks of NFL games. This dataset covers various play types, including run plays, pass plays, and quarterback scrambles, with data recorded every 0.1 seconds. The analysis specifically focuses on run plays during the first week of the 2022 NFL season, chosen to manage computational complexity and analyze a subset of the dataset in depth.</p>
+</section>
+<section id="feature-development" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="feature-development"><span class="header-section-number">2.2</span> Feature Development</h2>
+<p>In order to prepare the data for analysis, I took the following steps to develop features that help indicate actions on the field that indicate an immanent tackle:</p>
+<ol type="1">
+<li><p><strong>Data Loading and Initial Filtering</strong>: The dataset is comprised of five distinct sections, each detailing different aspects of the game. These sections included data on tackles, plays, player movements, and other game elements. I joined this information into a comprehensive dataset for analysis.</p></li>
+<li><p><strong>Data Transformation and Engineering</strong></p></li>
+</ol>
+<ul>
+<li><p><strong>Rearranging Tackle Data</strong>: Converting position and tackle variables into factors.</p></li>
+<li><p><strong>Calculating the Ball’s Position and Attributes</strong>:</p>
+<ul>
+<li>Position: <span class="math inline">\(x_{\text{ball}}, y_{\text{ball}}\)</span></li>
+<li>Speed and direction: <span class="math inline">\(s_{\text{ball}}, \theta_{\text{ball}}\)</span></li>
+</ul></li>
+<li><p><strong>Creating Indicators for the Ball Carrier and the Football</strong>:</p>
+<ul>
+<li>Ball Carrier: Identifying the player with possession of the ball.</li>
+<li>Football: Distinguishing the football from the players.</li>
+<li>The figure below displays the Ball Carrier in red, the offensive players in blue, the defense in green, and the tackler in purple.</li>
+</ul>
+<div id="fig-ball-carrier" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_position.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;1: Ball Carrier Indicator Visualization</figcaption>
+</figure>
+</div></li>
+<li><p><strong>Computing Distance to the Ball</strong>:</p>
+<ul>
+<li>Understanding player positioning relative to the football.</li>
+<li>Formula: <span class="math inline">\(d = \sqrt{(x_{\text{ball}} - x_{\text{player}})^2 + (y_{\text{ball}} - y_{\text{player}})^2}\)</span></li>
+<li><a href="#fig-distance-to-ball">Figure&nbsp;2</a> below visualizes the distance of each player to the ball.</li>
+</ul>
+<div id="fig-distance-to-ball" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_distance.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;2: Distance to Ball Visualization</figcaption>
+</figure>
+</div></li>
+<li><p><strong>Projecting Future Locations of Players and the Ball</strong>:</p>
+<ul>
+<li>Estimating where a player and the ball will be in the future can help indicate who is in position to make a tackle.</li>
+<li>Player projection formula: <span class="math inline">\(x_{\text{future\_player}} = x_{\text{player}} + v_{x_{\text{player}}} \times \Delta t + \frac{1}{2} a_{x_{\text{player}}} \times \Delta t^2\)</span>, <span class="math inline">\(y_{\text{future\_player}} = y_{\text{player}} + v_{y_{\text{player}}} \times \Delta t + \frac{1}{2} a_{y_{\text{player}}} \times \Delta t^2\)</span></li>
+<li>Ball projection formula: <span class="math inline">\(x_{\text{future\_ball}} = x_{\text{ball}} + v_{x_{\text{ball}}} \times \Delta t + \frac{1}{2} a_{x_{\text{ball}}} \times \Delta t^2\)</span>, <span class="math inline">\(y_{\text{future\_ball}} = y_{\text{ball}} + v_{y_{\text{ball}}} \times \Delta t + \frac{1}{2} a_{y_{\text{ball}}} \times \Delta t^2\)</span><br>
+</li>
+<li><a href="#fig-future-projection-player">Figure&nbsp;3</a> below shows the projected future locations of players and the ball <span class="math inline">\(t = .5\)</span> seconds from the current time. The dot is their current location and the end of the arrow is the projected location.<br>
+</li>
+<li><a href="#fig-future-projection-ball">Figure&nbsp;4</a> shows the distance between the player and the projected location of the ball <span class="math inline">\(t=.5\)</span> seconds from the current time.</li>
+</ul>
+<div id="fig-future-projection-player" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_player_projection.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;3: Future Location Projection Of Players</figcaption>
+</figure>
+</div>
+<div id="fig-future-projection-ball" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_projected_distance.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;4: Future Distance Projection</figcaption>
+</figure>
+</div></li>
+<li><p><strong>Generating ‘Approach Velocity’ Vector</strong>:</p>
+<ul>
+<li>Describing how players move relative to the ball’s trajectory can help us understand who is in position to make a tackle.</li>
+<li>The approach velocity vector measures the similarity between a player’s and the ball’s speed and direction.</li>
+<li><a href="#fig-approach-velocity">Figure&nbsp;5</a> is a static view of the players’ approach velocity towards the ball.</li>
+</ul>
+<div id="fig-approach-velocity" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_speed_vector.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;5: Approach Velocity Visualization</figcaption>
+</figure>
+</div></li>
+<li><p><strong>Creating an Orientation ‘Fan’</strong>:</p>
+<ul>
+<li>Determining if players are within a certain range of the ball can help determine who is in position to make a tackle.</li>
+<li><a href="#fig-orientation-fan">Figure&nbsp;6</a> shows the orientation ‘fan’ indicating potential tackling zones. Players turn ‘red’ when the ball is within 3 yards and 60 degrees of the the way the defensive player is facing.</li>
+</ul>
+<div id="fig-orientation-fan" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_range_fan.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;6: Orientation ‘Fan’ Visualization</figcaption>
+</figure>
+</div></li>
+<li><p><strong>Classifying Defensive Alignments Using Clustering Techniques</strong>:</p>
+<ul>
+<li>Grouping players based on starting positions can help provide insight into pre-snap assignments.</li>
+<li>This can help a model infer player behavior and adaptability of defensive strategies against various offensive sets.</li>
+</ul></li>
+</ul>
+<div id="fig-defensive-alignment" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="01_images/intro_clusters.png" class="img-fluid figure-img" style="width:50.0%"></p>
+<figcaption class="figure-caption">Figure&nbsp;7: Defensive Alignment Clustering Visualization</figcaption>
+</figure>
+</div>
+<ol start="3" type="1">
+<li><strong>Data Cleaning and Final Preparation</strong>:</li>
+</ol>
+<ul>
+<li>I addressed missing values through mean imputation for continuous values or by replacing unknown factor levels with an “unknown” level.</li>
+<li>I removed known irrelevant features from the data like jersey number and player name.</li>
+</ul>
+<p>This comprehensive feature development process helped ensure the data was prepared for the different model types and we did not lose any information due to missingness.</p>
+<ol start="4" type="1">
+<li><strong>Feature Animations</strong></li>
+</ol>
+<p>Animations for all relavent features can be found at <a href="https://dustysturner.com/baylor/addm_final_presentation.html">https://dustysturner.com/baylor/addm_final_presentation.html</a>.</p>
+</section>
+</section>
+<section id="model-building" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Model Building</h1>
+<p>In this section, I outline how I build the predictive models. Specifically, I detail division of the dataset into training, validation, and testing sets for robust evaluation and I provide baseline accuracies within the individual model descriptions below.</p>
+<section id="computational-considerations" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="computational-considerations"><span class="header-section-number">3.1</span> Computational Considerations</h2>
+<p>Several computational constraints impacted the modeling process. Limited computational resources dictated a more selective approach to parameter tuning and necessitated trade-offs for each model:</p>
+<ul>
+<li><strong>Parameter Selection</strong>: The size of the grid to tune parameters had to balance between the ideal size of exploration and the practical limits of our computational resources.</li>
+<li><strong>Data Splitting</strong>: The approach to splitting the dataset for training, testing, and validation was influenced by these constraints, particularly for the non-neural network models. These models were slower and could not handle as much data in the training set.</li>
+<li><strong>Coding Language Variability</strong>: Employing both Python and R introduced an element of inconsistency in our data splitting process as each language split the data in a specific way. One might have desired to split the data into these partitions before changing languages, however, each model type required specific data manipulation, including imputation to be done after the data splitting process, which impacted variability between models.</li>
+</ul>
+<p>Despite these considerations, I provide a robust modeling strategy that adapted to these limitations and yielded insightful results.</p>
+</section>
+<section id="penalized-regression" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="penalized-regression"><span class="header-section-number">3.2</span> Penalized Regression</h2>
+<p>The Penalized Regression model employs regularization techniques to linear regression, preventing overfitting and improving prediction accuracy. Its simplicity and interpretability make it a valuable baseline for performance comparison in tackling probabilities.</p>
+<ul>
+<li><strong>Data Split</strong>:
+<ul>
+<li>Train: 19,426 rows (5% of the data)</li>
+<li>Validate: 4,114 rows (1% of the data)</li>
+<li>Test: 369,996 rows (94% of the data)</li>
+</ul></li>
+<li><strong>Baseline Accuracy</strong>: 92.9%</li>
+<li><strong>Best Parameters</strong>:
+<ul>
+<li>Lambda: 1.1^{-4}</li>
+<li>Alpha: 0.6723358</li>
+</ul></li>
+<li><strong>Model Interpretation</strong>: The model highlights the most impactful factors influencing tackling probabilities. We can see from <a href="#fig-penalized-regression-interpretation">Figure&nbsp;8</a> below that the most impactful factors are interactions between pre snap alignment factors.</li>
+</ul>
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/fig-penalized-regression-interpretation_3e3d4c4a38b42f72a1eb2691b9294198">
+<div class="cell-output-display">
+<div id="fig-penalized-regression-interpretation" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="Quantifying_Tackling_in_Football_Research_Paper_files/figure-html/fig-penalized-regression-interpretation-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;8: Parameter significance for the Penalized Regression model.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="random-forest" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="random-forest"><span class="header-section-number">3.3</span> Random Forest</h2>
+<p>The Random Forest model is an ensemble method which builds multiple decision trees and merges their predictions. It is known for high accuracy and the ability to handle complex interactions, making it particularly effective in capturing the dynamic nature of football plays.</p>
+<ul>
+<li><strong>Data Split</strong>:
+<ul>
+<li>Train: 19,426 rows (5% of the data)</li>
+<li>Validate: 4,114 rows (1% of the data)</li>
+<li>Test: 369,996 rows (94% of the data)</li>
+</ul></li>
+<li><strong>Baseline Accuracy</strong>: 92.9%</li>
+<li><strong>Best Parameters</strong>:
+<ul>
+<li>Mtry: 7</li>
+<li>Min_n: 6</li>
+<li>Trees: 278</li>
+</ul></li>
+<li><strong>Model Interpretation</strong>: This model finds that player distance to the ball and projections on where the player and ball are going are highly impactful on predicting who will make the tackle was shown in <a href="#fig-random-forest-interpretation">Figure&nbsp;9</a>.</li>
+</ul>
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/fig-random-forest-interpretation_269a5d414253d0595f4d602632045fb4">
+<div class="cell-output-display">
+<div id="fig-random-forest-interpretation" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="Quantifying_Tackling_in_Football_Research_Paper_files/figure-html/fig-random-forest-interpretation-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;9: Top 10 factors influencing the Random Forest model.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="xgboost" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="xgboost"><span class="header-section-number">3.4</span> XGBoost</h2>
+<p>XGBoost is another ensemble method similar to a Random Forest except it stacks multiple decision trees based off of the predictions of previous trees. It is known for high accuracy and the ability to handle complex interactions, making it particularly effective in capturing the dynamic nature of football plays.</p>
+<ul>
+<li><strong>Data Split</strong>:
+<ul>
+<li>Train: 19,426 rows (5% of the data)</li>
+<li>Validate: 4,114 rows (1% of the data)</li>
+<li>Test: 369,996 rows (94% of the data)</li>
+</ul></li>
+<li><strong>Baseline Accuracy</strong>: 92.9%</li>
+<li><strong>Best Parameters</strong>:
+<ul>
+<li>Trees: 219</li>
+<li>Min_n: 9</li>
+<li>Tree Depth: 1</li>
+</ul></li>
+<li><strong>Model Interpretation</strong>: This model recognizes that a players distance to a ball as well as the speed of a player are the most impactful factors when predicting which defensive player will make a tackle. <a href="#fig-xgboost-interpretation">Figure&nbsp;10</a> shows this in its top features.</li>
+</ul>
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/fig-xgboost-interpretation_3a1178742963553178b93758af5e5bad">
+<div class="cell-output-display">
+<div id="fig-xgboost-interpretation" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="Quantifying_Tackling_in_Football_Research_Paper_files/figure-html/fig-xgboost-interpretation-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;10: Model interpretation for the XGBoost model.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="neural-networks" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="neural-networks"><span class="header-section-number">3.5</span> Neural Networks</h2>
+<p>The Neural Network model, with a multi-layer architecture, is designed to capture complex patterns in high-dimensional data. It is particularly well-suited for analyzing the intricate patterns present in football play dynamics.</p>
+<ul>
+<li><strong>Data Split</strong>:
+<ul>
+<li>Train: NULL rows (70% of the data)</li>
+<li>Validate: NULL rows (15% of the data)</li>
+<li>Test: NULL rows (15% of the data)</li>
+</ul></li>
+<li><strong>Baseline Accuracy</strong>: 92.92%</li>
+<li><strong>Model Architecture</strong>:
+<ul>
+<li><strong>Layers</strong>:
+<ul>
+<li>Three dense layers with 64 neurons each.</li>
+<li>Input shape specified for the first layer.</li>
+<li>Final output layer with a single neuron for binary classification.</li>
+</ul></li>
+<li><strong>Activation</strong>:
+<ul>
+<li>ReLU activation for the hidden layers.</li>
+<li>Sigmoid activation for the output layer.</li>
+</ul></li>
+<li><strong>Regularization</strong>:
+<ul>
+<li>L2 regularization with a factor of 0.001 applied to all layers.</li>
+</ul></li>
+<li><strong>Batch Normalization</strong>:
+<ul>
+<li>Applied after each dense layer to normalize layer inputs, stabilizing and accelerating training.</li>
+</ul></li>
+<li><strong>Dropout</strong>:
+<ul>
+<li>30% dropout rate after each batch normalization to prevent overfitting by randomly deactivating neurons.</li>
+</ul></li>
+<li><strong>Compilation</strong>:
+<ul>
+<li>Optimizer: Adam.</li>
+<li>Loss function: Binary cross-entropy.</li>
+<li>Metric: Accuracy.</li>
+</ul></li>
+</ul></li>
+<li><strong>Model Interpretation</strong>: This model excels in learning from complex data, offering the highest accuracy in our study for tackling probability predictions.</li>
+</ul>
+<p>I executed each model over the entire parameter space and monitored accuracy. The neural network that yielded the best accuracy.</p>
+</section>
+</section>
+<section id="results" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Results</h1>
+<section id="accuracy" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="accuracy"><span class="header-section-number">4.1</span> Accuracy</h2>
+<p>The results of the several machine learning models are as follows:</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Model Type</th>
+<th>Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Penalized Regression</td>
+<td>92.44%</td>
+</tr>
+<tr class="even">
+<td>Random Forest</td>
+<td>92.87%</td>
+</tr>
+<tr class="odd">
+<td>XGBoost</td>
+<td>92.44%</td>
+</tr>
+<tr class="even">
+<td>Neural Network</td>
+<td>92.92%</td>
+</tr>
+</tbody>
+</table>
+<p>Among these models, the Neural Network, while only marginally more accurate, emerges as the most promising. This model, despite its lack of interpretability compared to others, indicates significant potential. With relatively little tuning, it already outperforms the other models. This suggests a higher ceiling for performance improvements, especially with more focused adjustments to its structure and parameters (discussed further in future work). The neural network’s ability to learn complex, non-linear relationships within the data, characteristic of in-game football dynamics, makes it a particularly suitable model for this study. Despite the marginal improvement in accuracy and interpretability challenges, its potential for enhanced performance with further tuning makes it the most promising model for future development in this area.</p>
+</section>
+<section id="comparative-analysis-of-model-rankings" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="comparative-analysis-of-model-rankings"><span class="header-section-number">4.2</span> Comparative Analysis of Model Rankings</h2>
+<p>In addition to evaluating individual model performance and accuracy, an important aspect of our analysis involves comparing how each model ranks players. Understanding the similarity or disparity in player rankings across different models provides insights into the consistency of these models in evaluating player performance.</p>
+<p>To conduct this comparative analysis, I employed the Spearman’s Rank Correlation Coefficient, a non-parametric measure that assesses how similar two lists are. This method identifies how similar the ranking orders are of the four models: Penalized Regression, Random Forest, XGBoost, and Neural Networks.</p>
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/fig-model-rank-comparison_0d3a872927f3d6bbbb5b7bd7a32a0bf8">
+<div class="cell-output-display">
+<div id="fig-model-rank-comparison" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="Quantifying_Tackling_in_Football_Research_Paper_files/figure-html/fig-model-rank-comparison-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;11: Pairwise Spearman’s Rank Correlation among models</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The heatmap visualization in <a href="#fig-model-rank-comparison">Figure&nbsp;11</a> illustrates the pairwise Spearman’s Rank Correlation coefficients among the models. A coefficient close to +1 indicates a high similarity in rankings, whereas a coefficient near -1 implies a strong inverse relationship. Coefficients around 0 suggest no correlation in the rankings between models.</p>
+<p>This analysis reveals that the Penalized Regression, Random Forest, XGBoost are all fairly similar but the neural network, while still positivly correlated, is less similar than the others.</p>
+</section>
+<section id="tackles-above-expected" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="tackles-above-expected"><span class="header-section-number">4.3</span> Tackles Above Expected</h2>
+<p>In addition to model accuracy, I used a Briar score methodology to evaluate predictions for each player in the hold-out set. By calculating an average Briar score for each player in each model based on predicted and actual outcomes, it helps assess which players are likely exceeding or not meeting the expected tackling metrics.</p>
+<p>The tables below showcase the Briar scores for top and bottom performers from each model. A higher score indicates that a player performed better than expected, while a lower score suggests underperformance relative to predictions. These scores provide valuable insights into player performance relative to the models’ expectations.</p>
+<p>As highlighted in the previous section, the three machine learning models provide similar results and the neural network does not overlap with any of them. More research is needed to determine what accounts for the differences.</p>
+<div class="columns">
+<div class="column" style="width:25%;">
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/unnamed-chunk-4_843470fcd00ab620ed364f5ca5c90372">
+<div class="cell-output-display">
+
+<div id="qsrcwfjwvi" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#qsrcwfjwvi table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#qsrcwfjwvi thead, #qsrcwfjwvi tbody, #qsrcwfjwvi tfoot, #qsrcwfjwvi tr, #qsrcwfjwvi td, #qsrcwfjwvi th {
+  border-style: none;
+}
+
+#qsrcwfjwvi p {
+  margin: 0;
+  padding: 0;
+}
+
+#qsrcwfjwvi .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#qsrcwfjwvi .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#qsrcwfjwvi .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#qsrcwfjwvi .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#qsrcwfjwvi .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#qsrcwfjwvi .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#qsrcwfjwvi .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#qsrcwfjwvi .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#qsrcwfjwvi .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#qsrcwfjwvi .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#qsrcwfjwvi .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#qsrcwfjwvi .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#qsrcwfjwvi .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#qsrcwfjwvi .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#qsrcwfjwvi .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#qsrcwfjwvi .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#qsrcwfjwvi .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#qsrcwfjwvi .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#qsrcwfjwvi .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#qsrcwfjwvi .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#qsrcwfjwvi .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#qsrcwfjwvi .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#qsrcwfjwvi .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#qsrcwfjwvi .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#qsrcwfjwvi .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#qsrcwfjwvi .gt_left {
+  text-align: left;
+}
+
+#qsrcwfjwvi .gt_center {
+  text-align: center;
+}
+
+#qsrcwfjwvi .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#qsrcwfjwvi .gt_font_normal {
+  font-weight: normal;
+}
+
+#qsrcwfjwvi .gt_font_bold {
+  font-weight: bold;
+}
+
+#qsrcwfjwvi .gt_font_italic {
+  font-style: italic;
+}
+
+#qsrcwfjwvi .gt_super {
+  font-size: 65%;
+}
+
+#qsrcwfjwvi .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#qsrcwfjwvi .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#qsrcwfjwvi .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#qsrcwfjwvi .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#qsrcwfjwvi .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#qsrcwfjwvi .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#qsrcwfjwvi .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+  <thead>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_title gt_font_normal" style="">Penalized Regression</td>
+    </tr>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style=""><span style="color: firebrick;">Accuracy: 92.68%</span></td>
+    </tr>
+    <tr class="gt_col_headings">
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Name">Name</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="TOE">TOE</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="Position">Position</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr><td headers="Name" class="gt_row gt_left">Talanoa Hufanga</td>
+<td headers="TOE" class="gt_row gt_right">6.00</td>
+<td headers="Position" class="gt_row gt_center">SS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Jonathan Owens</td>
+<td headers="TOE" class="gt_row gt_right">4.35</td>
+<td headers="Position" class="gt_row gt_center">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cameron Jordan</td>
+<td headers="TOE" class="gt_row gt_right">4.24</td>
+<td headers="Position" class="gt_row gt_center">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Kevin Byard</td>
+<td headers="TOE" class="gt_row gt_right">4.14</td>
+<td headers="Position" class="gt_row gt_center">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">Dre Greenlaw</td>
+<td headers="TOE" class="gt_row gt_right" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">−3.22</td>
+<td headers="Position" class="gt_row gt_center" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">ILB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Willie Gay</td>
+<td headers="TOE" class="gt_row gt_right">−3.26</td>
+<td headers="Position" class="gt_row gt_center">OLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cody Barton</td>
+<td headers="TOE" class="gt_row gt_right">−3.98</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Demario Davis</td>
+<td headers="TOE" class="gt_row gt_right">−4.56</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+</div>
+</div>
+</div><div class="column" style="width:25%;">
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/unnamed-chunk-5_7506998dcff87a29ec7570e2943c54d7">
+<div class="cell-output-display">
+
+<div id="cdqvztltsm" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#cdqvztltsm table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#cdqvztltsm thead, #cdqvztltsm tbody, #cdqvztltsm tfoot, #cdqvztltsm tr, #cdqvztltsm td, #cdqvztltsm th {
+  border-style: none;
+}
+
+#cdqvztltsm p {
+  margin: 0;
+  padding: 0;
+}
+
+#cdqvztltsm .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#cdqvztltsm .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#cdqvztltsm .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#cdqvztltsm .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#cdqvztltsm .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#cdqvztltsm .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#cdqvztltsm .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#cdqvztltsm .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#cdqvztltsm .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#cdqvztltsm .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#cdqvztltsm .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#cdqvztltsm .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#cdqvztltsm .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#cdqvztltsm .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#cdqvztltsm .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cdqvztltsm .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#cdqvztltsm .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#cdqvztltsm .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#cdqvztltsm .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cdqvztltsm .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#cdqvztltsm .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cdqvztltsm .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#cdqvztltsm .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cdqvztltsm .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#cdqvztltsm .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#cdqvztltsm .gt_left {
+  text-align: left;
+}
+
+#cdqvztltsm .gt_center {
+  text-align: center;
+}
+
+#cdqvztltsm .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#cdqvztltsm .gt_font_normal {
+  font-weight: normal;
+}
+
+#cdqvztltsm .gt_font_bold {
+  font-weight: bold;
+}
+
+#cdqvztltsm .gt_font_italic {
+  font-style: italic;
+}
+
+#cdqvztltsm .gt_super {
+  font-size: 65%;
+}
+
+#cdqvztltsm .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#cdqvztltsm .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#cdqvztltsm .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#cdqvztltsm .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#cdqvztltsm .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#cdqvztltsm .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#cdqvztltsm .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+  <thead>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_title gt_font_normal" style="">Random Forest</td>
+    </tr>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style=""><span style="color: firebrick;">Accuracy: 92.87%</span></td>
+    </tr>
+    <tr class="gt_col_headings">
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Name">Name</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="TOE">TOE</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="Position">Position</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr><td headers="Name" class="gt_row gt_left">Talanoa Hufanga</td>
+<td headers="TOE" class="gt_row gt_right">4.92</td>
+<td headers="Position" class="gt_row gt_center">SS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Maxx Crosby</td>
+<td headers="TOE" class="gt_row gt_right">3.89</td>
+<td headers="Position" class="gt_row gt_center">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Jonathan Owens</td>
+<td headers="TOE" class="gt_row gt_right">3.87</td>
+<td headers="Position" class="gt_row gt_center">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cameron Jordan</td>
+<td headers="TOE" class="gt_row gt_right">3.79</td>
+<td headers="Position" class="gt_row gt_center">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">Xavier McKinney</td>
+<td headers="TOE" class="gt_row gt_right" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">−2.80</td>
+<td headers="Position" class="gt_row gt_center" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Demario Davis</td>
+<td headers="TOE" class="gt_row gt_right">−2.91</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Damien Wilson</td>
+<td headers="TOE" class="gt_row gt_right">−3.15</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cody Barton</td>
+<td headers="TOE" class="gt_row gt_right">−3.76</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+</div>
+</div>
+</div><div class="column" style="width:25%;">
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/unnamed-chunk-6_b045639b4093111461fffe5812b34e03">
+<div class="cell-output-display">
+
+<div id="vmwlgpdnev" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#vmwlgpdnev table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#vmwlgpdnev thead, #vmwlgpdnev tbody, #vmwlgpdnev tfoot, #vmwlgpdnev tr, #vmwlgpdnev td, #vmwlgpdnev th {
+  border-style: none;
+}
+
+#vmwlgpdnev p {
+  margin: 0;
+  padding: 0;
+}
+
+#vmwlgpdnev .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#vmwlgpdnev .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#vmwlgpdnev .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#vmwlgpdnev .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#vmwlgpdnev .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#vmwlgpdnev .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#vmwlgpdnev .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#vmwlgpdnev .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#vmwlgpdnev .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#vmwlgpdnev .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#vmwlgpdnev .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#vmwlgpdnev .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#vmwlgpdnev .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#vmwlgpdnev .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#vmwlgpdnev .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#vmwlgpdnev .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#vmwlgpdnev .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#vmwlgpdnev .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#vmwlgpdnev .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#vmwlgpdnev .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#vmwlgpdnev .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#vmwlgpdnev .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#vmwlgpdnev .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#vmwlgpdnev .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#vmwlgpdnev .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#vmwlgpdnev .gt_left {
+  text-align: left;
+}
+
+#vmwlgpdnev .gt_center {
+  text-align: center;
+}
+
+#vmwlgpdnev .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#vmwlgpdnev .gt_font_normal {
+  font-weight: normal;
+}
+
+#vmwlgpdnev .gt_font_bold {
+  font-weight: bold;
+}
+
+#vmwlgpdnev .gt_font_italic {
+  font-style: italic;
+}
+
+#vmwlgpdnev .gt_super {
+  font-size: 65%;
+}
+
+#vmwlgpdnev .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#vmwlgpdnev .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#vmwlgpdnev .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#vmwlgpdnev .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#vmwlgpdnev .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#vmwlgpdnev .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#vmwlgpdnev .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+  <thead>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_title gt_font_normal" style="">XG Boost</td>
+    </tr>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style=""><span style="color: firebrick;">Accuracy: 92.44%</span></td>
+    </tr>
+    <tr class="gt_col_headings">
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Name">Name</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="TOE">TOE</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="Position">Position</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr><td headers="Name" class="gt_row gt_left">Talanoa Hufanga</td>
+<td headers="TOE" class="gt_row gt_right">6.12</td>
+<td headers="Position" class="gt_row gt_center">SS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Jonathan Owens</td>
+<td headers="TOE" class="gt_row gt_right">4.58</td>
+<td headers="Position" class="gt_row gt_center">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Maxx Crosby</td>
+<td headers="TOE" class="gt_row gt_right">4.16</td>
+<td headers="Position" class="gt_row gt_center">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cameron Jordan</td>
+<td headers="TOE" class="gt_row gt_right">4.03</td>
+<td headers="Position" class="gt_row gt_center">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">Damien Wilson</td>
+<td headers="TOE" class="gt_row gt_right" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">−3.66</td>
+<td headers="Position" class="gt_row gt_center" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">MLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Christian Kirksey</td>
+<td headers="TOE" class="gt_row gt_right">−3.97</td>
+<td headers="Position" class="gt_row gt_center">OLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Cody Barton</td>
+<td headers="TOE" class="gt_row gt_right">−5.08</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Demario Davis</td>
+<td headers="TOE" class="gt_row gt_right">−5.57</td>
+<td headers="Position" class="gt_row gt_center">MLB</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+</div>
+</div>
+</div><div class="column" style="width:25%;">
+<div class="cell" data-hash="Quantifying_Tackling_in_Football_Research_Paper_cache/html/unnamed-chunk-7_1328292fc40a2da3c4ffeedb64829acd">
+<div class="cell-output-display">
+
+<div id="julievaxqz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#julievaxqz table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#julievaxqz thead, #julievaxqz tbody, #julievaxqz tfoot, #julievaxqz tr, #julievaxqz td, #julievaxqz th {
+  border-style: none;
+}
+
+#julievaxqz p {
+  margin: 0;
+  padding: 0;
+}
+
+#julievaxqz .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#julievaxqz .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#julievaxqz .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#julievaxqz .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#julievaxqz .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#julievaxqz .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#julievaxqz .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#julievaxqz .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#julievaxqz .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#julievaxqz .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#julievaxqz .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#julievaxqz .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#julievaxqz .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#julievaxqz .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#julievaxqz .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#julievaxqz .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#julievaxqz .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#julievaxqz .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#julievaxqz .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#julievaxqz .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#julievaxqz .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#julievaxqz .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#julievaxqz .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#julievaxqz .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#julievaxqz .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#julievaxqz .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#julievaxqz .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#julievaxqz .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#julievaxqz .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#julievaxqz .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#julievaxqz .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#julievaxqz .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#julievaxqz .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#julievaxqz .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#julievaxqz .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#julievaxqz .gt_left {
+  text-align: left;
+}
+
+#julievaxqz .gt_center {
+  text-align: center;
+}
+
+#julievaxqz .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#julievaxqz .gt_font_normal {
+  font-weight: normal;
+}
+
+#julievaxqz .gt_font_bold {
+  font-weight: bold;
+}
+
+#julievaxqz .gt_font_italic {
+  font-style: italic;
+}
+
+#julievaxqz .gt_super {
+  font-size: 65%;
+}
+
+#julievaxqz .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#julievaxqz .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#julievaxqz .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#julievaxqz .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#julievaxqz .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#julievaxqz .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#julievaxqz .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+  <thead>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_title gt_font_normal" style="">Neural Net</td>
+    </tr>
+    <tr class="gt_heading">
+      <td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style=""><span style="color: green;">Accuracy: 92.92%</span></td>
+    </tr>
+    <tr class="gt_col_headings">
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Name">Name</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="TOE">TOE</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_center" rowspan="1" colspan="1" scope="col" id="Position">Position</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr><td headers="Name" class="gt_row gt_left">Jonathan Owens</td>
+<td headers="TOE" class="gt_row gt_right">6.10</td>
+<td headers="Position" class="gt_row gt_center">FS</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">C.J. Mosley</td>
+<td headers="TOE" class="gt_row gt_right">3.74</td>
+<td headers="Position" class="gt_row gt_center">ILB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Jihad Ward</td>
+<td headers="TOE" class="gt_row gt_right">3.69</td>
+<td headers="Position" class="gt_row gt_center">OLB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Grover Stewart</td>
+<td headers="TOE" class="gt_row gt_right">3.45</td>
+<td headers="Position" class="gt_row gt_center">DT</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">Marcus Davenport</td>
+<td headers="TOE" class="gt_row gt_right" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">−1.04</td>
+<td headers="Position" class="gt_row gt_center" style="border-top-width: 2px; border-top-style: solid; border-top-color: black;">DE</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Steven Nelson</td>
+<td headers="TOE" class="gt_row gt_right">−1.13</td>
+<td headers="Position" class="gt_row gt_center">CB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Marshon Lattimore</td>
+<td headers="TOE" class="gt_row gt_right">−1.14</td>
+<td headers="Position" class="gt_row gt_center">CB</td></tr>
+    <tr><td headers="Name" class="gt_row gt_left">Julian Love</td>
+<td headers="TOE" class="gt_row gt_right">−1.31</td>
+<td headers="Position" class="gt_row gt_center">SS</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="application-and-implications" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Application and Implications</h1>
+<section id="performance-analysis" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="performance-analysis"><span class="header-section-number">5.1</span> Performance Analysis</h2>
+<p>Under the assumption that each individaul model is correct, the development of the ‘tackles over expected’ metric introduces a concrete method for evaluating player performance. The higher the value of the player’s Briar score, the more tackles they make over expected. Essentially, any player with a high Briar score makes more tackles than the average player given a similar situation. A low Briar score indicates that a player makes less tackles than the average than a similar player in a similar situation.</p>
+</section>
+<section id="career-progression-and-contract-negotiations" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="career-progression-and-contract-negotiations"><span class="header-section-number">5.2</span> Career Progression and Contract Negotiations</h2>
+<p>Beyond on-field strategy, the ‘tackles over expected’ metric serves as a crucial tool in decisions about player promotions, trades, or contract renewals. Its objective nature offers a solid foundation for contract negotiations, contributing to fair and informed decision-making regarding player valuation.</p>
+</section>
+<section id="enhancing-team-tactics" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="enhancing-team-tactics"><span class="header-section-number">5.3</span> Enhancing Team Tactics</h2>
+<p>Teams benefit from these insights by enhancing their defensive strategies. The metric allows for an in-depth assessment of team and individual performances, enabling coaching staff to tailor strategies that maximize defensive effectiveness and overall team performance. When identifying players who have higher tackels over expected, this can help influence in-game decision making for coaches.</p>
+</section>
+</section>
+<section id="limitations-and-directions-for-future-research" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Limitations and Directions for Future Research</h1>
+<p>This study does face certain limitations that open avenues for future research. A primary limitation lies in the dataset’s focus on run plays from the first week of the 2022 NFL season, which might not capture the complete variability of player performances across different games, seasons, or play types. Expanding this research to encompass the entirety of the dataset, including various play types and additional seasons, could yield more accurate and generalizable results.</p>
+<p>Another area for enhancement is the current model’s capability to fully capture the time-dependent dynamics of football plays. Future iterations of this research could greatly benefit from the implementation of advanced neural network models like LSTM (Long Short-Term Memory) or RNN (Recurrent Neural Network). These models, with their ability to account for temporal factors in player movements and actions, have the potential to refine our predictions and offer deeper insights.</p>
+<p>Additionally, the study primarily relies on in-game performance data, which might overlook external factors influencing player performance. Integrating additional data sources, such as player fitness levels, weather conditions, and psychological factors, could provide a more nuanced understanding of tackling effectiveness. This holistic approach would not only enrich the insights gained but also contribute to a more comprehensive understanding of the game.</p>
+<p>In summary, while this study lays a strong foundation for advancing our understanding of football analytics, these limitations highlight the potential for further research. By expanding the dataset, incorporating more complex time-dependent models, and integrating diverse data types, future studies can build upon this work to offer even richer insights into the world of football analytics.</p>
+</section>
+<section id="conclusion" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Conclusion</h1>
+<p>This study represents a new advancement in football analytics by introducing the ‘tackles over expected’ metric, derived from a combination of advanced data analysis and machine learning methods such as penalized regression, random forest, XGBoost, and neural networks. This metric sheds new light on individual and team defensive performances, enhancing our understanding of football dynamics.</p>
+<p>The insights gained hold significant implications for coaching strategies, player development, and game analytics, offering a data-driven basis for on-field and off-field decision-making. This work not only contributes to sports analytics but also opens new avenues for future research. Overall, this research underscores the transformative impact of data science in sports and sets the stage for further advancements in the field.</p>
+</section>
+<section id="references" class="level1" data-number="8">
+<h1 data-number="8"><span class="header-section-number">8</span> References</h1>
+<ol type="1">
+<li><p>Carroll, Bob, Pete Palmer, and John Thorn. <em>The Hidden Game of Football</em>. Workman Publishing Company, 1988.</p></li>
+<li><p>NFL Big Data Bowl 2020. Retrieved from <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2020">Kaggle</a>.</p></li>
+<li><p>NFL Big Data Bowl 2021. Retrieved from <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2021">Kaggle</a>.</p></li>
+<li><p>NFL Big Data Bowl 2022. Retrieved from <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2022">Kaggle</a>.</p></li>
+<li><p>NFL Big Data Bowl 2023. Retrieved from <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2023">Kaggle</a>.</p></li>
+<li><p>R Core Team (2023). R: A Language and Environment for Statistical Computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.</p></li>
+<li><p>Wickham H, Averick M, Bryan J, et al.&nbsp;(2023). tidyverse: Easily Install and Load the ‘Tidyverse’. R package version 1.3.1. URL https://CRAN.R-project.org/package=tidyverse.</p></li>
+<li><p>Thomas Lin Pedersen (2023). gganimate: A Grammar of Animated Graphics. R package version 1.0.7. URL https://CRAN.R-project.org/package=gganimate.</p></li>
+<li><p>Apache Arrow community (2023). arrow: Integration to ‘Apache’ ‘Arrow’. R package version 8.0.0. URL https://CRAN.R-project.org/package=arrow.</p></li>
+<li><p>Scrucca L, Fop M, Murphy TB, Raftery AE (2023). mclust: Gaussian Mixture Modelling for Model-Based Clustering, Classification, and Density Estimation. R package version 5.4.8. URL https://CRAN.R-project.org/package=mclust.</p></li>
+<li><p>Kuhn M and Wickham H (2023). tidymodels: Easily Install and Load the ‘tidymodels’ Framework. R package version 0.1.4. URL https://CRAN.R-project.org/package=tidymodels.</p></li>
+<li><p>Kevin Ushey, JJ Allaire, Yuan Tang, et al.&nbsp;(2023). reticulate: Interface to ‘Python’. R package version 1.24. URL https://CRAN.R-project.org/package=reticulate.</p></li>
+<li><p>Selivanov D and Wang Q (2023). mltools: Machine Learning Tools. R package version 0.3.6. URL https://CRAN.R-project.org/package=mltools.</p></li>
+<li><p>Dowle M and Srinivasan A (2023). data.table: Extension of <code>data.frame</code>. R package version 1.14.2. URL https://CRAN.R-project.org/package=data.table.</p></li>
+</ol>
+<!-- [^1]: Carroll, Bob, Pete Palmer, and John Thorn. *The Hidden Game of Football*. Workman Publishing Company, 1988. -->
+<!-- [^2]: NFL Big Data Bowl 2020. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020). -->
+<!-- [^3]: NFL Big Data Bowl 2021. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021). -->
+<!-- [^4]: NFL Big Data Bowl 2022. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022). -->
+<!-- [^5]: NFL Big Data Bowl 2023. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023). -->
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>Carroll, Bob, Pete Palmer, and John Thorn. <em>The Hidden Game of Football</em>. Workman Publishing Company, 1988. This foundational work provides an in-depth look into the statistical analysis of football, laying the groundwork for future analytical techniques in sports.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>“NFL Big Data Bowl 2020.” Kaggle. <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2020">https://www.kaggle.com/competitions/nfl-big-data-bowl-2020</a>. This competition focused on predicting the number of yards a player would gain after receiving a handoff.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>“NFL Big Data Bowl 2021.” Kaggle. <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2021">https://www.kaggle.com/competitions/nfl-big-data-bowl-2021</a>. The focus of this competition shifted to evaluating defensive performance on passing plays.<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>“NFL Big Data Bowl 2022.” Kaggle. <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2022">https://www.kaggle.com/competitions/nfl-big-data-bowl-2022</a>. Centered around evaluating special teams’ performance.<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>“NFL Big Data Bowl 2023.” Kaggle. <a href="https://www.kaggle.com/competitions/nfl-big-data-bowl-2023">https://www.kaggle.com/competitions/nfl-big-data-bowl-2023</a>. Aimed at evaluating linemen on pass plays.<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

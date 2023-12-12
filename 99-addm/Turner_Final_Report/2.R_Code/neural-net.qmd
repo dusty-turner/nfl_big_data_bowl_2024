@@ -1,0 +1,731 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(reticulate)
+
+if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
+source(here::here("03-eda", "data_cleaning.R"))
+} else {
+  defensive_model_building_data <- read_rds(here::here("02-clean-data", "data_cleaning_working.RDS"))
+}
+```
+
+```{r}
+
+deff <-
+defensive_model_building_data %>% 
+  filter(is.na(pass_result)) |>
+  filter(frame_id >= 5) |> 
+  filter(frames_from_tackle <=0) |> 
+
+  ## end finds frames from tackle
+  mutate(position = as.character(position)) %>%
+  mutate(position = replace_na(position, "unknown")) %>%
+  mutate(position = factor(position)) |> 
+  select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
+           position, offense_formation, quarter, down, rank,
+           defenders_in_the_box, ball_in_fan, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
+
+
+library(mltools)
+library(data.table)
+
+should_be_factors <- c("ball_in_fan", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
+
+newdata <-
+  deff |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  as.data.table() |> one_hot() |> 
+  as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) 
+
+```
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Masking
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import tensorflow as tf
+from sklearn.utils import class_weight
+
+def binary_crossentropy_sequence(y_true, y_pred):
+    y_true_reshaped = K.reshape(y_true, shape=(-1, y_true.shape[2]))
+    y_pred_reshaped = K.reshape(y_pred, shape=(-1, y_pred.shape[2]))
+    loss = tf.keras.losses.binary_crossentropy(y_true_reshaped, y_pred_reshaped)
+    return K.mean(loss, axis=-1)
+
+def sequence_accuracy(y_true, y_pred, threshold=0.5):
+    predicted_classes = K.cast(K.greater_equal(y_pred, threshold), K.floatx())
+    accuracies = K.cast(K.equal(y_true, predicted_classes), K.floatx())
+    return K.mean(accuracies, axis=-1)
+
+data = r.newdata
+
+group_column = 'game_id'
+target_column = 'tackle'
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle', 'display_name']
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+
+def process_grouped_data(data, target, numerical_features, categorical_features):
+    required_columns = numerical_features + categorical_features + [target, 'game_id', 'play_id', 'frame_id']
+    data = data[required_columns]
+
+    grouped = data.groupby(['game_id', 'play_id'])
+    
+    sequences = []
+    targets = []
+    for _, group in grouped:
+        group_sorted = group.sort_values('frame_id')
+        scaler = StandardScaler()
+        numerical_data_scaled = scaler.fit_transform(group_sorted[numerical_features])
+        combined_data = np.concatenate([numerical_data_scaled, group_sorted[categorical_features].to_numpy()], axis=1)
+        sequences.append(combined_data)
+        targets.append(group_sorted[target].values)
+
+    max_sequence_length = max(len(seq) for seq in sequences)
+    sequences_padded = pad_sequences(sequences, maxlen=max_sequence_length, padding='post', dtype='float', value=0.0)
+    targets_padded = pad_sequences(targets, maxlen=max_sequence_length, padding='post', dtype='float', value=0.0)
+
+    return sequences_padded, targets_padded
+
+# Define your numerical features here
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight']
+categorical_features = ['position_CB', 'position_DB', 'position_DE', 'position_DT',
+       'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
+       'position_OLB', 'position_SS', 'position_unknown',
+       'offense_formation_Empty', 'offense_formation_I Form',
+       'offense_formation_Jumbo', 'offense_formation_Pistol',
+       'offense_formation_Shotgun', 'offense_formation_Singleback',
+       'offense_formation_Wildcat', 'quarter_1', 'quarter_2', 'quarter_3',
+       'quarter_4', 'quarter_5', 'down_1', 'down_2', 'down_3', 'down_4',
+       'rank_1', 'rank_10', 'rank_11', 'rank_2', 'rank_3', 'rank_4', 'rank_5',
+       'rank_6', 'rank_7', 'rank_8', 'rank_9', 'defenders_in_the_box_1',
+       'defenders_in_the_box_10', 'defenders_in_the_box_11',
+       'defenders_in_the_box_4', 'defenders_in_the_box_5',
+       'defenders_in_the_box_6', 'defenders_in_the_box_7',
+       'defenders_in_the_box_8', 'defenders_in_the_box_9',
+       'ball_in_fan_no', 'ball_in_fan_yes']  # Update with your actual categorical features
+
+X_train_padded, y_train_padded = process_grouped_data(train_data, 'tackle', numerical_features, categorical_features)
+X_test_padded, y_test_padded = process_grouped_data(test_data, 'tackle', numerical_features, categorical_features)
+
+max_length = max(X_train_padded.shape[1], X_test_padded.shape[1])
+X_train_padded = pad_sequences(X_train_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+X_test_padded = pad_sequences(X_test_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+y_train_padded = pad_sequences(y_train_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+y_test_padded = pad_sequences(y_test_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+
+y_train_padded = np.expand_dims(y_train_padded, -1)
+y_test_padded = np.expand_dims(y_test_padded, -1)
+
+y_train_flat = y_train_padded.flatten()
+
+class_weights = class_weight.compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y_train_flat),
+    y=y_train_flat)
+
+class_weight_dict = dict(enumerate(class_weights))
+
+def build_model(input_shape, lstm_units=64, dropout_rate=0.3, learning_rate=0.001):
+    model = Sequential([
+        Masking(mask_value=0.0, input_shape=input_shape),
+        LSTM(lstm_units, return_sequences=True),
+        Dropout(dropout_rate),
+        Dense(1, activation='sigmoid')
+    ])
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+    ModelCheckpoint('best_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
+]
+
+timesteps = X_train_padded.shape[1]
+features = X_train_padded.shape[2]
+
+model = build_model(input_shape=(timesteps, features), lstm_units=100, dropout_rate=0.4, learning_rate=0.0001)
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+# model.compile(optimizer='adam', loss=weighted_binary_crossentropy([10, .5]), metrics=['accuracy'])
+
+history = model.fit(X_train_padded, y_train_padded, epochs=5, validation_split=0.2, callbacks=callbacks)
+
+predictions = model.predict(X_test_padded)
+predicted_classes = (predictions > 0.3).astype(int)
+
+evaluation = model.evaluate(X_test_padded, y_test_padded)
+print("Test loss:", evaluation[0])
+print("Test accuracy:", evaluation[1])
+
+predictions_flattened = predictions.flatten()
+predictions_df = pd.DataFrame({'predicted_tackle': predictions_flattened[:len(test_data)]})
+test_data_with_predictions = test_data.reset_index().join(predictions_df)
+
+```
+
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Masking, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.regularizers import l2
+from sklearn.utils import class_weight
+
+# Custom loss function for sequence outputs
+# def binary_crossentropy_sequence(y_true, y_pred):
+#     loss = tf.keras.losses.binary_crossentropy(y_true, y_pred)
+#     return K.mean(loss, axis=-1)
+
+# Custom loss function for sequence outputs
+
+def binary_crossentropy_sequence(y_true, y_pred):
+    y_true_reshaped = K.reshape(y_true, shape=(-1, y_true.shape[2]))
+    y_pred_reshaped = K.reshape(y_pred, shape=(-1, y_pred.shape[2]))
+    loss = tf.keras.losses.binary_crossentropy(y_true_reshaped, y_pred_reshaped)
+    return K.mean(loss, axis=-1)
+
+def sequence_accuracy(y_true, y_pred, threshold=0.5):  # Adjust the threshold as needed
+    # Using a lower threshold for positive class prediction
+    predicted_classes = K.cast(K.greater_equal(y_pred, threshold), K.floatx())
+    accuracies = K.cast(K.equal(y_true, predicted_classes), K.floatx())
+    return K.mean(accuracies, axis=-1)
+
+
+
+# Load and preprocess data
+data = r.newdata  # Assuming 'r.newdata' is your dataframe
+
+# Split data based on 'game_id'
+group_column = 'game_id'
+target_column = 'tackle'
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle', 'display_name']
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+
+# Function to process grouped data
+def process_grouped_data(data, target, numerical_features, categorical_features):
+    required_columns = numerical_features + categorical_features + [target, 'game_id', 'play_id', 'frame_id']
+    data = data[required_columns]
+
+    # Group by 'game_id' and 'play_id', and sort by 'frame_id'
+    grouped = data.groupby(['game_id', 'play_id'])
+    
+    sequences = []
+    targets = []
+    for _, group in grouped:
+        group_sorted = group.sort_values('frame_id')
+        scaler = StandardScaler()
+        # Apply StandardScaler only to numerical features
+        numerical_data_scaled = scaler.fit_transform(group_sorted[numerical_features])
+        # Combine scaled numerical data with pre-encoded categorical data
+        combined_data = np.concatenate([numerical_data_scaled, group_sorted[categorical_features].to_numpy()], axis=1)
+        sequences.append(combined_data)
+        targets.append(group_sorted[target].values)
+
+    max_sequence_length = max(len(seq) for seq in sequences)
+    sequences_padded = pad_sequences(sequences, maxlen=max_sequence_length, padding='post', dtype='float', value=0.0)
+    targets_padded = pad_sequences(targets, maxlen=max_sequence_length, padding='post', dtype='float', value=0.0)
+
+    return sequences_padded, targets_padded
+
+# Define your numerical and categorical features here
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight']
+categorical_features = ['position_CB', 'position_DB', 'position_DE', 'position_DT',
+       'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
+       'position_OLB', 'position_SS', 'position_unknown',
+       'offense_formation_Empty', 'offense_formation_I Form',
+       'offense_formation_Jumbo', 'offense_formation_Pistol',
+       'offense_formation_Shotgun', 'offense_formation_Singleback',
+       'offense_formation_Wildcat', 'quarter_1', 'quarter_2', 'quarter_3',
+       'quarter_4', 'quarter_5', 'down_1', 'down_2', 'down_3', 'down_4',
+       'rank_1', 'rank_10', 'rank_11', 'rank_2', 'rank_3', 'rank_4', 'rank_5',
+       'rank_6', 'rank_7', 'rank_8', 'rank_9', 'defenders_in_the_box_1',
+       'defenders_in_the_box_10', 'defenders_in_the_box_11',
+       'defenders_in_the_box_4', 'defenders_in_the_box_5',
+       'defenders_in_the_box_6', 'defenders_in_the_box_7',
+       'defenders_in_the_box_8', 'defenders_in_the_box_9',
+       'ball_in_fan_no', 'ball_in_fan_yes']  # Update with your actual categorical features
+
+# Process data
+X_train_padded, y_train_padded = process_grouped_data(train_data, 'tackle', numerical_features, categorical_features)
+X_test_padded, y_test_padded = process_grouped_data(test_data, 'tackle', numerical_features, categorical_features)
+
+max_length = max(X_train_padded.shape[1], X_test_padded.shape[1])
+# max_length = max(X_train_padded.shape[2], X_test_padded.shape[2])
+
+# Pad both training and testing data to the same length
+X_train_padded = pad_sequences(X_train_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+X_test_padded = pad_sequences(X_test_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+y_train_padded = pad_sequences(y_train_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+y_test_padded = pad_sequences(y_test_padded, maxlen=max_length, padding='post', dtype='float', value=0.0)
+
+y_train_padded = np.expand_dims(y_train_padded, -1)
+y_test_padded = np.expand_dims(y_test_padded, -1)
+
+# Flatten y_train to calculate class weights
+y_train_flat = y_train_padded.flatten()
+
+# Calculate class weights
+class_weights = class_weight.compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y_train_flat),
+    y=y_train_flat)
+
+# Convert class weights to a dictionary
+class_weight_dict = dict(enumerate(class_weights))
+
+# def build_model(input_shape, lstm_units=64, dropout_rate=0.3, regularization_factor=0.001):
+#     model = Sequential([
+#         Masking(mask_value=0.0, input_shape=input_shape),
+#         LSTM(lstm_units, return_sequences=True),
+#         Dropout(dropout_rate),
+#         BatchNormalization(),
+#         LSTM(lstm_units, return_sequences=True),
+#         Dropout(dropout_rate),
+#         BatchNormalization(),
+#         Dense(lstm_units, activation='relu', kernel_regularizer=l2(regularization_factor)),
+#         Dropout(dropout_rate),
+#         BatchNormalization(),
+#         Dense(1, activation='sigmoid', kernel_regularizer=l2(regularization_factor))
+#     ])
+#     model.compile(optimizer='adam', loss=binary_crossentropy_sequence, metrics=[sequence_accuracy])
+#     return model
+
+def build_model(input_shape, lstm_units=64, dropout_rate=0.3, learning_rate=0.001):
+    model = Sequential([
+        Masking(mask_value=0.0, input_shape=input_shape),
+        LSTM(lstm_units, return_sequences=True),
+        Dropout(dropout_rate),
+        Dense(1, activation='sigmoid')
+    ])
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+# Setup callbacks
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+    ModelCheckpoint('best_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
+]
+
+
+# Assuming X_train_padded is your input data for training
+timesteps = X_train_padded.shape[1]  # Number of time steps in each sequence
+features = X_train_padded.shape[2]  # Number of features at each time step
+
+# def weighted_binary_crossentropy(weights=[1.0, 1.0]):
+#     """
+#     A weighted version of keras.objectives.binary_crossentropy
+# 
+#     Variables:
+#         weights: numpy array of shape (2,) where `weights[0]` is the weight for class 0 
+#                  and `weights[1]` is the weight for class 1 
+#     """
+#     weights = tf.constant(weights)
+# 
+#     def loss(y_true, y_pred):
+#         # compute the binary cross entropy
+#         bce = tf.keras.backend.binary_crossentropy(y_true, y_pred)
+#         
+#         # apply the weights
+#         weight_vector = y_true * weights[1] + (1. - y_true) * weights[0]
+#         weighted_bce = weight_vector * bce
+# 
+#         return tf.keras.backend.mean(weighted_bce)
+# 
+#     return loss
+# 
+# import kerastuner as kt
+# 
+# def build_model(hp):
+#     lstm_units = hp.Int('units', min_value=32, max_value=512, step=32)
+#     dropout_rate = hp.Float('dropout', min_value=0.0, max_value=0.5, step=0.1)
+#     learning_rate = hp.Float('learning_rate', min_value=1e-4, max_value=1e-2, sampling='LOG')
+# 
+#     model = Sequential([
+#         Masking(mask_value=0.0, input_shape=(timesteps, features)),
+#         LSTM(lstm_units, return_sequences=True),
+#         Dropout(dropout_rate),
+#         Dense(1, activation='sigmoid')
+#     ])
+# 
+#     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+#     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+# 
+#     return model
+# 
+# tuner = kt.Hyperband(
+#     build_model,
+#     objective='val_accuracy',
+#     max_epochs=10,
+#     factor=3,
+#     directory='my_dir',
+#     project_name='lstm_tuning'
+# )
+# 
+# tuner.search(X_train_padded, y_train_padded, epochs=3, validation_split=0.2, callbacks=[EarlyStopping(monitor='val_loss', patience=3)])
+# 
+# best_model = tuner.get_best_models(num_models=1)[0]
+# best_hyperparameters = tuner.get_best_hyperparameters(num_models=1)[0]
+# best_model.fit(X_train_padded, y_train_padded, epochs=20, validation_split=0.2)
+# # Evaluate the best model
+# evaluation = best_model.evaluate(X_test_padded, y_test_padded)
+
+
+
+
+
+# Now you can use these variables to build your model
+model = build_model(input_shape=(timesteps, features), lstm_units=100, dropout_rate=0.4, learning_rate=0.0001)
+
+# Build and train the model
+# model = build_model((X_train_padded.shape[1], X_train_padded.shape[2]))
+
+# Example of usage
+model.compile(optimizer='adam', loss=weighted_binary_crossentropy([10, .5]), metrics=['accuracy'])
+
+
+
+# Train the model
+history = model.fit(X_train_padded, y_train_padded, epochs=5, validation_split=0.2, callbacks=callbacks)
+# history = model.fit(X_train_padded, y_train_padded, batch_size=10, epochs=3, validation_split=0.2, callbacks=callbacks)
+# history = model.fit(X_train_padded,y_train_padded, epochs=21, validation_split=0.2, callbacks=callbacks, class_weight=class_weight_dict)
+
+
+# After making predictions
+predictions = model.predict(X_test_padded)
+predicted_classes = (predictions > 0.3).astype(int)
+
+# Evaluate the model
+evaluation = model.evaluate(X_test_padded, y_test_padded)
+print("Test loss:", evaluation[0])
+print("Test accuracy:", evaluation[1])
+
+# Assuming predictions are made on X_test_padded and we want to join them with test_data
+# Step 1: Reshape or process predictions
+# Flatten the predictions if they are in sequence format
+predictions_flattened = predictions.flatten()
+
+# Step 2: Assign predictions to a DataFrame
+# This DataFrame should have the same length as the number of rows in your original test set
+predictions_df = pd.DataFrame({
+    'predicted_tackle': predictions_flattened[:len(test_data)]  # Truncate to match test_data length
+})
+
+# Step 3: Joining predictions with the original test set
+# Here, we'll join based on the index; ensure that the indices align correctly
+test_data_with_predictions = test_data.reset_index().join(predictions_df)
+
+# Now test_data_with_predictions contains your original test data along with the predicted values
+
+
+```
+
+
+```{r}
+
+
+as_tibble(py$test_data_with_predictions) |> 
+  select(tackle, predicted_tackle) |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  yardstick::roc_curve(truth = tackle, predicted_tackle) |> 
+   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  theme_bw()
+  # yardstick::brier_class(tackle, predicted_tackle)
+```
+
+
+
+```{r}
+
+# test_set_with_predictions <-
+  as_tibble(py$test_data) %>% 
+  mutate(
+    # tackle = as.factor(py$y_test), 
+         # pred_class = as.factor(py$predicted_classes),
+         pred = as.vector(py$predictions),
+         game_id = py$additional_columns_test$game_id,
+         play_id = py$additional_columns_test$play_id,
+         nfl_id = py$additional_columns_test$nfl_id,
+         frame_id = py$additional_columns_test$frame_id,
+         frames_from_tackle = py$additional_columns_test$frames_from_tackle,
+         display_name = py$additional_columns_test$display_name)  |>
+  # filter(frames_from_tackle >= -40) |> 
+  relocate(game_id, play_id, pred, frames_from_tackle, tackle)  
+
+accuracy_over_time <-
+test_set_with_predictions |> 
+  group_by(frames_from_tackle) |>
+  yardstick::accuracy(truth = tackle, pred_class) |> 
+  ggplot(aes(x = frames_from_tackle, y = .estimate)) +
+  geom_line()
+
+animated_plot <-
+week_1 |> 
+  left_join(test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, pred)) |> 
+  filter(!is.na(pred)) |> 
+  group_by(game_id, play_id) |> filter(cur_group_id() == 1) |> ungroup() |> 
+  ggplot(aes(x = frame_id, y = pred)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3) + # Add a point for each line
+  facet_wrap(~jersey_number) +
+  transition_reveal(frame_id) # Animate the points along the line
+
+anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+animated_plot2 <-
+week_1 |> 
+  filter(play_id %in% test_set_with_predictions$play_id) |> 
+  filter(game_id %in% test_set_with_predictions$game_id) |> 
+  left_join(
+    test_set_with_predictions |> select(game_id, play_id, nfl_id, frame_id, pred) |> 
+      mutate(pred = ifelse(is.na(pred), 0, pred))
+    ) |> 
+  group_by(game_id, play_id) |> 
+  filter(cur_group_id() == 1) |>
+  mutate(pred = ifelse(club == defensive_team & is.na(pred), 0, pred)) |> 
+  ungroup()  |> 
+  mutate(color = pred) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, defensive_team) %>%
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
+
+accuracy <- py$evaluation[[2]]
+
+nn_briar <- 
+  test_set_with_predictions |> 
+  select(game_id, play_id, nfl_id, display_name,tackle, pred) |> 
+  filter(!is.na(pred)) |> 
+  mutate(tackle  = as.integer(as.character(tackle))) |> 
+  group_by(game_id, play_id, nfl_id, display_name) |> 
+  reframe(expected_prob_of_tackle = mean(pred), tackle = mean(tackle)) |> 
+  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  group_by(nfl_id, display_name) |> 
+  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  arrange(-tackles_over_expected)
+
+train_rows <- nrow(py$X_train) * .8
+val_rows <- nrow(py$X_train) * .2
+test_rows <- nrow(py$X_test)
+
+list(nn_anim1 = anm1, nn_anim2 = anm2, accuracy = accuracy, accuracy_over_time = accuracy_over_time, nn_briar = nn_briar, train = train_rows, val = val_rows, test = test_rows) |> 
+  write_rds(file = "99-addm/nn.RDS")
+
+```
+
+```{r}
+preds_in_r <-
+as_tibble(py$X_test) |> 
+  mutate(tackle = as.factor(py$y_test)) |> 
+  mutate(pred = as.factor(py$predicted_classes))
+
+
+
+```
+
+
+
+
+
+### backup
+
+```{python}
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.layers import LSTM
+
+# Load and preprocess data
+data = r.deff
+
+# Impute missing numerical values with mean
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+for col in numerical_features:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mean(), inplace=True)
+
+# Impute missing categorical values with mode (or a placeholder like 'missing')
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+for col in categorical_features + ['frame_id']:
+    if data[col].isnull().any():
+        data[col].fillna(data[col].mode()[0], inplace=True)
+
+data.replace([np.inf, -np.inf], np.nan, inplace=True)  # Handle infinite values
+
+# Define feature categories
+numerical_features = ['x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'rank', 'height', 'weight', 's_ball', 'angle_to_ball']
+categorical_features = ['ball_in_fan', 'position', 'offense_formation', 'quarter', 'down']
+
+# Set up preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline([
+            ('imputer', SimpleImputer(strategy='mean')),
+            ('scaler', StandardScaler())
+        ]), numerical_features),
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+            ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ]), categorical_features)
+    ]
+)
+
+# Split data based on 'game_id'
+group_column = 'game_id'
+target_column = 'tackle'
+additional_columns = ['game_id', 'play_id', 'nfl_id', 'frame_id', 'frames_from_tackle', 'display_name']  # Specify additional columns to keep
+
+gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0)
+for train_idx, test_idx in gss.split(data, data[target_column], data[group_column]):
+    train_data = data.iloc[train_idx]
+    test_data = data.iloc[test_idx]
+
+# Store additional columns and then drop them from the feature set
+additional_columns_train = train_data[additional_columns].copy()
+additional_columns_test = test_data[additional_columns].copy()
+
+X_train = train_data.drop([target_column] + additional_columns, axis=1)
+y_train = train_data[target_column].astype(int)
+X_test = test_data.drop([target_column] + additional_columns, axis=1)
+y_test = test_data[target_column].astype(int)
+
+# Build the model
+# def build_model(input_shape):
+#     model = Sequential([
+#         Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.001)),
+#         Dropout(0.3),
+#         Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
+#         Dropout(0.3),
+#         Dense(64, activation='tanh', kernel_regularizer=l2(0.001)),
+#         Dropout(0.3),
+#         Dense(1, activation='sigmoid', kernel_regularizer=l2(0.001))  # Apply L2 regularization here
+#     ])
+#     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+#     return model
+
+from tensorflow.keras.layers import BatchNormalization
+
+def build_model(input_shape):
+    model = Sequential([
+        Dense(64, activation='relu', input_shape=[input_shape], kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(64, activation='relu', kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(64, activation='tanh', kernel_regularizer=l2(0.001)),
+        BatchNormalization(),  # Add Batch Normalization here
+        Dropout(0.3),
+        Dense(1, activation='sigmoid', kernel_regularizer=l2(0.001))  # Apply L2 regularization here
+    ])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+
+
+# def build_model(input_shape, lstm_units=64):
+#     model = Sequential([
+#         Masking(mask_value=0.0, input_shape=(None, input_shape)),  # Use None for variable sequence length
+#         LSTM(lstm_units, return_sequences=True),  # LSTM layer with return_sequences=True
+#         Dropout(0.1),
+#         LSTM(lstm_units),  # LSTM layer without return_sequences
+#         Dropout(0.1),
+#         Dense(1, activation='sigmoid')
+#     ])
+#     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+#     return model
+
+
+# Preprocess the data
+X_train_transformed = preprocessor.fit_transform(X_train)
+X_test_transformed = preprocessor.transform(X_test)
+
+# Convert the target variable to numpy array if it's a pandas Series
+y_train_np = y_train.values if isinstance(y_train, pd.Series) else y_train
+y_test_np = y_test.values if isinstance(y_test, pd.Series) else y_test
+
+# Now build and train the model
+model = build_model(X_train_transformed.shape[1])
+
+callbacks = [
+    EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+    ModelCheckpoint('best_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
+]
+
+# Train the model with callbacks
+history = model.fit(X_train_transformed, y_train_np, epochs=7, validation_split=0.2, callbacks=callbacks)
+
+# After making predictions
+predictions = model.predict(X_test_transformed)
+predicted_classes = (predictions > 0.5).astype(int)
+
+# Evaluate the model
+evaluation = model.evaluate(X_test_transformed, y_test_np)
+print("Test loss:", evaluation[0])
+print("Test accuracy:", evaluation[1])
+
+
+```

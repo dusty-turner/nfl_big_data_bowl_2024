@@ -116,14 +116,32 @@ dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, pla
 
 ```{r}
 
-week_1 |> 
-  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+# week_1 |> 
+#   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+#   filter(frame_id ==1) |> 
+#   mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+#                            tackle == "1" ~ "tackler",
+#                            is_football == "football" ~ "football",
+#                            club == defensive_team ~ "defense",
+#                            club != defensive_team ~ "offense")) |> 
+#   select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club) %>% 
+# {
+#   ggplot(data = ., aes(x = x, y = y, color = color)) +
+#   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+#   geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+#   # transition_time(time) + ease_aes("linear") +
+#   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+#   theme_field
+# } |> 
+#   ggsave(path = here::here("99-addm","01_images"), filename = "intro_position.png")
+week_1 |>
+  filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |>
   mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
                            tackle == "1" ~ "tackler",
                            is_football == "football" ~ "football",
                            club == defensive_team ~ "defense",
-                           club != defensive_team ~ "offense")) |> 
-  select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club) %>% 
+                           club != defensive_team ~ "offense")) |>
+  select(distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club) %>%
 {
   ggplot(data = ., aes(x = x, y = y, color = color)) +
   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
@@ -137,9 +155,10 @@ week_1 |>
 </center>
 
 ```{r, eval=FALSE}
-plot_a <- 
+plot_a <-
 week_1 |> 
   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  # filter(frame_id ==1) |> 
   filter(defensive_team == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
   group_by(frame_id) |> 
@@ -159,11 +178,13 @@ week_1 |>
   transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
-}
+}  
+  # ggsave(path = here::here("99-addm","01_images"), filename = "intro_distance.png")
 
 plot_b <-
 week_1 |> 
   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  # filter(frame_id== 35) |> 
   filter(defensive_team == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
   select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description) %>% 
@@ -172,14 +193,16 @@ week_1 |>
   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
   geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
   scale_color_gradient2(na.value = "dodgerblue", low = "green", high = "green", mid = "red", midpoint = 0) +
-  transition_time(time) + ease_aes("linear") +
+  # transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
-}
+}  
+  # ggsave(path = here::here("99-addm","01_images"), filename = "intro_speed_vector.png")
 
 plot_c <-
 week_1 |> 
   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  # filter(frame_id == 25) |> 
   filter(defensive_team == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
   select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going,o, jersey_number) %>% 
@@ -187,21 +210,23 @@ week_1 |>
   ggplot(data = ., aes(x = x, y = y)) +
   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
   geom_point(aes(shape = is_football), show.legend = FALSE, size = 5) +
-  # geom_text(aes(label = jersey_number), color = "red", nudge_x = 0, nudge_y = -1) +
   geom_segment(aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
-  # geom_segment(aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.02, "npc")), color = "purple") +
   scale_color_gradient2(na.value = "dodgerblue", low = "black", high = "yellow") +
-  # facet_wrap(~play_id) +
   transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
-}
+}  
+  # ggsave(path = here::here("99-addm","01_images"), filename = "intro_player_projection.png")
 
 plot_d <-
 week_1 |> 
   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  # filter(frame_id == 35) |> 
   filter(defensive_team == club | is_football == "football") |> 
   mutate(color = ifelse(ball_in_fan == "yes" | is_football == "football", "No", "Yes")) |> 
+  mutate(color = ifelse(is_football == "football", "three", color)) |>
+  mutate(color = fct_relevel(color, "No", "three", "Yes")) |> 
+  # count(color)
   select(frame_id, display_name, x, y, x_facing, y_facing, x_left, x_right, y_left, y_right, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going,o, jersey_number) %>%
 {
   ggplot(data = ., aes(x = x, y = y, color = color, shape = is_football)) +
@@ -212,7 +237,8 @@ week_1 |>
   transition_states(states = frame_id, transition_length = .1, state_length = .01, wrap = TRUE) +
   labs(y = "", x = "Yards To Line of Scrimage", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field +  guides(shape = "none")
-}
+} 
+  # ggsave(path = here::here("99-addm","01_images"), filename = "intro_range_fan.png")
 
 plot_e <-
 week_1 |> 
@@ -236,6 +262,7 @@ week_1 |>
 plot_f <-
 week_1 |> 
   filter(game_id == dak$game_id[2], play_id %in% unique(dak$play_id)[2]) |> 
+  # filter(frame_id == 25) |> 
   filter(defensive_team == club | is_football == "football") |> 
   mutate(color = ifelse(is_football != "football", distance_to_ball, NA)) |> 
   select(display_name, x, y, x_ball, y_ball, v_approach, color, absolute_yardline_number, ball_carrier, play_id, time, is_football, club, distance_to_ball, play_description, x_going, y_going, x_ball_next, y_ball_next) %>% 
@@ -250,7 +277,8 @@ week_1 |>
   transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
-}
+}  
+  # ggsave(path = here::here("99-addm","01_images"), filename = "intro_projected_distance.png")
 
 anim_a <- animate(plot_a)
 anim_b <- animate(plot_b)
@@ -356,7 +384,7 @@ defensive_model_building_data |>
       guides(shape = "none") +
   theme(legend.position = "bottom") 
   
-}
+} # |>  ggsave(path = here::here("99-addm","01_images"), filename = "intro_clusters.png")
 
 ```
 
@@ -507,7 +535,6 @@ options(scipen = 999)
 ```{r}
 pen_rds$pen_grid_results +
   geom_point(aes(x = (pen_rds$best_parameters$penalty), y = pen_rds$best_parameters$mixture), shape = 4, color = "black", size = 5) 
-
 ```
 
 :::

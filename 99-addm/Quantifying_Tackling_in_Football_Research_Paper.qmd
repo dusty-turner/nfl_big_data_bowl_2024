@@ -1,0 +1,517 @@
+---
+title: "Quantifying Tackle Probabilities in Football"
+subtitle: "A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques"
+author: "Dusty Turner"
+format: 
+  pdf:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+abstract: |
+    This study presents a novel approach to quantifying tackling effectiveness in football using advanced data analysis and machine learning techniques. Leveraging the NFL Big Data Bowl dataset, I develop models to predict and evaluate defensive players' tackling probabilities during running plays. The methodology combines penalized regression, random forest, XGBoost, and neural network models to calculate a 'tackles over expected' metric for each player. The findings provide insights into individual and team defensive performances, offering a data-driven perspective to inform coaching and player development strategies. 
+    |
+    \newpage
+echo: false
+warning: false
+message: false
+cache: true
+---
+
+```{r}
+library(tidyverse)
+if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
+source(here::here("03-eda", "data_cleaning.R"))
+} else {
+  defensive_model_building_data <- read_rds(here::here("02-clean-data", "data_cleaning_working.RDS"))
+}
+```
+
+\newpage
+
+# Introduction
+
+Tackling in football is a critical skill influencing game outcomes and presents challenges in quantification due to the complex interplay of player dynamics and game situations. This study employs advanced data analysis and machine learning models to the NFL Big Data Bowl dataset with the objective of determining each defensive player's probability of making a tackle during running plays and assigning a 'tackles over expected' value to quantify performance.
+
+
+In recent years, football analytics has seen a significant transformation, largely influenced by the integration of data science and machine learning techniques. Some of the pioneering work in this field is in the book "The Hidden Game of Football" by Bob Carroll, Pete Palmer, and John Thorn[^1], which lays the groundwork for advanced statistical analysis in football.
+
+[^1]: Carroll, Bob, Pete Palmer, and John Thorn. *The Hidden Game of Football*. Workman Publishing Company, 1988. This foundational work provides an in-depth look into the statistical analysis of football, laying the groundwork for future analytical techniques in sports.
+
+The NFL Big Data Bowl competitions hosted on Kaggle have been instrumental in driving forward the field of sports analytics. These competitions have evolved over the years, each focusing on different aspects of the game:
+
+- The NFL Big Data Bowl 2020[^2] focused on predicting how many yards a player would gain after receiving a handoff.
+- The NFL Big Data Bowl 2021[^3] shifted the focus to evaluating defensive performance on passing plays.
+- The NFL Big Data Bowl 2022[^4] was centered around evaluating special teams' performance.
+- The NFL Big Data Bowl 2023[^5] aimed to evaluate linemen on pass plays.
+
+[^2]: "NFL Big Data Bowl 2020." Kaggle.  [https://www.kaggle.com/competitions/nfl-big-data-bowl-2020](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020). This competition focused on predicting the number of yards a player would gain after receiving a handoff.
+
+[^3]: "NFL Big Data Bowl 2021." Kaggle.  [https://www.kaggle.com/competitions/nfl-big-data-bowl-2021](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021). The focus of this competition shifted to evaluating defensive performance on passing plays.
+
+[^4]: "NFL Big Data Bowl 2022." Kaggle.  [https://www.kaggle.com/competitions/nfl-big-data-bowl-2022](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022). Centered around evaluating special teams' performance.
+
+[^5]: "NFL Big Data Bowl 2023." Kaggle.  [https://www.kaggle.com/competitions/nfl-big-data-bowl-2023](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023). Aimed at evaluating linemen on pass plays.
+
+
+These competitions have collectively contributed to the enrichment of football analytics by providing developing innovative approaches to understanding and analyzing the game. This study draws from these diverse approaches, particularly focusing on tackling metrics, to further enhance the defensive strategy analysis in football.
+
+# Methodology
+
+## Data Sourcing
+
+The extensive [NFL Big Data Bowl dataset](https://kaggle.com/competitions/nfl-big-data-bowl-2024), hosted on Kaggle, includes detailed tracking data for the first nine weeks of NFL games. This dataset covers various play types, including run plays, pass plays, and quarterback scrambles, with data recorded every 0.1 seconds. The analysis specifically focuses on run plays during the first week of the 2022 NFL season, chosen to manage computational complexity and analyze a subset of the dataset in depth.
+
+## Feature Development
+
+In order to prepare the data for analysis, I took the following steps to develop features that help indicate actions on the field that indicate an imminent tackle:
+
+1. **Data Loading and Initial Filtering**: The dataset is comprised of five distinct sections, each detailing different aspects of the game. These sections included data on tackles, plays, player movements, and other game elements. I joined this information into a comprehensive dataset for analysis.
+
+2. **Data Transformation and Engineering**
+
+- **Rearranging Tackle Data**: Converting position and tackle variables into factors.
+
+- **Calculating the Ball's Position and Attributes**:
+    - Position: $x_{\text{ball}}, y_{\text{ball}}$
+    - Speed and direction: $s_{\text{ball}}, \theta_{\text{ball}}$
+
+- **Creating Indicators for the Ball Carrier and the Football**:
+    - Ball Carrier: Identifying the player with possession of the ball.
+    - Football: Distinguishing the football from the players.
+    - The figure below displays the Ball Carrier in red, the offensive players in blue, the defense in green, and the tackler in purple.
+
+    ![Ball Carrier Indicator Visualization](01_images/intro_position.png){width=50% #fig-ball-carrier}
+
+- **Computing Distance to the Ball**: 
+    - Understanding player positioning relative to the football.
+    - Formula: $d = \sqrt{(x_{\text{ball}} - x_{\text{player}})^2 + (y_{\text{ball}} - y_{\text{player}})^2}$
+    - @fig-distance-to-ball below visualizes the distance of each player to the ball.
+
+    ![Distance to Ball Visualization](01_images/intro_distance.png){width=50% #fig-distance-to-ball}
+
+- **Projecting Future Locations of Players and the Ball**:
+    - Estimating where a player and the ball will be in the future can help indicate who is in position to make a tackle. 
+    - Player projection formula: $x_{\text{future\_player}} = x_{\text{player}} + v_{x_{\text{player}}} \times \Delta t + \frac{1}{2} a_{x_{\text{player}}} \times \Delta t^2$, $y_{\text{future\_player}} = y_{\text{player}} + v_{y_{\text{player}}} \times \Delta t + \frac{1}{2} a_{y_{\text{player}}} \times \Delta t^2$
+    - Ball projection formula: $x_{\text{future\_ball}} = x_{\text{ball}} + v_{x_{\text{ball}}} \times \Delta t + \frac{1}{2} a_{x_{\text{ball}}} \times \Delta t^2$, $y_{\text{future\_ball}} = y_{\text{ball}} + v_{y_{\text{ball}}} \times \Delta t + \frac{1}{2} a_{y_{\text{ball}}} \times \Delta t^2$  
+    - @fig-future-projection-player below shows the projected future locations of players and the ball $t = .5$ seconds from the current time. The dot is their current location and the end of the arrow is the projected location.  
+    - @fig-future-projection-ball shows the distance between the player and the projected location of the ball $t=.5$ seconds from the current time.  
+
+    ![Future Location Projection Of Players](01_images/intro_player_projection.png){width=50% #fig-future-projection-player}
+    
+    ![Future Distance Projection](01_images/intro_projected_distance.png){width=50% #fig-future-projection-ball}
+    
+- **Generating 'Approach Velocity' Vector**:
+    - Describing how players move relative to the ball's trajectory can help us understand who is in position to make a tackle.
+    - The approach velocity vector measures the similarity between a player's and the ball's speed and direction.
+    - @fig-approach-velocity is a static view of the players' approach velocity towards the ball.
+
+    ![Approach Velocity Visualization](01_images/intro_speed_vector.png){width=50% #fig-approach-velocity}
+
+- **Creating an Orientation 'Fan'**:
+    - Determining if players are within a certain range of the ball can help determine who is in position to make a tackle.
+    - @fig-orientation-fan shows the orientation 'fan' indicating potential tackling zones.  Players turn 'red' when the ball is within 3 yards and 60 degrees of the the way the defensive player is facing. 
+
+    ![Orientation 'Fan' Visualization](01_images/intro_range_fan.png){width=50% #fig-orientation-fan}
+
+- **Classifying Defensive Alignments Using Clustering Techniques**:
+    - @fig-defensive-alignment shows how grouping players based on starting positions can help provide insight into pre-snap assignments.
+    - This can help a model infer player behavior and adaptability of defensive strategies against various offensive sets.
+
+![Defensive Alignment Clustering Visualization](01_images/intro_clusters.png){width=30% #fig-defensive-alignment}
+
+3. **Data Cleaning and Final Preparation**: 
+- I addressed missing values through mean imputation for continuous values or by replacing unknown factor levels with an "unknown" level.
+- I removed known irrelevant features from the data like jersey number and player name.
+
+This comprehensive feature development process helped ensure the data was prepared for the different model types and there was no loss in  information due to missingness.
+
+4. **Feature Animations**
+
+Animations for all relevant features can be found at [https://dustysturner.com/baylor/addm_final_presentation.html](https://dustysturner.com/baylor/addm_final_presentation.html).
+
+```{r}
+library(tidyverse)
+pen_rds <- read_rds(here::here("99-addm", "penalty.RDS"))
+rf_rds <- read_rds(here::here("99-addm", "rf.RDS"))
+xg_rds <- read_rds(here::here("99-addm", "xg.RDS"))
+nn_rds <- read_rds(here::here("99-addm", "nn.RDS"))
+options(scipen = 999)
+```
+
+# Model Building
+
+In this section, I outline how I build the predictive models.  Specifically, I detail division of the dataset into training, validation, and testing sets for robust evaluation and I provide baseline accuracies within the individual model descriptions below.
+
+## Computational Considerations
+Several computational constraints impacted the modeling process. Limited computational resources dictated a more selective approach to parameter tuning and necessitated trade-offs for each model:
+
+- **Parameter Selection**: The size of the grid to tune parameters had to balance between the ideal size of exploration and the practical limits of computational resources.
+- **Data Splitting**: The approach to splitting the dataset for training, testing, and validation was influenced by these constraints, particularly for the non-neural network models. These models were slower and could not handle as much data in the training set.
+- **Coding Language Variability**: Employing both Python and R introduced an element of inconsistency in the data splitting process as each language split the data in a specific way. One might have desired to split the data into these partitions before changing languages, however, each model type required specific data manipulation, including imputation to be done after the data splitting process, which impacted variability between models.
+
+Despite these considerations, I provide a robust modeling strategy that adapted to these limitations and yielded insightful results.
+
+## Penalized Regression
+The Penalized Regression model employs regularization techniques to linear regression, preventing overfitting and improving prediction accuracy. Its simplicity and interpretability make it a valuable baseline for performance comparison in tackling probabilities.
+
+- **Data Split**: 
+  - Train: `r format(pen_rds$nrow_train, big.mark = ",")` rows (5% of the data)
+  - Validate: `r format(pen_rds$nrow_val, big.mark = ",")` rows (1% of the data)
+  - Test: `r format(pen_rds$nrow_test, big.mark = ",")` rows (94% of the data)
+- **Baseline Accuracy**: `r pen_rds$baseline_accuracy`
+- **Best Parameters**: 
+  - Lambda: `r round(as.numeric(pen_rds$best_parameters$penalty), 5)`
+  - Alpha: `r as.character(round(as.numeric(pen_rds$best_parameters$mixture), 7))`
+- **Model Interpretation**: The model highlights the most impactful factors influencing tackling probabilities.  It is evident from  @fig-penalized-regression-interpretation below that the most impactful factors are interactions between pre snap alignment factors. Non-impactful factors have been removed.  
+
+```{r fig-penalized-regression-interpretation, fig.cap="Parameter significance for the Penalized Regression model."}
+pen_rds$interpret |> 
+  filter(!str_detect(term, "Intercept")) |> 
+  filter(abs(estimate) > .1) |> 
+  mutate(term = fct_reorder(term, estimate)) |> 
+  ggplot(aes(x = term, y = estimate, fill = estimate)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(x = "") +
+  theme_minimal() + labs(y = "Coefficient")
+```
+
+## Random Forest
+The Random Forest model is an ensemble method that builds multiple decision trees and combines their predictions. It is known for high accuracy and the ability to handle complex interactions, making it particularly effective in capturing the dynamic nature of football plays.
+
+- **Data Split**: 
+  - Train: `r format(rf_rds$nrow_train, big.mark = ",")` rows (5% of the data)
+  - Validate: `r format(rf_rds$nrow_val, big.mark = ",")` rows (1% of the data)
+  - Test: `r format(rf_rds$nrow_test, big.mark = ",")` rows (94% of the data)
+- **Baseline Accuracy**: `r rf_rds$baseline_accuracy`
+- **Best Parameters**: 
+  - Mtry: `r round(as.numeric(rf_rds$best_parameters$mtry), 1)`
+  - Min_n: `r round(as.numeric(rf_rds$best_parameters$min_n), 1)`
+  - Trees: `r round(as.numeric(rf_rds$best_parameters$trees), 1)`
+- **Model Interpretation**: This model finds that player distance to the ball and projections on where the player and ball are going are highly impactful on predicting who will make the tackle was shown in @fig-random-forest-interpretation.
+
+```{r fig-random-forest-interpretation, fig.cap="Top 10 factors influencing the Random Forest model."}
+rf_rds$interpret +
+  labs(title = "Top 10 Factors") +
+  theme_minimal()
+```
+
+## XGBoost
+XGBoost is another ensemble method similar to a Random Forest except it stacks multiple decision trees based off of the predictions of previous trees. It is known for high accuracy and the ability to handle complex interactions, making it particularly effective in capturing the dynamic nature of football plays.
+
+- **Data Split**: 
+  - Train: `r format(xg_rds$nrow_train, big.mark = ",")` rows (5% of the data)
+  - Validate: `r format(xg_rds$nrow_val, big.mark = ",")` rows (1% of the data)
+  - Test: `r format(xg_rds$nrow_test, big.mark = ",")` rows (94% of the data)
+- **Baseline Accuracy**: `r xg_rds$baseline_accuracy`
+- **Best Parameters**: 
+  - Trees: `r round(as.numeric(xg_rds$best_parameters$trees), 1)`
+  - Min_n: `r round(as.numeric(xg_rds$best_parameters$min_n), 1)`
+  - Tree Depth: `r round(as.numeric(xg_rds$best_parameters$tree_depth), 1)`
+- **Model Interpretation**: This model recognizes that a players distance to a ball as well as the speed of a player are the most impactful factors when predicting which defensive player will make a tackle.  @fig-xgboost-interpretation shows this in its top features. 
+
+```{r fig-xgboost-interpretation, fig.cap="Model interpretation for the XGBoost model."}
+xg_rds$interpret + theme_minimal()
+```
+
+## Neural Networks
+The Neural Network model, with a multi-layer architecture, is designed to capture complex patterns in high-dimensional data. It is particularly well-suited for analyzing the intricate patterns present in football play dynamics.
+
+- **Data Split**: 
+  - Train: `r format(nn_rds$train, big.mark = ",")` rows (70% of the data)
+  - Validate: `r format(nn_rds$val, big.mark = ",")` rows (15% of the data)
+  - Test: `r format(nn_rds$test, big.mark = ",")` rows (15% of the data)
+- **Baseline Accuracy**: 92.92%
+- **Model Architecture**: 
+  - **Layers**: 
+    - Three dense layers with 64 neurons each.
+    - Input shape specified for the first layer.
+    - Final output layer with a single neuron for binary classification.
+  - **Activation**: 
+    - ReLU activation for the hidden layers.
+    - Sigmoid activation for the output layer.
+  - **Regularization**: 
+    - L2 regularization with a factor of 0.001 applied to all layers.
+  - **Batch Normalization**: 
+    - Applied after each dense layer to normalize layer inputs, stabilizing and accelerating training.
+  - **Dropout**: 
+    - 30% dropout rate after each batch normalization to prevent overfitting by randomly deactivating neurons.
+  - **Compilation**:
+    - Optimizer: Adam.
+    - Loss function: Binary cross-entropy.
+    - Metric: Accuracy.
+- **Model Interpretation**: This model excels in learning from complex data, offering the highest accuracy in the study for tackling probability predictions.
+
+
+I executed each model over the entire parameter space and monitored accuracy.  The neural network that yielded the best accuracy. 
+
+# Results
+
+## Accuracy
+
+The results of the several machine learning models are as follows:
+
+| Model Type            | Accuracy                                   |
+|-----------------------|--------------------------------------------|
+| Penalized Regression  | `r stringr::str_c(round(pen_rds$best_parameters$mean,4)*100, "%")` |
+| Random Forest         | `r stringr::str_c(round(rf_rds$rf_accuracy$.estimate[1],4)*100, "%")` |
+| XGBoost               | `r stringr::str_c(round(xg_rds$xg_accuracy$.estimate[1],4)*100, "%")` |
+| Neural Network        | `r stringr::str_c(round(nn_rds$accuracy,4)*100, "%")`             |
+
+Among these models, the Neural Network, while only marginally more accurate, emerges as the most promising. This model, despite its lack of interpretability compared to others, indicates significant potential. With relatively little tuning, it already outperforms the other models. This suggests a higher ceiling for performance improvements, especially with more focused adjustments to its structure and parameters (discussed further in future work). The neural network's ability to learn complex, non-linear relationships within the data, characteristic of in-game football dynamics, makes it a particularly suitable model for this study. Despite the marginal improvement in accuracy and interpretability challenges, its potential for enhanced performance with further tuning makes it the most promising model for future development in this area.
+
+## Comparative Analysis of Model Rankings
+
+In addition to evaluating individual model performance and accuracy, an important aspect of the analysis involves comparing how each model ranks players. Understanding the similarity or disparity in player rankings across different models provides insights into the consistency of these models in evaluating player performance.
+
+To conduct this comparative analysis, I employed the Spearman's Rank Correlation Coefficient, a non-parametric measure that assesses how similar two lists are. This method identifies how similar the ranking orders are of the four models: Penalized Regression, Random Forest, XGBoost, and Neural Networks.
+
+```{r fig-model-rank-comparison, fig.cap="Pairwise Spearman's Rank Correlation among models", out.extra='placement="H"'}
+pen <- 
+  nn_rds$nn_briar |> select(-tackles_over_expected) |> 
+  left_join(pen_rds$pen_briar) |> 
+  arrange(display_name) |> 
+  mutate(rank = rank(tackles_over_expected)) |> 
+  pull(rank) 
+
+
+rf <- 
+  nn_rds$nn_briar |> select(-tackles_over_expected) |> 
+  left_join(rf_rds$rf_briar) |> 
+  arrange(display_name) |> 
+  mutate(rank = rank(tackles_over_expected)) |> 
+  pull(rank)
+
+xg <- 
+    nn_rds$nn_briar |> select(-tackles_over_expected) |> 
+    left_join(xg_rds$xg_briar) |> 
+    arrange(display_name) |> 
+  mutate(rank = rank(tackles_over_expected)) |> 
+  pull(rank)
+
+
+nn <- 
+    nn_rds$nn_briar |> select(-tackles_over_expected) |> 
+    left_join(nn_rds$nn_briar) |> 
+  arrange(display_name) |>
+  mutate(rank = rank(tackles_over_expected)) |>
+  pull(rank)
+
+
+rankings <- tibble(pen = pen, rf = rf, xg = xg, nn = nn) 
+
+# Calculate pairwise Spearman's rank correlation coefficient
+correlation_matrix <- as_tibble(cor(rankings, method = "spearman")) %>%
+  mutate(col = names(.))
+  # mutate(id = row_number())
+
+correlation_matrix |>
+  pivot_longer(-col) |> 
+  ggplot(aes(x = col, y = name, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = .5, limit = c(0,1), space = "Lab", 
+                       name="Spearman\nCorrelation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "", y = "", title = "Pairwise Spearman's Rank Correlation") +
+  coord_fixed()
+
+```
+
+The heatmap visualization in @fig-model-rank-comparison illustrates the pairwise Spearman's Rank Correlation coefficients among the models. A coefficient close to +1 indicates a high similarity in rankings, whereas a coefficient near -1 implies a strong inverse relationship. Coefficients around 0 suggest no correlation in the rankings between models.
+
+This analysis reveals that the Penalized Regression, Random Forest, XGBoost are all fairly similar but the neural network, while still positively correlated, is less similar than the others.
+
+\newpage 
+
+## Tackles Above Expected
+
+In addition to model accuracy, I used a Briar score methodology to evaluate predictions for each player in the hold-out set. By calculating an average Briar score for each player in each model based on predicted and actual outcomes, it helps assess which players are likely exceeding or not meeting the expected tackling metrics.
+
+Figure \ref{fig:models_comparison} showcases the Briar scores for top and bottom performers from each model. A higher score indicates that a player performed better than expected, while a lower score suggests underperformance relative to predictions. These scores provide valuable insights into player performance relative to the models' expectations.
+
+As highlighted in the previous section, the three machine learning models provide similar results and the neural network does not overlap with any of them.  More research is needed to determine what accounts for the differences. 
+
+```{r, eval=FALSE}
+joiner <- read_rds(here::here("99-addm", "paper_helper.RDS"))
+
+library(gt)
+library(webshot)
+
+make_gt <-  function(data, title, acc = nn_rds$accuracy){
+
+  acc_stem <- str_c(round(acc,4)*100,"%")
+
+  if(acc < .929) {
+    sub <- html(paste0("<span style='color: firebrick;'>", "Accuracy: ", acc_stem, "</span>"))
+  } else {
+    sub <- html(paste0("<span style='color: green;'>", "Accuracy: ", acc_stem, "</span>"))
+  }
+
+  data |>
+    left_join(joiner) |>
+  arrange(-tackles_over_expected) |>
+    rename(`Name` = display_name,  `TOE` = tackles_over_expected, `Position` = position) |>
+  slice(c(1:4,(n() - 3):n())) |>
+  select(-nfl_id) |>
+  gt::gt() |> gt::fmt_number() |>
+    gt::tab_header(title = title,
+                   # subtitle = str_c("Accuracy: ", acc)
+                   subtitle = sub
+                   ) |>
+    tab_style(
+    style = list(
+      cell_borders(sides = "top", color = "black", weight = px(2))
+    ),
+    locations = cells_body(
+      rows = 5,
+      columns = everything()
+    )
+  )
+}
+
+
+
+# Example usage
+pen_rds$pen_briar |> make_gt(title = "Penalized Regression", acc = pen_rds$pen_accuracy$.estimate[1]) |> 
+  gtsave("99-addm/pen.html")
+rf_rds$rf_briar |> make_gt(title = "Random Forest", acc = rf_rds$rf_accuracy$.estimate[1]) |> 
+  gtsave("99-addm/rf.html")
+xg_rds$xg_briar |>  make_gt(title = "XG Boost", acc = xg_rds$xg_accuracy$.estimate[1]) |> 
+  gtsave("99-addm/xg.html")
+nn_rds$nn_briar |>  make_gt(title = "Neural Net", acc = nn_rds$accuracy) |> 
+  gtsave("99-addm/nn.html")
+# Use webshot to take a screenshot of the HTML table and save it as an image
+webshot("99-addm/pen.html", file = "99-addm/pen.png", cliprect = c(16, 370, 250, 430), zoom = 2)
+webshot("99-addm/rf.html", file = "99-addm/rf.png", cliprect = c(16, 370, 250, 430), zoom = 2)
+webshot("99-addm/xg.html", file = "99-addm/xg.png", cliprect = c(16, 370, 250, 430), zoom = 2)
+webshot("99-addm/nn.html", file = "99-addm/nn.png", cliprect = c(16, 365, 260, 430), zoom = 2)
+
+```
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.24\textwidth]{pen.png}
+  \hfill
+  \includegraphics[width=0.24\textwidth]{rf.png}
+  \hfill
+  \includegraphics[width=0.24\textwidth]{xg.png}
+  \hfill
+  \includegraphics[width=0.24\textwidth]{nn.png}
+  \caption{A comparison of model performances.}
+  \label{fig:models_comparison}
+\end{figure}
+
+
+
+<!-- :::: {.columns} -->
+
+<!-- ::: {.column width="25%"} -->
+
+<!-- ![](pen.png)![](pen.png) -->
+
+```{r}
+# pen_rds$pen_briar |> make_gt(title = "Penalized Regression", acc = pen_rds$pen_accuracy$.estimate[1])
+```
+
+<!-- ::: -->
+
+<!-- ::: {.column width="25%"} -->
+
+```{r}
+# rf_rds$rf_briar |> make_gt(title = "Random Forest", acc = rf_rds$rf_accuracy$.estimate[1])
+```
+
+<!-- ::: -->
+
+<!-- ::: {.column width="25%"} -->
+
+```{r}
+# xg_rds$xg_briar |>  make_gt(title = "XG Boost", acc = xg_rds$xg_accuracy$.estimate[1])
+```
+
+<!-- ::: -->
+
+<!-- ::: {.column width="25%"} -->
+
+```{r}
+# nn_rds$nn_briar |>  make_gt(title = "Neural Net", acc = nn_rds$accuracy)
+```
+
+<!-- ::: -->
+
+<!-- :::: -->
+
+# Application and Implications
+
+## Performance Analysis
+
+Under the assumption that each individual model is correct, the development of the 'tackles over expected' metric introduces a concrete method for evaluating player performance. The higher the value of the player's Briar score, the more tackles they make over expected.  Essentially, any player with a high Briar score makes more tackles than the average player given a similar situation.  A low Briar score indicates that a player makes less tackles than the average than a similar player in a similar situation. 
+
+## Career Progression and Contract Negotiations
+
+The 'tackles over expected' metric, beyond on-field strategy, can serve as a crucial tool for making decisions about player promotions, trades, or contract renewals. Its objective nature offers a solid foundation for contract negotiations, contributing to fair and informed decision-making regarding player valuation.
+
+## Enhancing Team Tactics
+
+Teams benefit from these insights by enhancing their defensive strategies. The metric allows for an in-depth assessment of team and individual performances, enabling coaching staff to tailor strategies that maximize defensive effectiveness and overall team performance.  When identifying players who have higher tackles over expected, this can help influence in-game decision making for coaches. 
+
+# Limitations and Directions for Future Research
+
+This study faces certain limitations that open avenues for future research. A primary limitation lies in the dataset's focus on run plays from the first week of the 2022 NFL season, which might not capture the complete variability of player performances across different games, seasons, or play types. Expanding this research to encompass the entirety of the dataset, including various play types and additional seasons, could yield more accurate and generalizable results.
+
+Another area for enhancement is the current model's capability to fully capture the time-dependent dynamics of football plays. Future iterations of this research could greatly benefit from the implementation of advanced neural network models like LSTM (Long Short-Term Memory) or RNN (Recurrent Neural Network). These models, with their ability to account for temporal factors in player movements and actions, have the potential to refine the predictions and offer deeper insights.
+
+Additionally, the study primarily relies on in-game performance data, which might overlook external factors influencing player performance. Integrating additional data sources, such as player fitness levels, weather conditions, and psychological factors, could provide a more nuanced understanding of tackling effectiveness. This holistic approach would not only enrich the insights gained but also contribute to a more comprehensive understanding of the game.
+
+In summary, while this study lays a strong foundation for advancing the understanding of football analytics, these limitations highlight the potential for further research. By expanding the dataset, incorporating more complex time-dependent models, and integrating diverse data types, future studies can build upon this work to offer even richer insights into the world of football analytics.
+
+# Conclusion
+
+This study represents a new advancement in football analytics by introducing the 'tackles over expected' metric, derived from a combination of advanced data analysis and machine learning methods such as penalized regression, random forest, XGBoost, and neural networks. This metric sheds new light on individual and team defensive performances, enhancing the understanding of football dynamics.
+
+The insights gained hold significant implications for coaching strategies, player development, and game analytics, offering a data-driven basis for on-field and off-field decision-making. This work not only contributes to sports analytics but also opens new avenues for future research. Overall, this research underscores the transformative impact of data science in sports and sets the stage for further advancements in the field.
+
+\newpage
+
+# References
+
+1. Carroll, Bob, Pete Palmer, and John Thorn. *The Hidden Game of Football*. Workman Publishing Company, 1988.
+
+2. NFL Big Data Bowl 2020. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020).
+
+3. NFL Big Data Bowl 2021. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021).
+
+4. NFL Big Data Bowl 2022. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022).
+
+5. NFL Big Data Bowl 2023. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023).
+
+6. R Core Team (2023). R: A Language and Environment for Statistical Computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+7. Wickham H, Averick M, Bryan J, et al. (2023). tidyverse: Easily Install and Load the 'Tidyverse'. R package version 1.3.1. URL https://CRAN.R-project.org/package=tidyverse.
+
+8. Thomas Lin Pedersen (2023). gganimate: A Grammar of Animated Graphics. R package version 1.0.7. URL https://CRAN.R-project.org/package=gganimate.
+
+9. Apache Arrow community (2023). arrow: Integration to 'Apache' 'Arrow'. R package version 8.0.0. URL https://CRAN.R-project.org/package=arrow.
+
+10. Scrucca L, Fop M, Murphy TB, Raftery AE (2023). mclust: Gaussian Mixture Modelling for Model-Based Clustering, Classification, and Density Estimation. R package version 5.4.8. URL https://CRAN.R-project.org/package=mclust.
+
+11. Kuhn M and Wickham H (2023). tidymodels: Easily Install and Load the 'tidymodels' Framework. R package version 0.1.4. URL https://CRAN.R-project.org/package=tidymodels.
+
+12. Kevin Ushey, JJ Allaire, Yuan Tang, et al. (2023). reticulate: Interface to 'Python'. R package version 1.24. URL https://CRAN.R-project.org/package=reticulate.
+
+13. Selivanov D and Wang Q (2023). mltools: Machine Learning Tools. R package version 0.3.6. URL https://CRAN.R-project.org/package=mltools.
+
+14. Dowle M and Srinivasan A (2023). data.table: Extension of `data.frame`. R package version 1.14.2. URL https://CRAN.R-project.org/package=data.table.
+
+
+<!-- [^1]: Carroll, Bob, Pete Palmer, and John Thorn. *The Hidden Game of Football*. Workman Publishing Company, 1988. -->
+
+<!-- [^2]: NFL Big Data Bowl 2020. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2020). -->
+
+<!-- [^3]: NFL Big Data Bowl 2021. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2021). -->
+
+<!-- [^4]: NFL Big Data Bowl 2022. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2022). -->
+
+<!-- [^5]: NFL Big Data Bowl 2023. Retrieved from [Kaggle](https://www.kaggle.com/competitions/nfl-big-data-bowl-2023). -->

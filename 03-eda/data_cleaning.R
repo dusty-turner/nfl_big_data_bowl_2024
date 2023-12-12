@@ -1,8 +1,8 @@
 library(tidyverse)
 library(gganimate)
 library(arrow)
-source(here::here("03-eda","ggtheme_field.R"))
-
+source(here::here("03-eda","ggtheme_field.R")) 
+ 
 week_1 <-
   read_parquet(here::here("02-clean-data","tracking.parquet")) |> filter(week_id == "week_1") |> 
   left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |> 
@@ -176,8 +176,12 @@ week_1 <-
     # Normalize angle between -pi and pi
     angle_to_ball = (angle_to_ball + pi) %% (2 * pi) - pi,
     # Check if ball is within 'the fan' (30 degrees on either side)
-    ball_in_fan = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3, # Assuming 3 unit is the radius of the fan,
-    ball_in_fan = if_else(ball_in_fan, "yes", "no") 
+    ball_in_fan3 = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 3, # Assuming 3 unit is the radius of the fan,
+    ball_in_fan3 = if_else(ball_in_fan3, "yes", "no"), 
+    ball_in_fan2 = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 2, # Assuming 3 unit is the radius of the fan,
+    ball_in_fan2 = if_else(ball_in_fan2, "yes", "no"), 
+    ball_in_fan1 = angle_to_ball >= -pi/6 & angle_to_ball <= pi/6 & distance_to_ball <= 1, # Assuming 3 unit is the radius of the fan,
+    ball_in_fan1 = if_else(ball_in_fan1, "yes", "no") 
     )  |> 
   ######
   # End: This identifies if they are 3 yards away and inside that range fan
@@ -304,8 +308,12 @@ defensive_model_building_data_model <-
   select(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, tackle, x, y, x_going, y_going, s, a, position,
          rank, club, defenders_in_the_box, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number, 
          time, defensive_team, display_name, distance_to_ball, distance_to_ball_next, play_description, is_football, alignment,
-         alignment_cluster, pass_result, v_approach, ball_in_fan, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball) |> 
+         alignment_cluster, pass_result, v_approach, ball_in_fan3, ball_in_fan2, ball_in_fan1, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball) |> 
   filter(frame_id > 5)
+
+write_rds(defensive_model_building_data, "02-clean-data/data_cleaning_working.RDS")
+
+write_rds(week_1, "02-clean-data/week_1.RDS")
 
 # I don't have clusters built in for passing plays
 
@@ -328,3 +336,94 @@ defensive_model_building_data_model <-
 
 dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, play_id)
 
+digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) |> 
+  write_lines("02-clean-data/cleaninghash.txt")
+ 
+# 
+# library(rlang)
+# 
+# 
+# test <-
+# week_1 |> 
+#   # defensive_model_building_data |> 
+#   group_by(game_id, play_id, frame_id) |>
+#   filter(cur_group_id() %in% 5:8) |> 
+#   ungroup() |> 
+#   # filter(frame_id == 5) |>  
+#   rowwise() 
+# 
+# # Define the threshold distance
+# threshold_distance <- .001  # Adjust as needed
+# 
+# ax <- test$x[1]
+# ay <- test$y[1]
+# bx <- test$x_ball[1]
+# by <- test$y_ball[1]
+# px <- test$x[2]
+# py <- test$y[2]
+# game_id <- test$game_id[1]
+# play_id <- test$play_id[1]
+# frame_id <- test$frame_id[1]
+# data <- test
+# 
+# player_x <-test$x[1] 
+# player_y <- test$
+# ball_x <- 
+# ball_y <- 
+# current_game_id <- 
+# current_play_id <- 
+# current_frame_i <- 
+# 
+# # Function to calculate the perpendicular distance from a point to a line
+# perpendicular_distance <- function(ax, ay, bx, by, px, py) {
+#   abs((by - ay) * px - (bx - ax) * py + bx * ay - by * ax) / sqrt((by - ay)^2 + (bx - ax)^2)
+# }
+# 
+# # Function to check if any other player within the same play and frame is within a threshold distance from the line to the ball
+# # check_other_players <- function(ax, ay, bx, by, game_id, play_id, frame_id, data, threshold_distance) {
+# #   # Filter data to include only players from the same game, play, and frame
+# #   relevant_players <-
+# #     data %>%
+# #     filter(game_id == "2022090800", play_id == "101", frame_id == "5", !(x == ax & y == ay))
+# #     # filter(game_id == game_id, play_id == play_id, frame_id == frame_id, !(x == ax & y == ay))
+# #   
+# #   distances <- pmap_dbl(relevant_players, function(x, y, x_ball, y_ball, ...) {
+# #     perpendicular_distance(ax, ay, bx, by, x, y)
+# #   })
+# #   
+# #   any(distances <= threshold_distance)
+# # }
+# 
+# check_other_players <- function(player_x, player_y, ball_x, ball_y, current_game_id, current_play_id, current_frame_id, data, threshold_distance) {
+#   # Filter data to include only players from the same game, play, and frame, excluding the current player
+#   relevant_players <- data %>%
+#     filter(game_id == current_game_id, play_id == current_play_id, frame_id == current_frame_id, !(x == player_x & y == player_y))
+#   
+#   distances <- pmap_dbl(relevant_players, function(x, y, x_ball, y_ball, ...) {
+#     perpendicular_distance(player_x, player_y, ball_x, ball_y, x, y)
+#   })
+#   
+#   any(distances <= threshold_distance)
+# }
+# 
+# 
+# 
+# # Apply the function to each row
+# # data <- 
+# test %>%
+#   select(x, y, x_ball,y_ball, game_id, play_id, frame_id) |> 
+#   rowwise() %>%
+#   mutate(player_between = check_other_players(x, y, x_ball, y_ball, game_id, play_id, frame_id, data, threshold_distance))
+#   ungroup() |> 
+#   mutate(color = case_when(ball_carrier == TRUE ~ "ballcarrier",
+#                            tackle == "1" ~ "tackler",
+#                            is_football == "football" ~ "football",
+#                            club == defensive_team ~ "defense",
+#                            club != defensive_team ~ "offense")) |> 
+#   # select(x,y,x_ball,y_ball,player_between, frame_id, game_id, play_id, frame_id, display_name, defensive_team)  |> 
+#   select(player_between, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, 
+#          is_football, club, frame_id, game_id) 
+# 
+# 
+# ggplot(aes(x = x, y = y, color = color, shape = player_between)) +
+#   geom_point()
