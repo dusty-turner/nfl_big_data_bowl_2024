@@ -389,7 +389,7 @@ custom_loss <- function(y_true, y_pred) {
   sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
 
   # Combine the BCE loss and the constraint with a balancing factor (lambda)
-  lambda <- 0.1  # This is a hyperparameter you can tune
+  lambda <- .9  # This is a hyperparameter you can tune
   return(bce + lambda * sum_constraint)
 }
 
@@ -397,6 +397,11 @@ custom_loss <- function(y_true, y_pred) {
 num_players <- 22  # Assuming 22 players in each frame, adjust based on your data
 N <- ncol(x_train)
 num_features <- ncol(list_of_sequences[[1]])
+
+# model <- keras_model_sequential() %>%
+#   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
+#   # ... other layers ...
+#   time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
 
 model <- keras_model_sequential() %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
@@ -429,7 +434,7 @@ get_batches <- function(x, y, batch_size) {
 
 # Assuming num_epochs and batch_size are defined
 num_epochs <- 3  # Replace with your actual number of epochs
-batch_size <- 100  # Replace with your actual batch size
+batch_size <- 1000  # Replace with your actual batch size
 
 # Custom training loop
 library(tictoc)  # For timing
@@ -511,6 +516,8 @@ predicted_classes <- ifelse(predictions > 0.5, 1, 0)
 accuracy <- mean(predicted_classes == actuals)
 print(paste("Accuracy:", accuracy))
 
+write_lines(accuracy, "accuracy.txt")
+
 # Calculate AUC
 roc_result <- roc(actuals, predictions)
 auc_value <- auc(roc_result)
@@ -524,6 +531,17 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
   labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
   annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
 
+test_set_with_predictions<-
+# Add the predictions directly to test_data if they are in the same order
+ test_data %>%
+  mutate(prediction = filtered_predictions) |> 
+  mutate(prediction_class = as.factor(predicted_classes)) |> 
+  as_tibble() |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  relocate(game_id, play_id, prediction, frames_from_tackle, tackle)  |> 
+  mutate(across(.cols = c(game_id, play_id, nfl_id), .fns = ~as.character(.)))
+
+predictions |> hist()
 
 test_set_with_predictions |> 
   group_by(game_id, play_id, frame_id) |> 
