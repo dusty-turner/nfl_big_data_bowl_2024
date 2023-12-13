@@ -1,0 +1,60 @@
+= Application for Omar N. Bradley Officer Research Fellowship in Mathematics
+
+*To:* Review board of the Omar N. Bradley Officer Research Fellowships in Mathematics +
+*Subject:* Application for Omar N. Bradley Officer Research Fellowship in Mathematics
+
+I am applying for the Omar N. Bradley Officer Research Fellowship in Mathematics. Below are the details of my application:
+
+* *Name, Rank, and Duty Position:* Dusty Turner, Major, FA-49/PhD Student
+* *Mailing Address:* 1617 Fabian Drive, Waco, TX, 76712
+* *Email Address:* dusty_turner1@baylor.edu
+* *Phone Number:* 830-285-5067
+
+== Curriculum Vitae
+
+Enclosed. https://dustysturner.com/cv.pdf[CV Link]
+
+== Research Proposal
+
+=== Title of the Effort
+
+*Quantifying Tackling in Football*: A Data-Driven Approach Using the NFL Big Data Bowl Dataset and Advanced Machine Learning Techniques
+
+=== Project Description
+
+* *Overview:* The project involves using LSTM (Long Short-Term Memory) Neural Networks, Extreme Gradient Boosted Trees, and other advanced modeling techniques to develop metrics for tackling in football, focusing on leveraging statistical methods to gain insights into player performance and game strategy.
+* *Objective of the Project:* The main objective is to quantify players’ contributions to tackling in football, which involves quantifying individual players’ probability of making a tackle and others’ contributions towards tackling.
+* *Methodology:* The methodology includes developing features from spatial-temporal data, development of multiple models, and executing these models across a distributed computing system.
+* *Proposed Timeline:*
+** *8 January 2024:* Draft model development.
+** *28 February 2024:* Pre-Project Presentation to PhD Committee.
+** *8 August 2024:* Preliminary results to be presented at the Joint Statistical Meetings.
+** *1 May 2025:* Dissertation Defense at Baylor University.
+
+=== Proposed Budget
+
+[cols=",",options="header",]
+|===
+|Item |Estimated Cost
+|Registration (ASA Member) |$550
+|Flight (Round-trip, Dallas to Portland) |$450
+|Hotel (4 nights) |$700
+|Parking, Meals, and Incidentals |$300
+|*Total Estimated Cost* |*$2000*
+|===
+
+=== Method of Publishing/Disseminating Results
+
+I plan to present preliminary results at the Joint Statistical Meetings in August 2024. Additionally, I intend to publish the findings in the '`Journal of Applied Statistics,`' a journal well-regarded for its focus on the practical applications of statistical methodologies, which aligns closely with my research focus.
+
+== Military Applications of Football Analytics Techniques
+
+This research in football analytics, specifically in quantifying tackling using advanced data analysis, has direct implications for military strategy. The interplay analysis between offensive and defensive players mirrors tactical decision-making in ground combat, air combat, drone operations, and space engagements. Techniques used for spatial-temporal analysis in football can be adapted to enhance operational efficiency and predictive capabilities in military contexts. This research [offerspromises innovative perspectives for strategizing in various combat domains, contributing to the evolution of modern military tactics.
+
+I am committed to the field of mathematical sciences and believe that this fellowship will significantly enhance my current research endeavors. Thank you for considering my application.
+
+Sincerely,
+
+Dusty Turner MAJ EN/FA49 PhD Student, Statistics Baylor University
+
+Email: dusty_turner1@baylor.edu Phone: 830-285-5067 [LinkedIn/Professional Profile URL] Advisor: [Advisor’s Name]

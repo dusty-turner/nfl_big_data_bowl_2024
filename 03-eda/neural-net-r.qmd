@@ -68,7 +68,7 @@ newdata <-
 newdata <-
 newdata |> 
   group_by(game_idplay_id) |> 
-  filter(cur_group_id() %in% 1:100) |> 
+  filter(cur_group_id() %in% 1:50) |> 
   ungroup()
 
 # Set a seed for reproducibility
@@ -97,10 +97,6 @@ library(keras)
 # Normalize your data
 # Selecting a subset of columns for demonstration. You should extend this to all relevant columns.
 numeric_columns <- c('x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight')
-
-# Applying normalization on the selected columns
-# train_data[numeric_columns] <- scale(train_data[numeric_columns])
-# test_data[numeric_columns] <- scale(test_data[numeric_columns])
 
 categorical_features = c('position_CB', 'position_DB', 'position_DE', 'position_DT',
        'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
@@ -203,7 +199,7 @@ custom_loss <- function(y_true, y_pred) {
   sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
 
   # Combine the BCE loss and the constraint with a balancing factor (lambda)
-  lambda <- .9  # This is a hyperparameter you can tune
+  lambda <- .1  # This is a hyperparameter you can tune
   return(bce + lambda * sum_constraint)
 }
 
@@ -211,11 +207,6 @@ custom_loss <- function(y_true, y_pred) {
 num_players <- 22  # Assuming 22 players in each frame, adjust based on your data
 N <- ncol(x_train)
 num_features <- ncol(list_of_sequences[[1]])
-
-# model <- keras_model_sequential() %>%
-#   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
-#   # ... other layers ...
-#   time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
 
 model <- keras_model_sequential() %>%
     bidirectional(
@@ -235,8 +226,8 @@ optimizer <- optimizer_adam()
 
 # Group data by game_id, play_id, and frame_id
 grouped_data <- train_data[, .(list(.SD)), by = .(game_id, play_id, frame_id)]
-grouped_data$V1[[1]]
-# nfl_id     display_name game_idplay_id
+# grouped_data$V1[[1]]
+
 
 # Group data by game_id, play_id, and frame_id
 get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_features) {
@@ -253,7 +244,8 @@ get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_f
     # group_display_name <- group[, .(display_name), with = FALSE]
 
     # Remove non-numeric columns from group
-    group <- group[, setdiff(names(group), c("tackle", "display_name")), with = FALSE]
+    group <- group[, setdiff(names(group), c("display_name")), with = FALSE]
+    # group <- group[, setdiff(names(group), c("tackle", "display_name")), with = FALSE]
 
     # Convert all character columns in group to numeric
     group[] <- lapply(group, function(x) as.numeric(as.character(x)))
@@ -290,6 +282,7 @@ get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_f
       batch_y <- list()
       batch_display_names <- list()
     }
+    print(i)
   }
 
   # Add the remaining batch if it's not empty
@@ -369,64 +362,18 @@ for (epoch in 1:num_epochs) {
   epoch_time <- toc()  # End timing the epoch
 
   # Log summary at the end of the epoch
-  cat(sprintf("\nEpoch %d completed in %.2f seconds. Average loss: %.4f\n", 
-              epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
+  # cat(sprintf("\nEpoch %d completed in %.2f seconds. Average loss: %.4f\n", 
+  #             epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
 }
 
 # Continue with validation and other steps as needed
 
-# Custom training loop with a progress bar
-# for (epoch in 1:num_epochs) {
-#   tic()  # Start timing the epoch
-#   cat("Epoch", epoch, "/", num_epochs, "\n")
-#   
-#   total_loss <- 0
-#   num_batches <- length(get_batches(x_train, y_train, batch_size))
-#   
-#   # Create a progress bar
-#   pb <- progress_bar$new(
-#     format = "  [:bar] :percent :current/:total (eta: :eta)",
-#     total = num_batches, clear = FALSE, width = 60
-#   )
-# 
-#   for (i in seq_along(get_batches(x_train, y_train, batch_size))) {
-#     batch <- get_batches(x_train, y_train, batch_size)[[i]]
-#     tape <- tf$GradientTape()
-#     
-#     with(tape, {
-#       predictions <- model(batch$x)
-#       loss <- custom_loss(batch$y,predictions)
-#     })
-#     
-#     gradients <- tape$gradient(loss, model$trainable_variables)
-#     grads_and_vars <- lapply(seq_along(gradients), function(j) {
-#       list(gradients[[j]], model$trainable_variables[[j]])
-#     })
-#     
-#     optimizer$apply_gradients(grads_and_vars)
-#     
-#     batch_loss <- as.numeric(loss)
-#     total_loss <- total_loss + batch_loss
-# 
-#     # Update the progress bar
-#     pb$tick()
-#   }
-# 
-#   epoch_loss <- total_loss / num_batches
-#   epoch_time <- toc()  # End timing the epoch
-# 
-#   # Log summary at the end of the epoch
-#   # cat(sprintf("\nEpoch %d completed in %.2f seconds. Average loss: %.4f\n", 
-#   #             epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
-# 
-#   # Evaluate on validation set if available
-#   # Add your validation evaluation code here (optional)
-# }
-
 original_lengths <- sapply(list_of_test_sequences, nrow)
 
 # Make predictions on the test set
-predictions <- model %>% predict(x_test)
+x_test_padded <- pad_sequences(x_test, maxlen = 204, padding = "post")
+
+predictions <- model %>% predict(x_test_padded)
 
 # Step 2: Filter out predictions for padded frames
 # Assuming predictions is a 2D array with the first dimension corresponding to different sequences
@@ -477,6 +424,10 @@ test_set_with_predictions<-
   mutate(across(.cols = c(game_id, play_id, nfl_id), .fns = ~as.character(.)))
 
 predictions |> hist()
+
+test_set_with_predictions |> 
+  count(tackle) |> 
+  reframe(n / sum(n))
 
 test_set_with_predictions |> 
   group_by(game_id, play_id, frame_id) |> 
@@ -684,19 +635,6 @@ y_train <- unlist(targets)
 y_test <- test_data[tackle != "NA", tackle]
 
 N <- ncol(x_train)
-
-# model <- keras_model_sequential() %>%
-#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
-#   layer_dropout(rate = 0.5) %>%
-#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
-#   layer_dropout(rate = 0.5) %>%
-#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
-#   layer_dropout(rate = 0.5) %>%
-#   layer_lstm(units = 100, return_sequences = TRUE, input_shape = c(N, num_features)) %>%
-#   layer_dropout(rate = 0.5) %>%
-#   layer_lstm(units = 100, return_sequences = TRUE) %>%
-#   layer_dropout(rate = 0.5) %>%
-#   time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
 
 model <- keras_model_sequential() %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
