@@ -204,14 +204,14 @@ custom_loss <- function(y_true, y_pred) {
 }
 
 
-num_players <- 22  # Assuming 22 players in each frame, adjust based on your data
+# num_players <- 11  # Assuming 22 players in each frame, adjust based on your data
 N <- ncol(x_train)
 num_features <- ncol(list_of_sequences[[1]])
 
 model <- keras_model_sequential() %>%
     bidirectional(
     layer_lstm(units = 50, return_sequences = TRUE), 
-    input_shape = c(204, 76)
+    input_shape = c(max_length, 76)
   ) %>%
   layer_dropout(rate = 0.2) %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), input_shape = c(N, num_features)) %>%
@@ -226,11 +226,11 @@ optimizer <- optimizer_adam()
 
 # Group data by game_id, play_id, and frame_id
 grouped_data <- train_data[, .(list(.SD)), by = .(game_id, play_id, frame_id)]
-# grouped_data$V1[[1]]
+grouped_data$V1[[3]]
 
 
 # Group data by game_id, play_id, and frame_id
-get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_features) {
+get_custom_batches <- function(grouped_data, batch_size, max_length, num_features) {
   batches <- list()
   batch_x <- list()
   batch_y <- list()
@@ -245,8 +245,7 @@ get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_f
 
     # Remove non-numeric columns from group
     group <- group[, setdiff(names(group), c("display_name")), with = FALSE]
-    # group <- group[, setdiff(names(group), c("tackle", "display_name")), with = FALSE]
-
+    
     # Convert all character columns in group to numeric
     group[] <- lapply(group, function(x) as.numeric(as.character(x)))
 
@@ -303,12 +302,20 @@ get_custom_batches <- function(grouped_data, batch_size, max_length = 204, num_f
 
 
 # Example usage
-batch_size <- 220  # Define your batch size
-max_length <- 204  # Correct sequence length
+batch_size <- 11  # Define your batch size
+
+# lengths <- sapply(list_of_sequences, nrow)
+
+# Find the maximum length
+# max_length <- max(lengths)
+
+# max_length <- 11
+
 num_features <- 76  # Ensure this is the correct number of features
 
 custom_batches <- get_custom_batches(grouped_data, batch_size, max_length, num_features)
 
+custom_batches[[1]]$display_names |> as_tibble() |> count(display_name)
 
 # Assuming num_epochs and batch_size are defined
 num_epochs <- 3  # Replace with your actual number of epochs
