@@ -129,13 +129,15 @@ setDT(test_data)
 # Store the reference columns in a separate table
 reference_data <- train_data[, .(nfl_id, frame_id, frames_from_tackle, display_name, game_id, play_id, game_idplay_id)]
 
-# Now create the sequences without the reference columns
-train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
-                               target = list(tackle)),
-                           by = .(game_id, play_id, nfl_id)]
+# For Training Data
+train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
+                                     target = list(tackle)),
+                                 by = .(game_id, play_id)]
 
-test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("game_id", "play_id", "tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
-                                 by = .(game_id, play_id, nfl_id)]
+# For Test Data
+test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
+                                   by = .(game_id, play_id)]
+
 
 
 # Split sequences and targets into separate objects
@@ -303,7 +305,7 @@ get_custom_batches <- function(grouped_data, batch_size, max_length, num_feature
 
 # Example usage
 # Example batch size (you can adjust this based on your needs and computational resources)
-batch_size <- 1  # or any other appropriate number
+batch_size <- 484  # or any other appropriate number
 
 # Get max_length from the padded training data
 max_length <- dim(x_train)[2]
@@ -314,7 +316,7 @@ num_features <- dim(x_train)[3]
 # Now call the function with these dynamic variables
 custom_batches <- get_custom_batches(grouped_data, batch_size, max_length, num_features)
 
-custom_batches[[1]]$display_names
+custom_batches[[1]]
 # |> as_tibble() 
 # |> count(display_name)
 
