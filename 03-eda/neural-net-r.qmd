@@ -149,17 +149,17 @@ targets <- train_data_grouped$target
 # Assuming 'max_length' is the length of your longest sequence and 'num_features' is the number of features
 max_length_train <- max(sapply(list_of_sequences, nrow))
 max_length_test <- max(sapply(list_of_test_sequences, nrow))
-max_length <- max(max_length_train, max_length_test)
+max_length_frame_id <- max(max_length_train, max_length_test)
 num_features <- ncol(list_of_sequences[[1]])
 
 # Prepare x_train with the adjusted max_length
 # Prepare x_train with the adjusted max_length
-x_train <- array(0, dim = c(length(list_of_sequences), max_length, num_features))
+x_train <- array(0, dim = c(length(list_of_sequences), max_length_frame_id, num_features))
 
 for (i in seq_along(list_of_sequences)) {
   sequence <- list_of_sequences[[i]]
   len <- nrow(sequence)
-  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  sequence_resized <- matrix(0, nrow = max_length_frame_id, ncol = num_features)
   
   # Ensure the sequence is numeric
   numeric_sequence <- as.numeric(as.vector(t(sequence)))
@@ -170,12 +170,12 @@ for (i in seq_along(list_of_sequences)) {
 
 # Prepare x_test with the same max_length
 # Assuming 'max_length' and 'num_features' are based on training data excluding 'tackle'
-x_test <- array(0, dim = c(length(list_of_test_sequences), max_length, num_features))
+x_test <- array(0, dim = c(length(list_of_test_sequences), max_length_frame_id, num_features))
 
 for (i in seq_along(list_of_test_sequences)) {
   sequence <- list_of_test_sequences[[i]]
-  len <- min(nrow(sequence), max_length)
-  sequence_resized <- matrix(0, nrow = max_length, ncol = num_features)
+  len <- min(nrow(sequence), max_length_frame_id)
+  sequence_resized <- matrix(0, nrow = max_length_frame_id, ncol = num_features)
   
   # Convert sequence to numeric
   numeric_sequence <- as.numeric(as.vector(t(sequence)))
@@ -196,7 +196,8 @@ custom_loss <- function(y_true, y_pred) {
   
   # Constraint for sum of probabilities to be 1
   # This will require modification to calculate the sum per group
-  sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
+  sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 11)^2)
+  # sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
 
   # Combine the BCE loss and the constraint with a balancing factor (lambda)
   lambda <- .1  # This is a hyperparameter you can tune
@@ -309,7 +310,7 @@ batch_size <- 11  # Define your batch size
 # Find the maximum length
 # max_length <- max(lengths)
 
-# max_length <- 11
+max_length <- 11
 
 num_features <- 76  # Ensure this is the correct number of features
 
@@ -374,13 +375,20 @@ for (epoch in 1:num_epochs) {
 }
 
 # Continue with validation and other steps as needed
+# Predicting on the test dataset
+# predictions <- model %>% predict(x_test)
+
+# Convert probabilities to binary predictions based on a threshold
+predictions <- model %>% predict(x_test)
+threshold <- 0.5
+binary_predictions <- ifelse(predictions > threshold, 1, 0)
 
 original_lengths <- sapply(list_of_test_sequences, nrow)
 
 # Make predictions on the test set
-x_test_padded <- pad_sequences(x_test, maxlen = 204, padding = "post")
+x_test_padded <- pad_sequences(x_test, maxlen = max_length, padding = "post")
 
-predictions <- model %>% predict(x_test_padded)
+# predictions <- model %>% predict(x_test_padded)
 
 # Step 2: Filter out predictions for padded frames
 # Assuming predictions is a 2D array with the first dimension corresponding to different sequences
