@@ -35,6 +35,10 @@ defensive_model_building_data %>%
   filter(frame_id >= 5) |> 
   filter(frames_from_tackle <=0) |> 
 
+  
+  filter(frames_from_tackle >=-5) %>% 
+  
+  
   ## end finds frames from tackle
   mutate(position = as.character(position)) %>%
   mutate(position = replace_na(position, "unknown")) %>%
@@ -239,6 +243,33 @@ grouped_data$V1[[1]]
 # Determine max_length from the longest sequence
 # max_length <- max(sapply(grouped_data$V1, nrow))
 
+# get_custom_batches <- function(grouped_data, max_length, num_features) {
+#     batches <- list()
+# 
+#     for (i in 1:nrow(grouped_data)) {
+#         sequence_data <- as.matrix(grouped_data$V1[[i]][, !c("game_idplay_id", "frames_from_tackle", "nfl_id", "display_name", "frame_id"), with = FALSE])
+#         class(sequence_data) <- "numeric"
+#         
+#         tackle_data <- grouped_data$V1[[i]][["tackle"]]
+# 
+#         # Pad or truncate the sequence data
+#         n <- nrow(sequence_data)
+#         if (n < max_length) {
+#             # Padding with zeros
+#             padding <- matrix(0, nrow = max_length - n, ncol = num_features)
+#             sequence_data <- rbind(sequence_data, padding)
+#         } else if (n > max_length) {
+#             # Truncating the sequence
+#             sequence_data <- sequence_data[1:max_length, ]
+#         }
+# 
+#         # Add to batches
+#         batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
+#     }
+# 
+#     return(batches)
+# }
+
 get_custom_batches <- function(grouped_data, max_length, num_features) {
     batches <- list()
 
@@ -248,16 +279,29 @@ get_custom_batches <- function(grouped_data, max_length, num_features) {
         
         tackle_data <- grouped_data$V1[[i]][["tackle"]]
 
+        # Ensure tackle_data is a vector
+        if (!is.vector(tackle_data)) {
+            tackle_data <- as.vector(tackle_data)
+        }
+
         # Pad or truncate the sequence data
         n <- nrow(sequence_data)
         if (n < max_length) {
-            # Padding with zeros
-            padding <- matrix(0, nrow = max_length - n, ncol = num_features)
-            sequence_data <- rbind(sequence_data, padding)
+            # Padding with zeros for sequence_data
+            sequence_padding <- matrix(0, nrow = max_length - n, ncol = num_features)
+            sequence_data <- rbind(sequence_data, sequence_padding)
+            
+            # Padding for tackle_data
+            tackle_padding <- rep(0, max_length - n)  # Assuming 0 is a suitable padding value
+            tackle_data <- c(tackle_data, tackle_padding)
         } else if (n > max_length) {
-            # Truncating the sequence
+            # Truncating the sequence and tackle data
             sequence_data <- sequence_data[1:max_length, ]
+            tackle_data <- tackle_data[1:max_length]
         }
+
+        # Reshape tackle_data to match sequence_data dimensions
+        tackle_data <- array(tackle_data, dim = c(1, max_length, 1))
 
         # Add to batches
         batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
@@ -265,6 +309,8 @@ get_custom_batches <- function(grouped_data, max_length, num_features) {
 
     return(batches)
 }
+
+
 
 # Assuming x_train is your training data
 num_features <- dim(x_train)[3]     # This extracts the number of features per time step
@@ -275,12 +321,29 @@ custom_batches <- get_custom_batches(grouped_data, max_length_frame_id, num_feat
 
 test_custom_batches <- get_custom_batches(test_grouped_data, max_length_frame_id, num_features)
 
-
-
+custom_batches[[1]]$y %>% dim()
 # Assuming num_epochs and batch_size are defined
-num_epochs <- 3  # Replace with your actual number of epochs
+num_epochs <- 100  # Replace with your actual number of epochs
 # batch_size <- 1000  # Replace with your actual batch size
+###
 
+model %>% compile(
+  loss = 'binary_crossentropy',  # or 'categorical_crossentropy'
+  optimizer = optimizer_adam(),
+  metrics = c('accuracy')
+)
+
+num_epochs <- 10  # Set the number of epochs
+
+for (epoch in 1:num_epochs) {
+  for (i in 1:length(custom_batches)) {
+    batch_x <- custom_batches[[i]]$x
+    batch_y <- custom_batches[[i]]$y
+    model %>% fit(batch_x, batch_y, epochs = 1, batch_size = nrow(batch_x))
+  }
+}
+
+###
 # Custom training loop
 library(tictoc)  # For timing
 library(progress)  # For the progress bar
@@ -351,7 +414,7 @@ for (batch in test_custom_batches) {
 flat_predictions <- flatten(all_predictions) |> as_vector()
 
 # model |> write_rds("03-eda/model_takes_a_long_time.RDS")
-model <- read_rds("03-eda/model_takes_a_long_time.RDS")
+# model <- read_rds("03-eda/model_takes_a_long_time.RDS")
 
 
 y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
@@ -375,7 +438,9 @@ accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_
 print(paste("Accuracy on test set:", accuracy))
 
 
-write_lines(accuracy, "accuracy.txt")
+# write_lines(accuracy, "accuracy.txt")
+# keras::save_model_hdf5(model,"mymodel.hdf5")
+
 ###
 
 library(pROC)
@@ -410,11 +475,12 @@ test_set_with_predictions %>%
 
 
 # Summarizing Predictions by game_id, play_id, frame_id
-summary_by_game_play_frame <-
+# summary_by_game_play_frame <-
   test_set_with_predictions %>%
   group_by(game_id, play_id, frame_id) %>%
-    filter(cur_group_id() == 1) |> pull(prediction) |> sum()
-  # summarise(total_prediction = sum(prediction), count = n())
+    # filter(cur_group_id() == 10) |> pull(prediction) %>% sum()
+  summarise(total_prediction = sum(prediction), count = n()) %>% 
+    arrange(play_id, frame_id)
 
 
 ```
