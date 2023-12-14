@@ -49,27 +49,32 @@ library(data.table)
 
 should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
 
+center_and_scale <- c("x", "y", "distance_to_ball", "distance_to_ball_next", "x_going", "y_going", "s", "a", "o", "dir" ,"x_ball",
+                      "y_ball", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability", "yards_to_go",
+                      "x_from_los", "height", "weight")
+
 newdata <-
   deff |> 
+  # relocate(position) |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
-  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
-  as.data.table() |> one_hot() |> 
-  as_tibble() |> 
-  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.)))  |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
-  mutate(game_id = as.numeric(as.character(game_id))) |> 
-  mutate(play_id = as.numeric(as.character(play_id))) 
-
+  mutate(across(.cols = any_of(center_and_scale), .fns = ~(.-mean(., na.rm = TRUE))/sd(., na.rm = TRUE))) |> 
+  as.data.table() |> one_hot() |> 
+  as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) 
+  # mutate(game_id = as.numeric(as.character(game_id))) |> 
+  # mutate(play_id = as.numeric(as.character(play_id))) 
 
 newdata <-
-newdata |> 
-  group_by(game_idplay_id) |> 
-  filter(cur_group_id() %in% 1:50) |> 
-  ungroup()
+newdata |> select(game_idplay_id,game_id, play_id, frame_id, tackle, x, y, distance_to_ball, x_ball, y_ball, contains("position"))
+  # group_by(game_idplay_id) |> 
+  # filter(cur_group_id() %in% 1:50) |> 
+  # ungroup()
 
 # Set a seed for reproducibility
 set.seed(42)
@@ -85,6 +90,47 @@ test_data <- testing(split)
 # Now, you can proceed with preprocessing train_data and test_data as before
 
 ```
+
+## simple
+
+```{r}
+library(tensorflow)
+library(keras)
+
+# Assuming `max_length` is the length of your longest sequence
+max_length <- max(newdata$frame_id)  
+
+# Preprocess your data
+# Pad your sequences here. You might need to reshape your data appropriately.
+train_padded <- pad_sequences(train_data, maxlen = max_length)
+test_padded <- pad_sequences(test_data, maxlen = max_length)
+
+# Define your LSTM model
+model <- keras_model_sequential() %>%
+  layer_lstm(units = 50, input_shape = c(max_length, ncol(train_data) - 1)) %>%  # Adjust the input_shape based on your data
+  layer_dense(units = 1, activation = 'sigmoid')  # Assuming binary classification for `tackle`
+
+# Compile the model
+model %>% compile(
+  optimizer = 'adam',
+  loss = 'binary_crossentropy',
+  metrics = c('accuracy')
+)
+
+# Fit the model
+model %>% fit(
+  train_padded,
+  train_data$tackle,  # Your target variable
+  epochs = 10,       # Number of epochs
+  batch_size = 32    # Batch size, adjust based on your dataset size
+)
+
+# Evaluate the model
+model %>% evaluate(test_padded, test_data$tackle)
+
+
+```
+
 
 
 ## custom loss function
@@ -213,7 +259,6 @@ custom_loss <- function(y_true, y_pred, frame_ids) {
 }
 
 model <- keras_model_sequential() %>%
-  layer_masking(mask_value=0, input_shape=c(max_length_frame_id, num_features)) %>%
   bidirectional(
     layer_lstm(units = 50, return_sequences = TRUE), 
     input_shape = c(max_length_frame_id, num_features)
@@ -348,12 +393,6 @@ for (batch in test_custom_batches) {
   all_predictions <- c(all_predictions, list(predictions))
 }
 
-flat_predictions <- flatten(all_predictions) |> as_vector()
-
-# model |> write_rds("03-eda/model_takes_a_long_time.RDS")
-model <- read_rds("03-eda/model_takes_a_long_time.RDS")
-
-
 y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
   original_length <- nrow(list_of_test_sequences[[i]])
   start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
@@ -370,7 +409,7 @@ for (i in seq_along(list_of_test_sequences)) {
   adjusted_predictions <- c(adjusted_predictions, flat_predictions[start_index:end_index])
 }
 
-binary_predictions_adjusted <- ifelse(adjusted_predictions > .5, 1, 0)
+binary_predictions_adjusted <- ifelse(adjusted_predictions > threshold, 1, 0)
 accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_adjusted)
 print(paste("Accuracy on test set:", accuracy))
 
