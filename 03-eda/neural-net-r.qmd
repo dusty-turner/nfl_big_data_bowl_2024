@@ -192,30 +192,30 @@ y_test <- test_data[tackle != "NA", tackle]
 
 N <- ncol(x_train)
 
-custom_loss <- function(y_true, y_pred) {
-  # Binary cross-entropy
-  bce <- keras::k_binary_crossentropy(y_true, y_pred)
-  
-  # Constraint for sum of probabilities to be 1
-  # This will require modification to calculate the sum per group
-  sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
-  # sum_constraint <- keras::k_mean((keras::k_sum(y_pred, axis=1) - 1)^2)
+custom_loss <- function(y_true, y_pred, frame_ids) {
+    # Standard binary cross-entropy
+    bce_loss <- keras::k_binary_crossentropy(y_true, y_pred)
 
-  # Combine the BCE loss and the constraint with a balancing factor (lambda)
-  lambda <- .1  # This is a hyperparameter you can tune
-  return(bce + lambda * sum_constraint)
+    # Constraint for sum of probabilities to be 1 within each frame_id group
+    sum_constraint <- function(y_pred, frame_ids) {
+        unique_frame_ids <- unique(frame_ids)
+        sum_constraint_loss <- 0
+        for (frame_id in unique_frame_ids) {
+            frame_id_indices <- which(frame_ids == frame_id)
+            sum_constraint_loss <- sum_constraint_loss + keras::k_square(keras::k_sum(y_pred[frame_id_indices]) - 1)
+        }
+        return(sum_constraint_loss / length(unique_frame_ids))
+    }
+
+    lambda <- 0.1  # Weight for the sum constraint
+    loss <- bce_loss + lambda * sum_constraint(y_pred, frame_ids)
+    return(loss)
 }
-
-
-# Assuming x_train is your training data
-sequence_length <- dim(x_train)[2]  # This extracts the number of time steps (sequence length)
-num_features <- dim(x_train)[3]     # This extracts the number of features per time step
-
 
 model <- keras_model_sequential() %>%
   bidirectional(
     layer_lstm(units = 50, return_sequences = TRUE), 
-    input_shape = c(sequence_length, num_features)
+    input_shape = c(max_length_frame_id, num_features)
   ) %>%
   layer_dropout(rate = 0.2) %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
@@ -228,97 +228,53 @@ model <- keras_model_sequential() %>%
 
 optimizer <- optimizer_adam()
 
-# Group data by game_id, play_id, and frame_id
-grouped_data <- train_data[, .(list(.SD)), by = .(game_id, play_id, frame_id)]
+# Group data by game_id, play_id, and 
+grouped_data <- train_data[, .(list(.SD)), by = .(game_id, play_id)]
+test_grouped_data <- test_data[, .(list(.SD)), by = .(game_id, play_id)]
 
-# Group data by game_id, play_id, and frame_id
-get_custom_batches <- function(grouped_data, batch_size, max_length, num_features) {
-  batches <- list()
-  batch_x <- list()
-  batch_y <- list()
-  batch_display_names <- list()
+grouped_data$V1[[1]]
 
-  for (i in seq_len(nrow(grouped_data))) {
-    group <- grouped_data$V1[[i]]
 
-    # Extract and keep display_name separately
-    group_display_name <- group[, .(display_name)]
-    # group_display_name <- group[, .(display_name), with = FALSE]
+# Determine max_length from the longest sequence
+# max_length <- max(sapply(grouped_data$V1, nrow))
 
-    # Remove non-numeric columns from group
-    group <- group[, setdiff(names(group), c("display_name")), with = FALSE]
-    
-    # Convert all character columns in group to numeric
-    group[] <- lapply(group, function(x) as.numeric(as.character(x)))
+get_custom_batches <- function(grouped_data, max_length, num_features) {
+    batches <- list()
 
-    # Check if any NAs were introduced by coercion
-    if (any(sapply(group, function(x) any(is.na(x))))) {
-      stop("NAs introduced by coercion, indicating non-numeric data found.")
+    for (i in 1:nrow(grouped_data)) {
+        sequence_data <- as.matrix(grouped_data$V1[[i]][, !c("game_idplay_id", "frames_from_tackle", "nfl_id", "display_name", "frame_id"), with = FALSE])
+        class(sequence_data) <- "numeric"
+        
+        tackle_data <- grouped_data$V1[[i]][["tackle"]]
+
+        # Pad or truncate the sequence data
+        n <- nrow(sequence_data)
+        if (n < max_length) {
+            # Padding with zeros
+            padding <- matrix(0, nrow = max_length - n, ncol = num_features)
+            sequence_data <- rbind(sequence_data, padding)
+        } else if (n > max_length) {
+            # Truncating the sequence
+            sequence_data <- sequence_data[1:max_length, ]
+        }
+
+        # Add to batches
+        batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
     }
 
-    # Resize group_x to have the shape [max_length, num_features]
-    group_x <- as.matrix(group)
-    resized_group_x <- matrix(0, nrow = max_length, ncol = num_features)
-    effective_length <- min(nrow(group_x), max_length)
-    effective_width <- min(ncol(group_x), num_features)
-    resized_group_x[1:effective_length, 1:effective_width] <- group_x[1:effective_length, 1:effective_width]
-
-    # Add to batch lists
-    batch_x <- c(batch_x, list(resized_group_x))
-    batch_y <- c(batch_y, list(group$tackle))
-    batch_display_names <- c(batch_display_names, list(group_display_name))
-
-    # Combine sequences into a batch when batch_size is reached
-    if (length(batch_x) >= batch_size) {
-      # Combine all sequences in the batch into a 3D array
-      combined_x <- array(0, dim = c(length(batch_x), max_length, num_features))
-      for (j in seq_along(batch_x)) {
-        combined_x[j, , ] <- batch_x[[j]]
-      }
-
-      combined_y <- unlist(batch_y)
-      combined_display_names <- do.call(rbind, batch_display_names)
-      batches[[length(batches) + 1]] <- list(x = combined_x, y = combined_y, display_names = combined_display_names)
-      batch_x <- list()
-      batch_y <- list()
-      batch_display_names <- list()
-    }
-    print(i)
-  }
-
-  # Add the remaining batch if it's not empty
-  if (length(batch_x) > 0) {
-    combined_x <- array(0, dim = c(length(batch_x), max_length, num_features))
-    for (j in seq_along(batch_x)) {
-      combined_x[j, , ] <- batch_x[[j]]
-    }
-
-    combined_y <- unlist(batch_y)
-    combined_display_names <- do.call(rbind, batch_display_names)
-    batches[[length(batches) + 1]] <- list(x = combined_x, y = combined_y, display_names = combined_display_names)
-  }
-
-  return(batches)
+    return(batches)
 }
 
+# Assuming x_train is your training data
+num_features <- dim(x_train)[3]     # This extracts the number of features per time step
+
+# Assuming grouped_data is your input data
+# Call the function
+custom_batches <- get_custom_batches(grouped_data, max_length_frame_id, num_features)
+
+test_custom_batches <- get_custom_batches(test_grouped_data, max_length_frame_id, num_features)
 
 
-# Example usage
-# Example batch size (you can adjust this based on your needs and computational resources)
-batch_size <- 484  # or any other appropriate number
-
-# Get max_length from the padded training data
-max_length <- dim(x_train)[2]
-
-# Get num_features from the padded training data (or from the list of sequences)
-num_features <- dim(x_train)[3]
-
-# Now call the function with these dynamic variables
-custom_batches <- get_custom_batches(grouped_data, batch_size, max_length, num_features)
-
-custom_batches[[1]]
-# |> as_tibble() 
-# |> count(display_name)
 
 # Assuming num_epochs and batch_size are defined
 num_epochs <- 3  # Replace with your actual number of epochs
@@ -327,6 +283,9 @@ num_epochs <- 3  # Replace with your actual number of epochs
 # Custom training loop
 library(tictoc)  # For timing
 library(progress)  # For the progress bar
+
+# sequence_length <- dim(custom_batches[[1]]$x)[2]  # This extracts the number of time steps (sequence length)
+
 
 for (epoch in 1:num_epochs) {
   tic()  # Start timing the epoch
@@ -351,7 +310,11 @@ for (epoch in 1:num_epochs) {
 
     with(tape, {
       predictions <- model(batch$x)
-      loss <- custom_loss(batch$y, predictions)
+      
+      # Retrieve frame_ids for this batch - Adjust this based on how frame_ids are stored
+      batch_frame_ids <- batch$frame_ids
+
+      loss <- custom_loss(batch$y, predictions, batch_frame_ids)
     })
     
     gradients <- tape$gradient(loss, model$trainable_variables)
@@ -376,46 +339,42 @@ for (epoch in 1:num_epochs) {
   #             epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
 }
 
-
 # Make predictions on the test data
-predictions <- model %>% predict(x_test)
+all_predictions <- list()
 
-# Initialize a list to store processed predictions
-processed_predictions <- list()
-
-for (i in seq_along(list_of_test_sequences)) {
-  # Original length of the sequence
-  original_length <- nrow(list_of_test_sequences[[i]])
-
-  # Truncate the predictions to the original length of the sequence
-  processed_predictions[[i]] <- predictions[i, 1:original_length, 1]
+for (batch in test_custom_batches) {
+  predictions <- model %>% predict(batch$x)
+  all_predictions <- c(all_predictions, list(predictions))
 }
 
-# Flatten the list of predictions to a single vector
-flat_predictions <- unlist(processed_predictions)
-
-# Adjust y_test to match the structure of flat_predictions
-# Assuming y_test is already a vector with one label per time step
 y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
-  y_test[sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1 : nrow(list_of_test_sequences[[i]])]
+  original_length <- nrow(list_of_test_sequences[[i]])
+  start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
+  end_index <- start_index + original_length - 1
+  y_test[start_index:end_index]
 }))
 
-# Apply threshold if needed (for binary classification)
-threshold <- 0.5
-binary_predictions <- ifelse(flat_predictions > threshold, 1, 0)
+adjusted_predictions <- numeric(0)
 
-# Calculate accuracy
-accuracy <- sum(binary_predictions == y_test_adjusted) / length(y_test_adjusted)
+for (i in seq_along(list_of_test_sequences)) {
+  original_length <- nrow(list_of_test_sequences[[i]])
+  start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
+  end_index <- start_index + original_length - 1
+  adjusted_predictions <- c(adjusted_predictions, flat_predictions[start_index:end_index])
+}
+
+binary_predictions_adjusted <- ifelse(adjusted_predictions > threshold, 1, 0)
+accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_adjusted)
 print(paste("Accuracy on test set:", accuracy))
 
-##
+
+write_lines(accuracy, "accuracy.txt")
+###
 
 library(pROC)
 
-write_lines(accuracy, "accuracy.txt")
-
-# Assuming flat_predictions and y_test_adjusted are as defined previously
-roc_result <- roc(y_test_adjusted, flat_predictions)
+# Assuming adjusted_predictions and y_test_adjusted are as defined previously
+roc_result <- roc(y_test_adjusted, adjusted_predictions)
 auc_value <- auc(roc_result)
 print(paste("AUC:", auc_value))
 
@@ -426,31 +385,29 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
   labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
   annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
 
-# Flatten the list of predictions to a single vector (already done in flat_predictions)
-
 # Assuming test_data is in the same order as the predictions
 test_set_with_predictions <- 
-  test_data %>%
-  mutate(prediction = flat_predictions) %>% 
-  mutate(binary_predictions = as.factor(binary_predictions)) |> 
-  as_tibble() %>% 
-  mutate(tackle = as.factor(tackle)) %>% 
-  relocate(game_id, play_id, prediction, binary_predictions, frames_from_tackle, tackle) %>% 
-  mutate(across(.cols = c(game_id, play_id, nfl_id), .fns = ~as.character(.)))
+  test_data %>% as_tibble() |> 
+  mutate(across(.cols = c(game_id, play_id), .fns = ~as.character(.))) |> 
+  mutate(prediction = adjusted_predictions, binary_prediction = as.factor(binary_predictions_adjusted)) %>%
+  mutate(tackle = as.factor(tackle)) 
+  # select(game_id, play_id, frame_id, prediction, binary_prediction, tackle)
 
 # Histogram of Predictions
-hist(flat_predictions)
+hist(test_set_with_predictions$prediction, main = "Histogram of Predictions", xlab = "Predicted Probability")
 
 # Proportions of Tackles
-test_set_with_predictions %>% 
-  count(tackle) %>% 
+test_set_with_predictions %>%
+  count(tackle) %>%
   mutate(proportion = n / sum(n))
 
+
 # Summarizing Predictions by game_id, play_id, frame_id
-test_set_with_predictions %>% 
-  group_by(game_id, play_id, frame_id) %>% 
-  filter(!is.na(prediction)) %>% 
-  summarise(total = sum(prediction), n = n())
+summary_by_game_play_frame <-
+  test_set_with_predictions %>%
+  group_by(game_id, play_id, frame_id) %>%
+    filter(cur_group_id() == 1) |> pull(prediction) |> sum()
+  # summarise(total_prediction = sum(prediction), count = n())
 
 
 ```
@@ -464,7 +421,7 @@ test_set_with_predictions %>%
 accuracy_over_time <-
   test_set_with_predictions %>% 
   group_by(frames_from_tackle) %>%
-  yardstick::accuracy(truth = tackle, estimate = binary_predictions) %>% 
+  yardstick::accuracy(truth = tackle, estimate = binary_prediction) %>% 
   ggplot(aes(x = frames_from_tackle, y = .estimate)) +
   geom_line() +
   ylim(NA, 1)
@@ -485,7 +442,7 @@ animated_plot <-
   left_join(test_set_with_predictions %>% select(game_id, play_id, nfl_id, frame_id, prediction), by = c("game_id", "play_id", "nfl_id", "frame_id")) %>% 
   filter(!is.na(prediction)) %>% 
   group_by(game_id, play_id) %>% 
-  filter(cur_group_id() == 1) %>% 
+  filter(cur_group_id() == 1) %>% select(display_name, tackle, jersey_number) 
   ungroup()  |> 
   select(frame_id, prediction, jersey_number) |> 
   ggplot(aes(x = frame_id, y = prediction)) + 

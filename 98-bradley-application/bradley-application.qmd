@@ -62,5 +62,5 @@ MAJ EN/FA49
 PhD Student, Statistics  
 Baylor University  
 
-Email: dusty_turner1@baylor.edu
+Email: [dusty_turner1@baylor.edu](mailto:dusty_turner1@baylor.edu)  
 Phone: 830-285-5067
