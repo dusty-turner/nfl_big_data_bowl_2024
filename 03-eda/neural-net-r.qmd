@@ -213,6 +213,7 @@ custom_loss <- function(y_true, y_pred, frame_ids) {
 }
 
 model <- keras_model_sequential() %>%
+  layer_masking(mask_value=0, input_shape=c(max_length_frame_id, num_features)) %>%
   bidirectional(
     layer_lstm(units = 50, return_sequences = TRUE), 
     input_shape = c(max_length_frame_id, num_features)
