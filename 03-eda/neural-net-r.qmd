@@ -348,6 +348,10 @@ for (batch in test_custom_batches) {
   all_predictions <- c(all_predictions, list(predictions))
 }
 
+flat_predictions <- flatten(all_predictions) |> as_vector()
+
+# model |> write_rds("03-eda/model_takes_a_long_time.RDS")
+
 y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
   original_length <- nrow(list_of_test_sequences[[i]])
   start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
@@ -364,7 +368,7 @@ for (i in seq_along(list_of_test_sequences)) {
   adjusted_predictions <- c(adjusted_predictions, flat_predictions[start_index:end_index])
 }
 
-binary_predictions_adjusted <- ifelse(adjusted_predictions > threshold, 1, 0)
+binary_predictions_adjusted <- ifelse(adjusted_predictions > .5, 1, 0)
 accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_adjusted)
 print(paste("Accuracy on test set:", accuracy))
 
