@@ -196,7 +196,7 @@ model %>% compile(
 history <- model %>% fit(
   x_train, y_train,
   epochs = 500,
-  batch_size = 6*10,
+  batch_size = 6*11,
   validation_data = list(x_test, y_test)
 )
 ```
@@ -206,7 +206,7 @@ history <- model %>% fit(
 y_pred_test <- model %>% predict(x_test)
 
 # Binarize predictions (since we used a sigmoid activation, the output is a probability)
-y_pred_binarized <- array(ifelse(y_pred > 0.5, 1, 0), dim(y_pred_test))
+y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
 
 # Calculate accuracy
 accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
@@ -223,8 +223,8 @@ test_data <- newdata %>%
   semi_join(test_plays, by = c("game_id", "play_id"))
 
 # Flatten predictions for each play
-y_pred_test_flat <- lapply(seq_len(dim(y_pred)[1]), function(i) {
-  t(y_pred[i,,])
+y_pred_test_flat <- lapply(seq_len(dim(y_pred_test)[1]), function(i) {
+  t(y_pred_test[i,,])
 })
 y_pred_test_flat <- do.call(rbind, y_pred_test_flat)
 
@@ -242,13 +242,20 @@ test_joined_with_preds |>
 library(pROC)
 
 # Creating the ROC object
-roc_obj <- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$predictions)
-
-# Plotting the ROC curve
-plot(roc_obj, main="ROC Curve")
+roc_result<- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$predictions)
 
 # Calculating the AUC
-auc(roc_obj)
+auc_value <- auc(roc_result)
+
+# Plotting the ROC curve
+ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
+  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+
+
+
 
 ```
 
