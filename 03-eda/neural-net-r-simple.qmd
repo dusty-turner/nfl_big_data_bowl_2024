@@ -14,7 +14,8 @@ message: false
 
 ```{r}
 library(tidyverse)
-library(tidymodels)
+library(keras)
+library(tensorflow)
 library(reticulate)
 library(data.table)
 library(gganimate)
@@ -28,13 +29,16 @@ source(here::here("03-eda", "data_cleaning.R"))
 ```
 
 ```{r}
-
 deff <-
 defensive_model_building_data %>% 
   filter(is.na(pass_result)) |>
   filter(frame_id >= 5) |> 
   filter(frames_from_tackle <=0) |> 
 
+  
+  filter(frames_from_tackle >=-5) %>% 
+  
+  
   ## end finds frames from tackle
   mutate(position = as.character(position)) %>%
   mutate(position = replace_na(position, "unknown")) %>%
@@ -49,88 +53,166 @@ library(data.table)
 
 should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
 
-center_and_scale <- c("x", "y", "distance_to_ball", "distance_to_ball_next", "x_going", "y_going", "s", "a", "o", "dir" ,"x_ball",
-                      "y_ball", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability", "yards_to_go",
-                      "x_from_los", "height", "weight")
-
 newdata <-
   deff |> 
-  # relocate(position) |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
-  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.)))  |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  as.data.table() |> one_hot() |> 
+  as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
-  mutate(across(.cols = any_of(center_and_scale), .fns = ~(.-mean(., na.rm = TRUE))/sd(., na.rm = TRUE))) |> 
-  as.data.table() |> one_hot() |> 
-  as_tibble() |> 
-  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) 
-  # mutate(game_id = as.numeric(as.character(game_id))) |> 
-  # mutate(play_id = as.numeric(as.character(play_id))) 
-
-newdata <-
-newdata |> select(game_idplay_id,game_id, play_id, frame_id, tackle, x, y, distance_to_ball, x_ball, y_ball, contains("position"))
-  # group_by(game_idplay_id) |> 
-  # filter(cur_group_id() %in% 1:50) |> 
-  # ungroup()
-
-# Set a seed for reproducibility
-set.seed(42)
-
-
-# Create a resample split with respect to game_id and play_id
-split <- group_initial_split(newdata, prop = 0.8, group = game_idplay_id)
-
-# Create training and testing sets
-train_data <- training(split)
-test_data <- testing(split)
-
-# Now, you can proceed with preprocessing train_data and test_data as before
-
+  mutate(game_id = as.numeric(as.character(game_id))) |> 
+  mutate(play_id = as.numeric(as.character(play_id))) |> 
+  select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, distance_to_ball, tackle) |> 
+  distinct(.keep_all = TRUE) |> 
+  arrange(game_id, play_id, frame_id, display_name)
 ```
 
-## simple
+## create matrix forms 
 
 ```{r}
-library(tensorflow)
-library(keras)
+get_play_data <- function(game_id_arg, play_id_arg, df, num_features_per_player) {
+    # Filter the play data for a specific game and play
+    play_data <- df %>%
+        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
+        arrange(frame_id, display_name)
 
-# Assuming `max_length` is the length of your longest sequence
-max_length <- max(newdata$frame_id)  
+    # Get unique frame IDs in this play
+    frame_ids <- unique(play_data$frame_id)
 
-# Preprocess your data
-# Pad your sequences here. You might need to reshape your data appropriately.
-train_padded <- pad_sequences(train_data, maxlen = max_length)
-test_padded <- pad_sequences(test_data, maxlen = max_length)
+    # Number of frames in this play
+    num_frames <- length(frame_ids)
 
-# Define your LSTM model
-model <- keras_model_sequential() %>%
-  layer_lstm(units = 50, input_shape = c(max_length, ncol(train_data) - 1)) %>%  # Adjust the input_shape based on your data
-  layer_dense(units = 1, activation = 'sigmoid')  # Assuming binary classification for `tackle`
+    # Number of players per frame (assumed to be 11)
+    num_players <- length(unique(play_data$display_name))
 
-# Compile the model
-model %>% compile(
-  optimizer = 'adam',
-  loss = 'binary_crossentropy',
-  metrics = c('accuracy')
-)
+    # Preallocate matrix for the play
+    play_matrix <- matrix(nrow = num_frames, ncol = num_players * num_features_per_player)
 
-# Fit the model
-model %>% fit(
-  train_padded,
-  train_data$tackle,  # Your target variable
-  epochs = 10,       # Number of epochs
-  batch_size = 32    # Batch size, adjust based on your dataset size
-)
+    # Group by frame and concatenate player features
+    for (i in 1:num_frames) {
+        # Get data for each frame using the actual frame_id
+        frame_data <- play_data %>%
+            filter(frame_id == frame_ids[i]) %>%
+            select(x, y, x_ball, y_ball, distance_to_ball)
 
-# Evaluate the model
-model %>% evaluate(test_padded, test_data$tackle)
+        # Flatten the frame data into one row
+        play_matrix[i, ] <- as.numeric(t(frame_data))
+    }
+    return(play_matrix)
+}
 
+
+
+
+example_play <- newdata |> distinct(game_id, play_id) 
+
+library(furrr)
+plan(multisession)
+
+x_list <- future_map2(.x = example_play$game_id, .y = example_play$play_id, .f = ~get_play_data(game_id_arg = .x, play_id_arg = .y, df = newdata, num_features_per_player = 5), .progress = TRUE)
+
+###
+
+create_target_matrix <- function(game_id_arg = example_play$game_id[1], play_id_arg = example_play$play_id[1], df = newdata, padded_length = 6) {
+    # Filter data for the specific game and play
+
+    target_matrix <- 
+      df %>%
+        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
+        arrange(frame_id, display_name) |> 
+      select(display_name, tackle) |> distinct() |> 
+      pivot_wider(names_from = display_name, values_from = tackle) |> 
+      mutate(n_rows = padded_length) |> 
+      uncount(n_rows) |> 
+      as.matrix()
+    
+    colnames(target_matrix) <- c("Player 1", "Player 2", "Player 3", "Player 4", "Player 5", "Player 6", "Player 7", "Player 8", "Player 9", "Player 10", "Player 11")
+    
+    return(target_matrix)
+}
+
+# Create target matrices
+y_list <- future_map2(.x = example_play$game_id, .y = example_play$play_id, .f = ~create_target_matrix(game_id_arg = .x, play_id_arg = .y, df = newdata), .progress = TRUE)
 
 ```
 
+
+```{r}
+# Convert lists to arrays
+x_data <- array(unlist(x_list), dim = c(length(x_list), nrow(x_list[[1]]), ncol(x_list[[1]])))
+y_data <- array(unlist(y_list), dim = c(length(y_list), nrow(y_list[[1]]), ncol(y_list[[1]])))
+
+# x_data[1,,]
+# x_train[1,,]
+# x_train |> dim()
+# y_train |> dim()
+# y_train[1,,]
+
+# Split data into training and test sets (70% train, 30% test)
+set.seed(123)  # For reproducibility
+train_indices <- sample(seq_along(x_list), size = 0.7 * length(x_list))
+x_train <- x_data[train_indices,,]
+y_train <- y_data[train_indices,,]
+x_test <- x_data[-train_indices,,]
+y_test <- y_data[-train_indices,,]
+
+# model <- keras_model_sequential() %>%
+#   layer_lstm(units = 50, return_sequences = TRUE, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
+#   layer_dropout(rate = 0.2) %>%
+#   layer_lstm(units = 50, return_sequences = TRUE) %>%
+#   layer_dropout(rate = 0.2) %>%
+#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Change to 11 units
+
+
+model <- keras_model_sequential() %>%
+  layer_masking(mask_value = 0, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
+  bidirectional(
+    layer_lstm(units = 50, return_sequences = TRUE),
+    input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))
+  ) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.2) %>%
+  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+
+
+
+# Compile model
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = 'adam',
+  metrics = 'accuracy'
+)
+
+# Train model
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 500,
+  batch_size = 6*10,
+  validation_data = list(x_test, y_test)
+)
+```
+
+```{r}
+# Predict on test data
+y_pred <- model %>% predict(x_test)
+
+# Binarize predictions (since we used a sigmoid activation, the output is a probability)
+y_pred_binarized <- array(ifelse(y_pred > 0.5, 1, 0), dim(y_pred))
+
+# Calculate accuracy
+accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
+
+# Print accuracy
+print(paste("Accuracy:", accuracy))
+```
 
 
 ## custom loss function
@@ -259,6 +341,7 @@ custom_loss <- function(y_true, y_pred, frame_ids) {
 }
 
 model <- keras_model_sequential() %>%
+  layer_masking(mask_value=0, input_shape=c(max_length_frame_id, num_features)) %>%
   bidirectional(
     layer_lstm(units = 50, return_sequences = TRUE), 
     input_shape = c(max_length_frame_id, num_features)
@@ -284,6 +367,33 @@ grouped_data$V1[[1]]
 # Determine max_length from the longest sequence
 # max_length <- max(sapply(grouped_data$V1, nrow))
 
+# get_custom_batches <- function(grouped_data, max_length, num_features) {
+#     batches <- list()
+# 
+#     for (i in 1:nrow(grouped_data)) {
+#         sequence_data <- as.matrix(grouped_data$V1[[i]][, !c("game_idplay_id", "frames_from_tackle", "nfl_id", "display_name", "frame_id"), with = FALSE])
+#         class(sequence_data) <- "numeric"
+#         
+#         tackle_data <- grouped_data$V1[[i]][["tackle"]]
+# 
+#         # Pad or truncate the sequence data
+#         n <- nrow(sequence_data)
+#         if (n < max_length) {
+#             # Padding with zeros
+#             padding <- matrix(0, nrow = max_length - n, ncol = num_features)
+#             sequence_data <- rbind(sequence_data, padding)
+#         } else if (n > max_length) {
+#             # Truncating the sequence
+#             sequence_data <- sequence_data[1:max_length, ]
+#         }
+# 
+#         # Add to batches
+#         batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
+#     }
+# 
+#     return(batches)
+# }
+
 get_custom_batches <- function(grouped_data, max_length, num_features) {
     batches <- list()
 
@@ -293,16 +403,29 @@ get_custom_batches <- function(grouped_data, max_length, num_features) {
         
         tackle_data <- grouped_data$V1[[i]][["tackle"]]
 
+        # Ensure tackle_data is a vector
+        if (!is.vector(tackle_data)) {
+            tackle_data <- as.vector(tackle_data)
+        }
+
         # Pad or truncate the sequence data
         n <- nrow(sequence_data)
         if (n < max_length) {
-            # Padding with zeros
-            padding <- matrix(0, nrow = max_length - n, ncol = num_features)
-            sequence_data <- rbind(sequence_data, padding)
+            # Padding with zeros for sequence_data
+            sequence_padding <- matrix(0, nrow = max_length - n, ncol = num_features)
+            sequence_data <- rbind(sequence_data, sequence_padding)
+            
+            # Padding for tackle_data
+            tackle_padding <- rep(0, max_length - n)  # Assuming 0 is a suitable padding value
+            tackle_data <- c(tackle_data, tackle_padding)
         } else if (n > max_length) {
-            # Truncating the sequence
+            # Truncating the sequence and tackle data
             sequence_data <- sequence_data[1:max_length, ]
+            tackle_data <- tackle_data[1:max_length]
         }
+
+        # Reshape tackle_data to match sequence_data dimensions
+        tackle_data <- array(tackle_data, dim = c(1, max_length, 1))
 
         # Add to batches
         batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
@@ -310,6 +433,8 @@ get_custom_batches <- function(grouped_data, max_length, num_features) {
 
     return(batches)
 }
+
+
 
 # Assuming x_train is your training data
 num_features <- dim(x_train)[3]     # This extracts the number of features per time step
@@ -320,12 +445,29 @@ custom_batches <- get_custom_batches(grouped_data, max_length_frame_id, num_feat
 
 test_custom_batches <- get_custom_batches(test_grouped_data, max_length_frame_id, num_features)
 
-
-
+custom_batches[[1]]$y %>% dim()
 # Assuming num_epochs and batch_size are defined
-num_epochs <- 3  # Replace with your actual number of epochs
+num_epochs <- 100  # Replace with your actual number of epochs
 # batch_size <- 1000  # Replace with your actual batch size
+###
 
+model %>% compile(
+  loss = 'binary_crossentropy',  # or 'categorical_crossentropy'
+  optimizer = optimizer_adam(),
+  metrics = c('accuracy')
+)
+
+num_epochs <- 10  # Set the number of epochs
+
+for (epoch in 1:num_epochs) {
+  for (i in 1:length(custom_batches)) {
+    batch_x <- custom_batches[[i]]$x
+    batch_y <- custom_batches[[i]]$y
+    model %>% fit(batch_x, batch_y, epochs = 1, batch_size = nrow(batch_x))
+  }
+}
+
+###
 # Custom training loop
 library(tictoc)  # For timing
 library(progress)  # For the progress bar
@@ -393,6 +535,12 @@ for (batch in test_custom_batches) {
   all_predictions <- c(all_predictions, list(predictions))
 }
 
+flat_predictions <- flatten(all_predictions) |> as_vector()
+
+# model |> write_rds("03-eda/model_takes_a_long_time.RDS")
+# model <- read_rds("03-eda/model_takes_a_long_time.RDS")
+
+
 y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
   original_length <- nrow(list_of_test_sequences[[i]])
   start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
@@ -409,12 +557,14 @@ for (i in seq_along(list_of_test_sequences)) {
   adjusted_predictions <- c(adjusted_predictions, flat_predictions[start_index:end_index])
 }
 
-binary_predictions_adjusted <- ifelse(adjusted_predictions > threshold, 1, 0)
+binary_predictions_adjusted <- ifelse(adjusted_predictions > .5, 1, 0)
 accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_adjusted)
 print(paste("Accuracy on test set:", accuracy))
 
 
-write_lines(accuracy, "accuracy.txt")
+# write_lines(accuracy, "accuracy.txt")
+# keras::save_model_hdf5(model,"mymodel.hdf5")
+
 ###
 
 library(pROC)
@@ -449,11 +599,12 @@ test_set_with_predictions %>%
 
 
 # Summarizing Predictions by game_id, play_id, frame_id
-summary_by_game_play_frame <-
+# summary_by_game_play_frame <-
   test_set_with_predictions %>%
   group_by(game_id, play_id, frame_id) %>%
-    filter(cur_group_id() == 1) |> pull(prediction) |> sum()
-  # summarise(total_prediction = sum(prediction), count = n())
+    # filter(cur_group_id() == 10) |> pull(prediction) %>% sum()
+  summarise(total_prediction = sum(prediction), count = n()) %>% 
+    arrange(play_id, frame_id)
 
 
 ```
