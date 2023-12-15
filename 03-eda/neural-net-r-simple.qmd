@@ -158,29 +158,30 @@ set.seed(123)  # For reproducibility
 train_indices <- sample(seq_along(x_list), size = 0.7 * length(x_list))
 x_train <- x_data[train_indices,,]
 y_train <- y_data[train_indices,,]
+test_plays <- example_play[-train_indices, ]
 x_test <- x_data[-train_indices,,]
 y_test <- y_data[-train_indices,,]
 
-# model <- keras_model_sequential() %>%
-#   layer_lstm(units = 50, return_sequences = TRUE, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
-#   layer_dropout(rate = 0.2) %>%
-#   layer_lstm(units = 50, return_sequences = TRUE) %>%
-#   layer_dropout(rate = 0.2) %>%
-#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Change to 11 units
-
-
 model <- keras_model_sequential() %>%
-  layer_masking(mask_value = 0, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
-  bidirectional(
-    layer_lstm(units = 50, return_sequences = TRUE),
-    input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))
-  ) %>%
+  layer_lstm(units = 50, return_sequences = TRUE, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
   layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_lstm(units = 50, return_sequences = TRUE) %>%
   layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.2) %>%
-  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Change to 11 units
+
+
+# model <- keras_model_sequential() %>%
+#   layer_masking(mask_value = 0, input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))) %>%
+#   bidirectional(
+#     layer_lstm(units = 50, return_sequences = TRUE),
+#     input_shape = c(nrow(x_list[[1]]), ncol(x_list[[1]]))
+#   ) %>%
+#   layer_dropout(rate = 0.2) %>%
+#   bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+#   layer_dropout(rate = 0.2) %>%
+#   bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+#   layer_dropout(rate = 0.2) %>%
+#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
 
 
 
@@ -202,410 +203,52 @@ history <- model %>% fit(
 
 ```{r}
 # Predict on test data
-y_pred <- model %>% predict(x_test)
+y_pred_test <- model %>% predict(x_test)
 
 # Binarize predictions (since we used a sigmoid activation, the output is a probability)
-y_pred_binarized <- array(ifelse(y_pred > 0.5, 1, 0), dim(y_pred))
+y_pred_binarized <- array(ifelse(y_pred > 0.5, 1, 0), dim(y_pred_test))
 
 # Calculate accuracy
 accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
 
 # Print accuracy
 print(paste("Accuracy:", accuracy))
+
+
 ```
 
 
-## custom loss function
-
 ```{r}
-# Load libraries
-library(tensorflow)
-library(keras)
+test_data <- newdata %>%
+  semi_join(test_plays, by = c("game_id", "play_id"))
 
-# Normalize your data
-# Selecting a subset of columns for demonstration. You should extend this to all relevant columns.
-numeric_columns <- c('x', 'y', 'distance_to_ball', 'distance_to_ball_next', 'x_going', 'y_going', 's', 'a', 'o', 'dir', 'x_ball', 'y_ball', 'x_ball_next', 'y_ball_next', 'pass_probability', 'yards_to_go', 'x_from_los', 'height', 'weight')
+# Flatten predictions for each play
+y_pred_test_flat <- lapply(seq_len(dim(y_pred)[1]), function(i) {
+  t(y_pred[i,,])
+})
+y_pred_test_flat <- do.call(rbind, y_pred_test_flat)
 
-categorical_features = c('position_CB', 'position_DB', 'position_DE', 'position_DT',
-       'position_FS', 'position_ILB', 'position_MLB', 'position_NT',
-       'position_OLB', 'position_SS', 'position_unknown',
-       'offense_formation_Empty', 'offense_formation_I Form',
-       'offense_formation_Jumbo', 'offense_formation_Pistol',
-       'offense_formation_Shotgun', 'offense_formation_Singleback',
-       'offense_formation_Wildcat', 'quarter_1', 'quarter_2', 'quarter_3',
-       'quarter_4', 'quarter_5', 'down_1', 'down_2', 'down_3', 'down_4',
-       'rank_1', 'rank_10', 'rank_11', 'rank_2', 'rank_3', 'rank_4', 'rank_5',
-       'rank_6', 'rank_7', 'rank_8', 'rank_9', 'defenders_in_the_box_1',
-       'defenders_in_the_box_10', 'defenders_in_the_box_11',
-       'defenders_in_the_box_4', 'defenders_in_the_box_5',
-       'defenders_in_the_box_6', 'defenders_in_the_box_7',
-       'defenders_in_the_box_8', 'defenders_in_the_box_9',
-       'ball_in_fan3_no', 'ball_in_fan3_yes', 'ball_in_fan2_no', 'ball_in_fan2_yes', 'ball_in_fan1_no', 'ball_in_fan1_yes')  # Update with your actual categorical features
+predictions <- y_pred_test_flat |> t() |> c()
 
-train_data <-
-train_data |> 
-  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
-
-test_data <-
+test_joined_with_preds <-
 test_data |> 
-  mutate(across(.cols = any_of(categorical_features), .fns = ~as.factor(.)))
+  mutate(predictions = predictions, tackle = as.factor(tackle)) |> 
+  mutate(class = as.factor(ifelse(predictions < .5 , 0 , 1)))
 
-# Convert to data.table
-setDT(train_data)
-setDT(test_data)
+test_joined_with_preds |> 
+  yardstick::accuracy(truth = tackle, estimate = class)
 
-# Store the reference columns in a separate table
-reference_data <- train_data[, .(nfl_id, frame_id, frames_from_tackle, display_name, game_id, play_id, game_idplay_id)]
-
-# For Training Data
-train_data_grouped <- train_data[, .(sequence = list(as.matrix(.SD[, !c("tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE])),
-                                     target = list(tackle)),
-                                 by = .(game_id, play_id)]
-
-# For Test Data
-test_data_grouped <- test_data[, .(sequence = list(as.matrix(.SD[, !c("tackle", "frame_id", "frames_from_tackle", "display_name", "game_idplay_id"), with = FALSE]))),
-                                   by = .(game_id, play_id)]
-
-
-
-# Split sequences and targets into separate objects
-list_of_sequences <- train_data_grouped$sequence
-list_of_test_sequences <- test_data_grouped$sequence
-
-targets <- train_data_grouped$target
-
-# Convert lists to arrays for model input
-# Note: You need to ensure all sequences have the same length. If not, you need to pad them to the same length.
-# Assuming 'max_length' is the length of your longest sequence and 'num_features' is the number of features
-max_length_train <- max(sapply(list_of_sequences, nrow))
-max_length_test <- max(sapply(list_of_test_sequences, nrow))
-max_length_frame_id <- max(max_length_train, max_length_test)
-num_features <- ncol(list_of_sequences[[1]])
-
-# Prepare x_train with the adjusted max_length
-# Prepare x_train with the adjusted max_length
-x_train <- array(0, dim = c(length(list_of_sequences), max_length_frame_id, num_features))
-
-for (i in seq_along(list_of_sequences)) {
-  sequence <- list_of_sequences[[i]]
-  len <- nrow(sequence)
-  sequence_resized <- matrix(0, nrow = max_length_frame_id, ncol = num_features)
-  
-  # Ensure the sequence is numeric
-  numeric_sequence <- as.numeric(as.vector(t(sequence)))
-  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
-  
-  x_train[i, , ] <- sequence_resized
-}
-
-# Prepare x_test with the same max_length
-# Assuming 'max_length' and 'num_features' are based on training data excluding 'tackle'
-x_test <- array(0, dim = c(length(list_of_test_sequences), max_length_frame_id, num_features))
-
-for (i in seq_along(list_of_test_sequences)) {
-  sequence <- list_of_test_sequences[[i]]
-  len <- min(nrow(sequence), max_length_frame_id)
-  sequence_resized <- matrix(0, nrow = max_length_frame_id, ncol = num_features)
-  
-  # Convert sequence to numeric
-  numeric_sequence <- as.numeric(as.vector(t(sequence)))
-  sequence_resized[1:len, ] <- matrix(numeric_sequence, nrow = len, ncol = num_features, byrow = TRUE)
-  
-  x_test[i, , ] <- sequence_resized
-}
-
-y_train <- unlist(targets)
-
-y_test <- test_data[tackle != "NA", tackle]
-
-N <- ncol(x_train)
-
-custom_loss <- function(y_true, y_pred, frame_ids) {
-    # Standard binary cross-entropy
-    bce_loss <- keras::k_binary_crossentropy(y_true, y_pred)
-
-    # Constraint for sum of probabilities to be 1 within each frame_id group
-    sum_constraint <- function(y_pred, frame_ids) {
-        unique_frame_ids <- unique(frame_ids)
-        sum_constraint_loss <- 0
-        for (frame_id in unique_frame_ids) {
-            frame_id_indices <- which(frame_ids == frame_id)
-            sum_constraint_loss <- sum_constraint_loss + keras::k_square(keras::k_sum(y_pred[frame_id_indices]) - 1)
-        }
-        return(sum_constraint_loss / length(unique_frame_ids))
-    }
-
-    lambda <- 0.1  # Weight for the sum constraint
-    loss <- bce_loss + lambda * sum_constraint(y_pred, frame_ids)
-    return(loss)
-}
-
-model <- keras_model_sequential() %>%
-  layer_masking(mask_value=0, input_shape=c(max_length_frame_id, num_features)) %>%
-  bidirectional(
-    layer_lstm(units = 50, return_sequences = TRUE), 
-    input_shape = c(max_length_frame_id, num_features)
-  ) %>%
-  layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.2) %>%
-  time_distributed(layer_dense(units = 1, activation = 'sigmoid'))
-
-
-
-optimizer <- optimizer_adam()
-
-# Group data by game_id, play_id, and 
-grouped_data <- train_data[, .(list(.SD)), by = .(game_id, play_id)]
-test_grouped_data <- test_data[, .(list(.SD)), by = .(game_id, play_id)]
-
-grouped_data$V1[[1]]
-
-
-# Determine max_length from the longest sequence
-# max_length <- max(sapply(grouped_data$V1, nrow))
-
-# get_custom_batches <- function(grouped_data, max_length, num_features) {
-#     batches <- list()
-# 
-#     for (i in 1:nrow(grouped_data)) {
-#         sequence_data <- as.matrix(grouped_data$V1[[i]][, !c("game_idplay_id", "frames_from_tackle", "nfl_id", "display_name", "frame_id"), with = FALSE])
-#         class(sequence_data) <- "numeric"
-#         
-#         tackle_data <- grouped_data$V1[[i]][["tackle"]]
-# 
-#         # Pad or truncate the sequence data
-#         n <- nrow(sequence_data)
-#         if (n < max_length) {
-#             # Padding with zeros
-#             padding <- matrix(0, nrow = max_length - n, ncol = num_features)
-#             sequence_data <- rbind(sequence_data, padding)
-#         } else if (n > max_length) {
-#             # Truncating the sequence
-#             sequence_data <- sequence_data[1:max_length, ]
-#         }
-# 
-#         # Add to batches
-#         batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
-#     }
-# 
-#     return(batches)
-# }
-
-get_custom_batches <- function(grouped_data, max_length, num_features) {
-    batches <- list()
-
-    for (i in 1:nrow(grouped_data)) {
-        sequence_data <- as.matrix(grouped_data$V1[[i]][, !c("game_idplay_id", "frames_from_tackle", "nfl_id", "display_name", "frame_id"), with = FALSE])
-        class(sequence_data) <- "numeric"
-        
-        tackle_data <- grouped_data$V1[[i]][["tackle"]]
-
-        # Ensure tackle_data is a vector
-        if (!is.vector(tackle_data)) {
-            tackle_data <- as.vector(tackle_data)
-        }
-
-        # Pad or truncate the sequence data
-        n <- nrow(sequence_data)
-        if (n < max_length) {
-            # Padding with zeros for sequence_data
-            sequence_padding <- matrix(0, nrow = max_length - n, ncol = num_features)
-            sequence_data <- rbind(sequence_data, sequence_padding)
-            
-            # Padding for tackle_data
-            tackle_padding <- rep(0, max_length - n)  # Assuming 0 is a suitable padding value
-            tackle_data <- c(tackle_data, tackle_padding)
-        } else if (n > max_length) {
-            # Truncating the sequence and tackle data
-            sequence_data <- sequence_data[1:max_length, ]
-            tackle_data <- tackle_data[1:max_length]
-        }
-
-        # Reshape tackle_data to match sequence_data dimensions
-        tackle_data <- array(tackle_data, dim = c(1, max_length, 1))
-
-        # Add to batches
-        batches[[length(batches) + 1]] <- list(x = array(sequence_data, dim = c(1, max_length, num_features)), y = tackle_data)
-    }
-
-    return(batches)
-}
-
-
-
-# Assuming x_train is your training data
-num_features <- dim(x_train)[3]     # This extracts the number of features per time step
-
-# Assuming grouped_data is your input data
-# Call the function
-custom_batches <- get_custom_batches(grouped_data, max_length_frame_id, num_features)
-
-test_custom_batches <- get_custom_batches(test_grouped_data, max_length_frame_id, num_features)
-
-custom_batches[[1]]$y %>% dim()
-# Assuming num_epochs and batch_size are defined
-num_epochs <- 100  # Replace with your actual number of epochs
-# batch_size <- 1000  # Replace with your actual batch size
-###
-
-model %>% compile(
-  loss = 'binary_crossentropy',  # or 'categorical_crossentropy'
-  optimizer = optimizer_adam(),
-  metrics = c('accuracy')
-)
-
-num_epochs <- 10  # Set the number of epochs
-
-for (epoch in 1:num_epochs) {
-  for (i in 1:length(custom_batches)) {
-    batch_x <- custom_batches[[i]]$x
-    batch_y <- custom_batches[[i]]$y
-    model %>% fit(batch_x, batch_y, epochs = 1, batch_size = nrow(batch_x))
-  }
-}
-
-###
-# Custom training loop
-library(tictoc)  # For timing
-library(progress)  # For the progress bar
-
-# sequence_length <- dim(custom_batches[[1]]$x)[2]  # This extracts the number of time steps (sequence length)
-
-
-for (epoch in 1:num_epochs) {
-  tic()  # Start timing the epoch
-  cat("Epoch", epoch, "/", num_epochs, "\n")
-  
-  total_loss <- 0
-  num_batches <- length(custom_batches)
-  
-  # Create a progress bar
-  pb <- progress_bar$new(
-    format = "  [:bar] :percent :current/:total (eta: :eta)",
-    total = num_batches, clear = FALSE, width = 60
-  )
-
-  for (batch in custom_batches) {
-    tape <- tf$GradientTape()
-    
-    # Just before the model call
-    if (any(sapply(batch$x, is.character))) {
-      stop("Non-numeric data found in batch$x.")
-    }
-
-    with(tape, {
-      predictions <- model(batch$x)
-      
-      # Retrieve frame_ids for this batch - Adjust this based on how frame_ids are stored
-      batch_frame_ids <- batch$frame_ids
-
-      loss <- custom_loss(batch$y, predictions, batch_frame_ids)
-    })
-    
-    gradients <- tape$gradient(loss, model$trainable_variables)
-    grads_and_vars <- lapply(seq_along(gradients), function(j) {
-      list(gradients[[j]], model$trainable_variables[[j]])
-    })
-    
-    optimizer$apply_gradients(grads_and_vars)
-    
-    batch_loss <- as.numeric(loss)
-    total_loss <- total_loss + batch_loss
-
-    # Update the progress bar
-    pb$tick()
-  }
-
-  epoch_loss <- total_loss / num_batches
-  epoch_time <- toc()  # End timing the epoch
-
-  # Log summary at the end of the epoch
-  # cat(sprintf("\nEpoch %d completed in %.2f seconds. Average loss: %.4f\n", 
-  #             epoch, epoch_time$toc - epoch_time$tic, epoch_loss))
-}
-
-# Make predictions on the test data
-all_predictions <- list()
-
-for (batch in test_custom_batches) {
-  predictions <- model %>% predict(batch$x)
-  all_predictions <- c(all_predictions, list(predictions))
-}
-
-flat_predictions <- flatten(all_predictions) |> as_vector()
-
-# model |> write_rds("03-eda/model_takes_a_long_time.RDS")
-# model <- read_rds("03-eda/model_takes_a_long_time.RDS")
-
-
-y_test_adjusted <- unlist(lapply(seq_along(list_of_test_sequences), function(i) {
-  original_length <- nrow(list_of_test_sequences[[i]])
-  start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
-  end_index <- start_index + original_length - 1
-  y_test[start_index:end_index]
-}))
-
-adjusted_predictions <- numeric(0)
-
-for (i in seq_along(list_of_test_sequences)) {
-  original_length <- nrow(list_of_test_sequences[[i]])
-  start_index <- sum(sapply(list_of_test_sequences[1:(i-1)], nrow)) + 1
-  end_index <- start_index + original_length - 1
-  adjusted_predictions <- c(adjusted_predictions, flat_predictions[start_index:end_index])
-}
-
-binary_predictions_adjusted <- ifelse(adjusted_predictions > .5, 1, 0)
-accuracy <- sum(binary_predictions_adjusted == y_test_adjusted) / length(y_test_adjusted)
-print(paste("Accuracy on test set:", accuracy))
-
-
-# write_lines(accuracy, "accuracy.txt")
-# keras::save_model_hdf5(model,"mymodel.hdf5")
-
-###
 
 library(pROC)
 
-# Assuming adjusted_predictions and y_test_adjusted are as defined previously
-roc_result <- roc(y_test_adjusted, adjusted_predictions)
-auc_value <- auc(roc_result)
-print(paste("AUC:", auc_value))
+# Creating the ROC object
+roc_obj <- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$predictions)
 
-# Plotting ROC Curve
-ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
-  geom_line() +
-  geom_abline(linetype = "dashed") +
-  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
-  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+# Plotting the ROC curve
+plot(roc_obj, main="ROC Curve")
 
-# Assuming test_data is in the same order as the predictions
-test_set_with_predictions <- 
-  test_data %>% as_tibble() |> 
-  mutate(across(.cols = c(game_id, play_id), .fns = ~as.character(.))) |> 
-  mutate(prediction = adjusted_predictions, binary_prediction = as.factor(binary_predictions_adjusted)) %>%
-  mutate(tackle = as.factor(tackle)) 
-  # select(game_id, play_id, frame_id, prediction, binary_prediction, tackle)
-
-# Histogram of Predictions
-hist(test_set_with_predictions$prediction, main = "Histogram of Predictions", xlab = "Predicted Probability")
-
-# Proportions of Tackles
-test_set_with_predictions %>%
-  count(tackle) %>%
-  mutate(proportion = n / sum(n))
-
-
-# Summarizing Predictions by game_id, play_id, frame_id
-# summary_by_game_play_frame <-
-  test_set_with_predictions %>%
-  group_by(game_id, play_id, frame_id) %>%
-    # filter(cur_group_id() == 10) |> pull(prediction) %>% sum()
-  summarise(total_prediction = sum(prediction), count = n()) %>% 
-    arrange(play_id, frame_id)
-
+# Calculating the AUC
+auc(roc_obj)
 
 ```
 
