@@ -67,7 +67,7 @@ newdata <-
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
   mutate(game_id = as.numeric(as.character(game_id))) |> 
   mutate(play_id = as.numeric(as.character(play_id))) |> 
-  select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, distance_to_ball, tackle) |> 
+  select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, tackle) |> 
   distinct(.keep_all = TRUE) |> 
   arrange(game_id, play_id, frame_id, display_name)
 
@@ -94,7 +94,7 @@ get_play_data <- function(game_id_arg, play_id_arg, df, num_features_per_player)
     for (i in seq_len(num_frames)) {
         frame_data <- play_data %>%
             filter(frame_id == unique(play_data$frame_id)[i]) %>%
-            select(x, y, x_ball, y_ball, distance_to_ball)
+            select(x, y, x_ball, y_ball, s, a, o, distance_to_ball)
         play_matrix[i, ] <- as.numeric(t(frame_data))
     }
     play_matrix
@@ -107,7 +107,7 @@ example_play <- distinct(newdata, game_id, play_id)
 x_list <- future_map2(
   .x = example_play$game_id, 
   .y = example_play$play_id, 
-  .f = ~get_play_data(.x, .y, newdata, num_features_per_player = 5), 
+  .f = ~get_play_data(.x, .y, newdata, num_features_per_player = 8), 
   .progress = TRUE
 )
 
@@ -212,9 +212,11 @@ tracking_test <- tracking_list[test_indices]
 model <- keras_model_sequential() %>%
   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.5) %>%
+  layer_dropout(rate = 0.4) %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.5) %>%
+  layer_dropout(rate = 0.4) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.4) %>%
   # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
   # layer_dropout(rate = 0.2) %>%
   # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
@@ -245,11 +247,13 @@ model_checkpoint <- callback_model_checkpoint(
 
 callbacks_list <- list(early_stopping, model_checkpoint)
 
+x_train |> dim()
+
 # Train the model
 history <- model %>% fit(
-  x_train, y_train,
-  epochs = 100,
-  batch_size = 87*2,  # i think this would be 87 timesteps (aka singular matricies) by 100 matrices
+  x = x_train, y = y_train,
+  epochs = 2000,
+  batch_size = 441/1,  # this is how many sequences go at once
   # callbacks = callbacks_list  # Include callbacks here
   validation_data = list(x_test, y_test),
 )
@@ -385,13 +389,13 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
 nn_briar <- 
   test_joined_with_preds |> 
-  select(game_id, play_id, nfl_id, display_name,tackle, final_predictions) |> 
+  select(game_id, play_id, display_name,tackle, final_predictions) |> 
   filter(!is.na(final_predictions)) |> 
   mutate(tackle  = as.integer(as.character(tackle))) |> 
-  group_by(game_id, play_id, nfl_id, display_name) |> 
+  group_by(game_id, play_id, display_name) |> 
   reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle)) |> 
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
-  group_by(nfl_id, display_name) |> 
+  group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
   arrange(-tackles_over_expected)
 
