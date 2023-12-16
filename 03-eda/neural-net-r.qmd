@@ -208,15 +208,17 @@ tracking_test <- tracking_list[test_indices]
 ### Model Stuff
 
 ```{r}
+units <- 50
+rate <- .4
 # Define the LSTM model architecture
 model <- keras_model_sequential() %>%
   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.4) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.4) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.4) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  layer_dropout(rate = rate) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  layer_dropout(rate = rate) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  layer_dropout(rate = rate) %>%
   # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
   # layer_dropout(rate = 0.2) %>%
   # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
@@ -331,6 +333,13 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
   geom_abline(linetype = "dashed") +
   labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
   annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+
+
+
+tibble(accuracy = accuracy, units = units, layers = 3, rate = rate, time = now(), user = Sys.info()["user"]) |> 
+  bind_rows(read_csv("model_tracker.csv")) |> 
+  write_csv("model_tracker.csv")
+
 ```
 
 
