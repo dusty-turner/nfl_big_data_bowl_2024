@@ -45,7 +45,6 @@ defensive_model_building_data %>%
            position, offense_formation, quarter, down, rank,
            defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
-
 library(mltools)
 library(data.table)
 
@@ -171,8 +170,28 @@ create_tracking_array <- function(x, max_length, num_players) {
 
 
 ```{r}
-# Convert lists to arrays
-x_data <- array(unlist(x_padded), dim = c(length(x_padded), max_length, ncol(x_padded[[1]])))
+# Convert lists to arrays ---- BAD!!
+# x_data <- array(unlist(x_padded), 
+                dim = c(length(x_padded), 
+                        max_length, 
+                        ncol(x_padded[[1]])
+                        )
+                )
+
+## GOOD!!
+# set dimensions (did i spell that right?)
+num_samples <- length(x_padded)
+time_steps <- max_length  
+num_features <- ncol(x_padded[[1]])
+
+# Initialize to speed things up
+x_data <- array(dim = c(num_samples, time_steps, num_features))
+
+# Fill in the array
+for (i in 1:num_samples) {
+  x_data[i, , ] <- x_padded[[i]]
+}
+
 y_data <- array(unlist(y_padded), dim = c(length(y_padded), max_length, ncol(y_padded[[1]])))
 
 set.seed(123)  # For reproducibility
@@ -208,15 +227,13 @@ model <- keras_model_sequential() %>%
   bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
                 input_shape = c(max_length, ncol(x_list[[1]]))) %>%
   layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
-                input_shape = c(max_length, ncol(x_list[[1]]))) %>%
-  layer_dropout(rate = 0.2) %>%
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
-                input_shape = c(max_length, ncol(x_list[[1]]))) %>%
-  layer_dropout(rate = 0.2) %>%
+  # bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
+  #               input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  # layer_dropout(rate = 0.2) %>%
+  # bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
+  #               input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  # layer_dropout(rate = 0.2) %>%
   # Second bidirectional LSTM layer
-  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  layer_dropout(rate = 0.2) %>%
   # Time-distributed Dense layer with 11 units (as per your target variable dimensions)
   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
 
@@ -228,12 +245,32 @@ model %>% compile(
   metrics = 'accuracy'
 )
 
+library(keras)
+
+# EarlyStopping: Stop training when a monitored metric has stopped improving
+early_stopping <- callback_early_stopping(
+  monitor = "val_loss",  # Monitor the validation loss
+  patience = 10,        # Number of epochs with no improvement after which training will be stopped
+  restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored metric
+)
+
+# ModelCheckpoint: Save the model after every epoch
+model_checkpoint <- callback_model_checkpoint(
+  filepath = "best_model.h5",  # Path where to save the model
+  monitor = "val_loss",        # Monitor the validation loss
+  save_best_only = TRUE        # The latest best model according to the monitored quantity will not be overwritten
+)
+
+# Combine callbacks in a list
+callbacks_list <- list(early_stopping, model_checkpoint)
+
 # Train model
 history <- model %>% fit(
   x_train, y_train,
-  epochs = 100,
-  batch_size = 6*11,
-  validation_data = list(x_test, y_test)
+  epochs = 10,
+  batch_size = 87*11*5,  # i think this would be 87 timesteps by 11 players by 5 plays
+  validation_data = list(x_test, y_test),
+  callbacks = callbacks_list  # Include callbacks here
 )
 ```
 
@@ -279,7 +316,9 @@ test_joined_with_preds |>
 
 test_joined_with_preds |> 
   group_by(game_id, play_id) |>
-  filter(cur_group_id() == 2) |> print(n = Inf)
+  filter(cur_group_id() == 1) |> 
+  arrange(display_name) |> 
+  print(n = Inf)
   # filter(tackle == 1) |> 
   select(display_name, tackle, final_predictions) |> 
   arrange(display_name) |> print(n = Inf)
@@ -322,7 +361,7 @@ animated_plot <-
   ggplot(aes(x = frame_id, y = final_predictions)) + 
   geom_line() +
   geom_point(show.legend = FALSE, size = 3) + 
-  facet_wrap(~jersey_number) + 
+  facet_wrap(~jersey_number) +
   transition_reveal(frame_id)
 
 anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
