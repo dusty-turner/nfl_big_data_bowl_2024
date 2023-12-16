@@ -264,11 +264,13 @@ model_checkpoint <- callback_model_checkpoint(
 # Combine callbacks in a list
 callbacks_list <- list(early_stopping, model_checkpoint)
 
+dim(x_train)
+
 # Train model
 history <- model %>% fit(
   x_train, y_train,
-  epochs = 10,
-  batch_size = 87*11*5,  # i think this would be 87 timesteps by 11 players by 5 plays
+  epochs = 20,
+  batch_size = 87*100,  # i think this would be 87 timesteps (aka singular matricies) by 100 matrices
   validation_data = list(x_test, y_test),
   callbacks = callbacks_list  # Include callbacks here
 )
@@ -287,7 +289,6 @@ accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
 
 # Print accuracy
 print(paste("Accuracy:", accuracy))
-
 
 # Flatten the tracking arrays for the test set
 tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
