@@ -209,23 +209,31 @@ tracking_test <- tracking_list[test_indices]
 
 ```{r}
 units <- 50
-rate <- .4
-# Define the LSTM model architecture
+rate <- 0.5  # Increased dropout rate
+l2_value <- 0.01  # L2 regularization factor
+epohs <- 1000
+
+# Define the LSTM model architecture with more regularization
 model <- keras_model_sequential() %>%
   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
-  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE, activation = 'relu', 
+                           recurrent_activation = 'sigmoid',
+                           kernel_regularizer = regularizer_l2(l2_value),
+                           recurrent_regularizer = regularizer_l2(l2_value))) %>%
   layer_dropout(rate = rate) %>%
-  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE, activation = 'relu', 
+                           recurrent_activation = 'sigmoid',
+                           kernel_regularizer = regularizer_l2(l2_value),
+                           recurrent_regularizer = regularizer_l2(l2_value))) %>%
   layer_dropout(rate = rate) %>%
-  bidirectional(layer_lstm(units = units, return_sequences = TRUE)) %>%
+  bidirectional(layer_lstm(units = units, return_sequences = TRUE, activation = 'relu', 
+                           recurrent_activation = 'sigmoid',
+                           kernel_regularizer = regularizer_l2(l2_value),
+                           recurrent_regularizer = regularizer_l2(l2_value))) %>%
   layer_dropout(rate = rate) %>%
-  # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  # layer_dropout(rate = 0.2) %>%
-  # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  # layer_dropout(rate = 0.2) %>%
-  # bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
-  # layer_dropout(rate = 0.2) %>%
-  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the unit count based on output shape
+  time_distributed(layer_dense(units = 11, activation = 'sigmoid', 
+                               kernel_regularizer = regularizer_l2(l2_value)))  # Sigmoid for classification
+
 
 # Compile the model
 model %>% compile(
@@ -254,7 +262,7 @@ x_train |> dim()
 # Train the model
 history <- model %>% fit(
   x = x_train, y = y_train,
-  epochs = 2000,
+  epochs = epochs,
   batch_size = 441/1,  # this is how many sequences go at once
   # callbacks = callbacks_list  # Include callbacks here
   validation_data = list(x_test, y_test),
@@ -336,7 +344,7 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
 
 
 
-tibble(accuracy = accuracy, units = units, layers = 3, rate = rate, time = now(), user = Sys.info()["user"]) |> 
+tibble(accuracy = accuracy, epochs = epochs, units = units, layers = 3, rate = rate, time = now(), user = Sys.info()["user"], activation = "relu") |> 
   bind_rows(read_csv("model_tracker.csv")) |> 
   write_csv("model_tracker.csv")
 
