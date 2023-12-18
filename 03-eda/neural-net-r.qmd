@@ -217,7 +217,8 @@ run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epoc
     raw_tracker |> 
     filter(epochs == epochs_param, units == units_param, rate == rate_param, 
            # l2_value == l2_value_param, 
-           activation == activation_param,optimizer == optimizer_param, layers == layers_param) %>% 
+           activation == activation_param,optimizer == optimizer_param, layers == layers_param) %>%
+      mutate(model_execution_time = as.character(model_execution_time)) |> 
     print()
     
 # Define the LSTM model architecture with more regularization
@@ -267,7 +268,7 @@ model_checkpoint <- callback_model_checkpoint(
 
 callbacks_list <- list(early_stopping, model_checkpoint)
 
-model_start_time <- Sys.time()
+model_start_time <- tictoc::tic()
 
 # Train the model
 history <- model %>% fit(
@@ -278,11 +279,8 @@ history <- model %>% fit(
   validation_data = list(x_test, y_test),
 )
 
-model_end_time <- Sys.time()
-model_execution_time <- model_end_time - model_start_time  # Calculate execution time for model building and training
-model_execution_time |> str()
-
-
+model_end_time <- tictoc::toc()
+model_execution_time <- (model_end_time$toc - model_end_time$tic)[[1]]  # Calculate execution time for model building and training
 
 accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(model, x_test))) == y_test) / length(y_test)
 
@@ -295,12 +293,14 @@ accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(mo
     print() |> 
     write_csv(here::here("04-models", "model_tracker.csv"))
 
+return(list(model = model, history = history))  
+  
 }
 
 keras::backend()$clear_session() 
 
-run_nn(
-  epochs_param = 600,
+out <- run_nn(
+  epochs_param = 6,
   units_param = 50,
   rate_param = .4,
   l2_value_param = .001,
@@ -312,7 +312,7 @@ run_nn(
 )
 
 # View the training history
-plot(history)
+plot(out$history)
 # history$metrics |> as_tibble() |> print(n = Inf)
 ```
 
@@ -321,7 +321,7 @@ plot(history)
 
 ```{r}
 # Predict on test data
-y_pred_test <- model %>% predict(x_test)
+y_pred_test <- out$model %>% predict(x_test)
 
 # Binarize predictions (since we used a sigmoid activation, the output is a probability)
 y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
