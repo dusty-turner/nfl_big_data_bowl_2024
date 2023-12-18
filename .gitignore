@@ -2,7 +2,8 @@
 
 *.parquet
 *bayesian_model.rds
-*.csv
+01-raw-data*
+01-data/nfl-big-data-bowl*
 *.zip
 *cache
 .RDataTmp1
