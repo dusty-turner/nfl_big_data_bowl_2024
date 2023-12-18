@@ -19,8 +19,8 @@ library(tensorflow)
 library(reticulate)
 library(data.table)
 library(gganimate)
-library(furrr)
-plan(multisession)
+# library(furrr)
+# plan(multisession)
 
 source(here::here("03-eda","ggtheme_field.R"))
 if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
@@ -104,7 +104,7 @@ get_play_data <- function(game_id_arg, play_id_arg, df, num_features_per_player)
 example_play <- distinct(newdata, game_id, play_id)
 
 # Generate a list of matrices for each play
-x_list <- future_map2(
+x_list <- map2(
   .x = example_play$game_id, 
   .y = example_play$play_id, 
   .f = ~get_play_data(.x, .y, newdata, num_features_per_player = 8), 
@@ -141,7 +141,7 @@ create_target_matrix <- function(game_id_arg, play_id_arg, df, padded_length) {
 }
 
 # Generate target matrices for each play
-y_padded <- future_map2(
+y_padded <- map2(
     .x = example_play$game_id, 
     .y = example_play$play_id, 
     .f = ~create_target_matrix(.x, .y, newdata, padded_length = max_length),
@@ -208,19 +208,14 @@ tracking_test <- tracking_list[test_indices]
 ### Model Stuff
 
 ```{r}
-units <- 50
-rate <- 0.5  # Increased dropout rate
-l2_value <- 0.01  # L2 regularization factor
-epohs <- 1000
+units <- 100
+rate <- 0.4  # Increased dropout rate
+l2_value <- 0.001  # L2 regularization factor
+epochs <- 600
 
 # Define the LSTM model architecture with more regularization
 model <- keras_model_sequential() %>%
   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
-  bidirectional(layer_lstm(units = units, return_sequences = TRUE, activation = 'relu', 
-                           recurrent_activation = 'sigmoid',
-                           kernel_regularizer = regularizer_l2(l2_value),
-                           recurrent_regularizer = regularizer_l2(l2_value))) %>%
-  layer_dropout(rate = rate) %>%
   bidirectional(layer_lstm(units = units, return_sequences = TRUE, activation = 'relu', 
                            recurrent_activation = 'sigmoid',
                            kernel_regularizer = regularizer_l2(l2_value),
