@@ -1,0 +1,381 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(keras)
+library(tensorflow)
+library(reticulate)
+library(data.table)
+library(gganimate)
+source(here::here("03-eda","ggtheme_field.R"))
+if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
+source(here::here("03-eda", "data_cleaning.R"))
+} else {
+  defensive_model_building_data <- read_rds(here::here("02-clean-data", "data_cleaning_working.RDS"))
+  week_1 <- read_rds(here::here("02-clean-data", "week_1.RDS"))
+}
+```
+
+```{r}
+deff <-
+defensive_model_building_data %>% 
+  filter(is.na(pass_result)) |>
+  filter(frame_id >= 5) |> 
+  filter(frames_from_tackle <=0) |> 
+
+  # filter(frames_from_tackle >=-5) %>% 
+
+  ## end finds frames from tackle
+  mutate(position = as.character(position)) %>%
+  mutate(position = replace_na(position, "unknown")) %>%
+  mutate(position = factor(position)) |> 
+  select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
+           position, offense_formation, quarter, down, rank,
+           defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
+
+
+library(mltools)
+library(data.table)
+
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
+
+newdata <-
+  deff |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  as.data.table() |> one_hot() |> 
+  as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
+  mutate(game_id = as.numeric(as.character(game_id))) |> 
+  mutate(play_id = as.numeric(as.character(play_id))) |> 
+  select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, distance_to_ball, tackle) |> 
+  distinct(.keep_all = TRUE) |> 
+  arrange(game_id, play_id, frame_id, display_name)
+
+```
+
+## create matrix forms 
+
+```{r}
+get_play_data <- function(game_id_arg, play_id_arg, df, num_features_per_player) {
+    # Filter the play data for a specific game and play
+    play_data <- df %>%
+        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
+        arrange(frame_id, display_name)
+
+    # Get unique frame IDs in this play
+    frame_ids <- unique(play_data$frame_id)
+
+    # Number of frames in this play
+    num_frames <- length(frame_ids)
+
+    # Number of players per frame (assumed to be 11)
+    num_players <- length(unique(play_data$display_name))
+
+    # Preallocate matrix for the play
+    play_matrix <- matrix(nrow = num_frames, ncol = num_players * num_features_per_player)
+
+    # Group by frame and concatenate player features
+    for (i in 1:num_frames) {
+        # Get data for each frame using the actual frame_id
+        frame_data <- play_data %>%
+            filter(frame_id == frame_ids[i]) %>%
+            select(x, y, x_ball, y_ball, distance_to_ball)
+
+        # Flatten the frame data into one row
+        play_matrix[i, ] <- as.numeric(t(frame_data))
+    }
+    return(play_matrix)
+}
+
+example_play <- newdata |> distinct(game_id, play_id) 
+
+library(furrr)
+plan(multisession)
+
+x_list <- future_map2(.x = example_play$game_id, .y = example_play$play_id, .f = ~get_play_data(game_id_arg = .x, play_id_arg = .y, df = newdata, num_features_per_player = 5), .progress = TRUE)
+
+# Assuming x_list is a list of matrices with each matrix being a sequence
+max_length <- max(sapply(x_list, nrow))  # Find the maximum sequence length
+
+# Pad all sequences
+pad_time_series <- function(x, max_length) {
+  # Detect the number of features/columns in x
+  n_features <- ncol(x)
+  # Calculate the number of rows to pad
+  n_pad <- max_length - nrow(x)
+  # Create a matrix of zeros with the required number of rows and the same number of columns (features)
+  pad_matrix <- matrix(0, nrow = n_pad, ncol = n_features)
+  # Bind the original matrix and the padding matrix
+  rbind(x, pad_matrix) 
+}
+
+# Apply padding to x_list
+x_padded <- lapply(x_list, function(x) pad_time_series(x, max_length))
+
+###
+
+create_target_matrix <- function(game_id_arg = example_play$game_id[1], play_id_arg = example_play$play_id[1], df = newdata, padded_length = max_length) {
+    # Filter data for the specific game and play
+
+    target_matrix <- 
+      df %>%
+        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
+        arrange(frame_id, display_name) |> 
+      select(display_name, tackle) |> distinct() |> 
+      pivot_wider(names_from = display_name, values_from = tackle) |> 
+      mutate(n_rows = padded_length) |> 
+      uncount(n_rows) |> 
+      as.matrix()
+    
+    colnames(target_matrix) <- c("Player 1", "Player 2", "Player 3", "Player 4", "Player 5", "Player 6", "Player 7", "Player 8", "Player 9", "Player 10", "Player 11")
+    
+    return(target_matrix)
+}
+
+# Create target matrices
+y_padded <- future_map2(.x = example_play$game_id, .y = example_play$play_id, .f = ~create_target_matrix(game_id_arg = .x, play_id_arg = .y, df = newdata), .progress = TRUE)
+
+
+# Updated function to create a 3D tracking array
+create_tracking_array <- function(x, max_length, num_players) {
+  n_pad <- max_length - nrow(x)
+  # Create an array with dimensions: max_length x num_players
+  # The first nrow(x) slices are filled with 1, and the rest with 0
+  tracking_array <- array(0, dim = c(max_length, num_players))
+  if (nrow(x) > 0) {
+    tracking_array[1:nrow(x), ] <- 1  # Set the first nrow(x) rows to 1 for each player
+  }
+  tracking_array
+}
+
+
+```
+
+
+```{r}
+# Convert lists to arrays
+x_data <- array(unlist(x_padded), dim = c(length(x_padded), max_length, ncol(x_padded[[1]])))
+y_data <- array(unlist(y_padded), dim = c(length(y_padded), max_length, ncol(y_padded[[1]])))
+
+set.seed(123)  # For reproducibility
+train_indices <- sample(seq_along(x_padded), size = 0.7 * length(x_padded))
+x_train <- x_data[train_indices,,]
+x_test <- x_data[-train_indices,,]
+# Use the same train_indices as used for x_data
+y_train <- y_data[train_indices,,]
+y_test <- y_data[-train_indices,,]
+
+test_plays <- example_play[-train_indices, ]
+test_data <- newdata %>%
+  semi_join(test_plays, by = c("game_id", "play_id"))
+
+
+# Apply the function to each element in x_padded
+num_players <- 11  # Number of players
+tracking_list <- lapply(x_list, function(x) create_tracking_array(x, max_length, num_players))
+
+# Filter out the tracking arrays for the test set
+is_test_play <- !(seq_along(x_list) %in% train_indices)
+tracking_test <- tracking_list[is_test_play]
+
+
+```
+
+
+```{r}
+model <- keras_model_sequential() %>%
+  # Masking layer to skip the padded values in sequences
+  layer_masking(mask_value = 0, input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  # First bidirectional LSTM layer
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
+                input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
+                input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  layer_dropout(rate = 0.2) %>%
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE), 
+                input_shape = c(max_length, ncol(x_list[[1]]))) %>%
+  layer_dropout(rate = 0.2) %>%
+  # Second bidirectional LSTM layer
+  bidirectional(layer_lstm(units = 50, return_sequences = TRUE)) %>%
+  layer_dropout(rate = 0.2) %>%
+  # Time-distributed Dense layer with 11 units (as per your target variable dimensions)
+  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+
+
+# Compile model
+model %>% compile(
+  loss = 'binary_crossentropy',
+  optimizer = 'adam',
+  metrics = 'accuracy'
+)
+
+# Train model
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 500,
+  batch_size = 87*55,
+  # batch_size = 6*11,
+  validation_data = list(x_test, y_test)
+)
+```
+
+
+```{r}
+# Predict on test data
+y_pred_test <- model %>% predict(x_test)
+
+# Binarize predictions (since we used a sigmoid activation, the output is a probability)
+y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
+
+# Calculate accuracy
+accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
+
+# Print accuracy
+print(paste("Accuracy:", accuracy))
+
+
+# Flatten the tracking arrays for the test set
+tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
+
+# Flatten your model predictions in a similar manner
+predictions_flat <- array_reshape(y_pred_test, c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
+
+# Now, filter out padded predictions using the tracking data
+final_predictions <- predictions_flat[tracking_test_flat == 1]
+
+
+test_joined_with_preds <-
+test_data |> 
+  arrange(game_id, play_id, frame_id, display_name) |>
+  mutate(game_id = as.character(game_id)) |> 
+  mutate(play_id = as.character(play_id)) |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  mutate(final_predictions = as.double(final_predictions)) |> 
+  mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) 
+
+test_joined_with_preds |> 
+  yardstick::accuracy(truth = tackle, estimate = binary_predictions)
+
+
+library(scales)
+
+test_joined_with_preds %>%
+  group_by(game_id, play_id) %>%
+  filter(cur_group_id() == 1) %>%
+  mutate(
+    final_predictions = sprintf("%.6f", final_predictions)
+  ) %>%
+  # filter(tackle == 1) %>%
+  select(display_name, tackle, final_predictions, binary_predictions) %>%
+  arrange(display_name) |> 
+  print(n = Inf)
+
+```
+
+
+```{r}
+
+library(pROC)
+
+# Creating the ROC object
+roc_result<- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$final_predictions)
+
+# Calculating the AUC
+auc_value <- auc(roc_result)
+
+# Plotting the ROC curve
+ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
+  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+```
+
+
+## Animations
+
+```{r}
+library(gganimate)
+
+# Assuming week_1 is your data frame
+animated_plot <-
+  week_1 %>% 
+  left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
+  filter(!is.na(final_predictions)) %>% 
+  group_by(game_id, play_id) %>% 
+  filter(cur_group_id() == 1) |> 
+  ungroup()  |> 
+  select(frame_id, final_predictions, jersey_number) |> 
+  ggplot(aes(x = frame_id, y = final_predictions)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3) + 
+  facet_wrap(~jersey_number) + 
+  transition_reveal(frame_id)
+
+anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+animated_plot2 <-
+week_1 |> 
+  filter(play_id %in% test_joined_with_preds$play_id) |> 
+  filter(game_id %in% test_joined_with_preds$game_id) |> 
+  left_join(
+    test_joined_with_preds |> select(game_id, play_id, display_name, frame_id, final_predictions) |> 
+      mutate(final_predictions = ifelse(is.na(final_predictions), 0, final_predictions))
+    ) |> 
+  group_by(game_id, play_id) |> 
+  filter(cur_group_id() == 2) |>
+  filter(frame_id >=5) |> 
+  filter(frame_id <= max(frame_id)-4) |> 
+  mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
+  ungroup()  |> 
+  mutate(color = final_predictions) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>%
+  # filter(club == defensive_team) |> select(final_predictions, frame_id, display_name) |> print(n = Inf) |> pull(final_predictions) |> hist()
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
+
+nn_briar <- 
+  test_joined_with_preds |> 
+  select(game_id, play_id, nfl_id, display_name,tackle, final_predictions) |> 
+  filter(!is.na(final_predictions)) |> 
+  mutate(tackle  = as.integer(as.character(tackle))) |> 
+  group_by(game_id, play_id, nfl_id, display_name) |> 
+  reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle)) |> 
+  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  group_by(nfl_id, display_name) |> 
+  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  arrange(-tackles_over_expected)
+
+
+```
+
