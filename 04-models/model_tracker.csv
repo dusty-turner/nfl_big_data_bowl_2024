@@ -1,2 +1,14 @@
-accuracy,epochs,units,layers,optimizer,rate,time,user,activation,model_execution_time,notes,l2_value
-0.926871341,600,50,3,adam,0.4,2023-12-18T17:06:21Z,Dusty_Turner1,relu,1108.54,attemped baseline,NA
+accuracy,epochs,units,layers,optimizer,rate,time,user,model_execution_time,notes,activation,l2_value
+0.9268879268879269,100,75,3,adam,0.5,2023-12-18T19:04:34Z,Dusty_Turner1,590.0199999999604,attemped baseline,NA,NA
+0.9268879268879268,100,50,3,adam,0.5,2023-12-18T18:54:26Z,Dusty_Turner1,454.9500000000117,attemped baseline,NA,NA
+0.9268879268879268,10,100,3,adam,0.5,2023-12-18T18:44:41Z,Dusty_Turner1,83.18000000005122,attemped baseline,NA,NA
+0.9268879268879268,10,100,3,adam,0.5,2023-12-18T18:40:51Z,Dusty_Turner1,47.53000000002794,attemped baseline,NA,NA
+0.8919462827508805,100,75,3,adam,0.4,2023-12-18T17:56:25Z,Dusty_Turner1,168.86000000004424,attemped baseline,relu,NA
+0.7346204242755967,6,75,3,adam,0.4,2023-12-18T17:51:02Z,Dusty_Turner1,20.71999999997206,attemped baseline,relu,NA
+0.7388996699341527,6,50,3,adam,0.4,2023-12-18T17:50:16Z,Dusty_Turner1,15.570000000006983,attemped baseline,relu,NA
+NA,6,100,3,adam,0.4,2023-12-18T17:49:51Z,Dusty_Turner1,22.650000000023283,attemped baseline,relu,NA
+0.7062966833081775,6,50,3,adam,0.4,2023-12-18T17:47:12Z,Dusty_Turner1,20.119999999995343,attemped baseline,relu,NA
+NA,6,100,3,adam,0.4,2023-12-18T17:39:01Z,Dusty_Turner1,27.899999999965075,attemped baseline,relu,NA
+NA,6,100,3,adam,0.4,2023-12-18T17:33:56Z,Dusty_Turner1,28.29999999998836,attemped baseline,relu,NA
+0.7394857164972107,6,50,3,adam,0.4,2023-12-18T17:31:16Z,Dusty_Turner1,36.550000000046566,attemped baseline,relu,NA
+0.926871341,600,50,3,adam,0.4,2023-12-18T17:06:21Z,Dusty_Turner1,1108.54,attemped baseline,relu,NA
