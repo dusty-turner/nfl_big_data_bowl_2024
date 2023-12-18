@@ -210,6 +210,8 @@ tracking_test <- tracking_list[test_indices]
 ```{r}
 run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, activation_param = "relu", optimizer_param = 'adam', layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
 
+  keras::backend()$clear_session() 
+  
   raw_tracker <-
     read_csv(here::here("04-models", "model_tracker.csv")) 
     raw_tracker |> 
@@ -259,6 +261,8 @@ model_checkpoint <- callback_model_checkpoint(
 
 callbacks_list <- list(early_stopping, model_checkpoint)
 
+model_start_time <- Sys.time()
+
 # Train the model
 history <- model %>% fit(
   x = x_train, y = y_train,
@@ -268,11 +272,17 @@ history <- model %>% fit(
   validation_data = list(x_test, y_test),
 )
 
+model_end_time <- Sys.time()
+model_execution_time <- model_end_time - model_start_time  # Calculate execution time for model building and training
+model_execution_time |> str()
+
+
+
 accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(model, x_test))) == y_test) / length(y_test)
 
   tibble(accuracy = accuracy, epochs = epochs_param, units = units_param, layers = layers_param, 
          l2_value = l2_value_param, optimizer = optimizer_param, rate = rate_param, time = now(), 
-         user = Sys.info()["user"], activation = activation_param, notes = notes_param) |> 
+         user = Sys.info()["user"], activation = activation_param, model_execution_time = model_execution_time, notes = notes_param) |> 
     bind_rows(raw_tracker) |> 
     arrange(desc(time)) |> 
     print() |> 
@@ -280,8 +290,10 @@ accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(mo
 
 }
 
+keras::backend()$clear_session() 
+
 run_nn(
-  epochs_param = 100,
+  epochs_param = 600,
   units_param = 50,
   rate_param = .4,
   l2_value_param = .001,
