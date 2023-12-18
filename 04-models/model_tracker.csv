@@ -1,4 +1,6 @@
 accuracy,epochs,units,layers,l2_value,optimizer,rate,time,user,model_execution_time,notes,activation
+0.9268879268879269,100,50,3,0.01,adam,0.4,2023-12-18T20:47:43Z,Dusty_Turner1,1313.9400000000023,attemped baseline,NA
+0.9268879268879268,100,50,3,0.01,adam,0.4,2023-12-18T20:24:13Z,Dusty_Turner1,697.0200000000186,attemped baseline,NA
 0.8774886246150614,10,100,3,0.9,adam,0.1,2023-12-18T20:02:49Z,Dusty_Turner1,70.38000000000466,attemped baseline,NA
 0.926887927,100,50,3,0.1,adam,0.5,2023-12-18T19:58:44Z,Dusty_Turner1,288.64,attemped baseline,NA
 0.926887927,100,50,3,0.05,adam,0.5,2023-12-18T19:53:44Z,Dusty_Turner1,252.34,attemped baseline,NA

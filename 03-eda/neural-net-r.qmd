@@ -54,10 +54,13 @@ library(data.table)
 should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
 
 # continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball")
-continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability")
+continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
+
+discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
+                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1")
 
         
-# [19] "position"              "offense_formation"     "quarter"               "down"                  "rank"                  "defenders_in_the_box" 
+# [19] "position"              "offense_formation"               "down"                  "rank"                  "defenders_in_the_box" 
 # [25] "ball_in_fan3"          "ball_in_fan2"          "ball_in_fan1"          ""      "yards_to_go"           "x_from_los"           
 # [31] "height"                "weight"                
 
@@ -76,18 +79,24 @@ newdata <-
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
   mutate(game_id = as.numeric(as.character(game_id))) |> 
   mutate(play_id = as.numeric(as.character(play_id))) |> 
-  select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), tackle) |> 
-  # select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, x_going, y_going, dir, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball, pass_probability, tackle) |> 
+  group_by(game_id, play_id, display_name, frame_id) |> ## because one play had two of these per player/frame for some reason
+  mutate(x_from_los = mean(x_from_los)) |> 
+  ungroup() |> 
   distinct(.keep_all = TRUE) |> 
-  arrange(game_id, play_id, frame_id, display_name)
+  select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), all_of(contains(discrete_factors)), tackle) |> 
+  arrange(game_id, play_id, frame_id, display_name) 
+  # select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, x_going, y_going, dir, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball, pass_probability, tackle) |> 
+
 
 ```
 
 ### Shape up Data
 
 ```{r}
+
 # Function to extract play data for a given game and play id
-get_play_data <- function(game_id_arg = newdata$game_id[[1]], play_id_arg = newdata$play_id[[1]], df, num_features_per_player_arg) {
+get_play_data <- function(game_id_arg = 2022091112, play_id_arg = 86, df = newdata, 
+                          num_features_per_player_arg = num_features_per_player) {
     # Select and arrange relevant data
     play_data <- df %>%
         filter(game_id == game_id_arg, play_id == play_id_arg) %>%
@@ -99,12 +108,12 @@ get_play_data <- function(game_id_arg = newdata$game_id[[1]], play_id_arg = newd
 
     # Initialize a matrix to store play data
     play_matrix <- matrix(nrow = num_frames, ncol = num_players * num_features_per_player)
-
+dim(play_matrix)
     # Populate the matrix with data for each frame
     for (i in seq_len(num_frames)) {
         frame_data <- play_data %>%
             filter(frame_id == unique(play_data$frame_id)[i]) %>%
-            select(all_of(continuous_factors))
+            select(all_of(continuous_factors), contains(discrete_factors))
             # select(x, y, x_ball, y_ball, s, a, o, distance_to_ball)
         play_matrix[i, ] <- as.numeric(t(frame_data))
     }
@@ -117,6 +126,8 @@ example_play <- distinct(newdata, game_id, play_id)
 num_features_per_player <- newdata |> select(-c(game_id, play_id, display_name, frame_id, tackle)) |> ncol()
 
 # Generate a list of matrices for each play
+# x_list <- future_map2(
+
 x_list <- future_map2(
   .x = example_play$game_id, 
   .y = example_play$play_id, 
@@ -190,6 +201,8 @@ for (i in 1:length(y_padded)) {
   y_data[i, , ] <- y_padded[[i]]
 }
 
+beepr::beep()
+
 ```
 
 ### Spliting and Identifying Data
@@ -262,7 +275,7 @@ model <- keras_model_sequential() %>%
 # Compile the model
 model %>% compile(
   loss = 'binary_crossentropy',
-  optimizer = optimizer_param,
+  optimizer = optimizer_adam(learning_rate = 0.001),
   metrics = 'accuracy'
 )
 
@@ -298,10 +311,10 @@ return(list(model = model, history = history))
 
 
 out <- run_nn(
-  epochs_param = 10,
+  epochs_param = 100,
   units_param = 50,
-  rate_param = .1,
-  l2_value_param = .9,
+  rate_param = .4,
+  l2_value_param = .01,
   layers_param = 3,
   batch_size_param = 441/1,
   notes_param = "attemped baseline",
