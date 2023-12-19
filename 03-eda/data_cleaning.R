@@ -4,7 +4,8 @@ library(arrow)
 source(here::here("03-eda","ggtheme_field.R")) 
  
 week_1 <-
-  read_parquet(here::here("02-clean-data","tracking.parquet")) |> filter(week_id == "week_1") |> 
+  read_parquet(here::here("02-clean-data","tracking.parquet")) |> 
+  # filter(week_id == "week_1") |> 
   left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |> 
   left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |> 
   left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |> 
@@ -311,12 +312,12 @@ defensive_model_building_data_model <-
          alignment_cluster, pass_result, v_approach, ball_in_fan3, ball_in_fan2, ball_in_fan1, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball) |> 
   filter(frame_id > 5)
 
-write_rds(defensive_model_building_data, "02-clean-data/data_cleaning_working.RDS")
+write_parquet(defensive_model_building_data, here::here("02-clean-data", "defensive_model_building_data.parquet"))
 
-write_rds(week_1, "02-clean-data/week_1.RDS")
-
+## week 1 is too big to save it all
+week_1 |> as_tibble() |> group_by(game_id) |> filter(cur_group_id() %in% 1:15) |> ungroup() |> 
+write_parquet(here::here("02-clean-data", "week_1.parquet"))
 # I don't have clusters built in for passing plays
-
 # ## some plays don't end in tackles.  Some plays have a forced fumble
 # week_1 |> 
 #   # filter(forcedFumble == 1, tackle == 0) |> 
