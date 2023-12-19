@@ -360,6 +360,20 @@ out <- run_nn(
   # activation_param = "relu"
 )
 
+
+library(tidymodels)
+
+epoch_values <- c(50, 100, 150, 1000)
+rate_values <- c(.001, .005, .01)
+l2_values <- c(.01, .05, .1)
+
+# Generate all combinations
+param_grid <- expand.grid(epochs = epoch_values, 
+                          rate = rate_values, 
+                          l2_value = l2_values)
+
+
+
 walk(.x = c(.001,.005,.01,.05,.1), .f = ~run_nn(
   epochs_param = 100,
   units_param = 50,
