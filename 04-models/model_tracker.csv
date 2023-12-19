@@ -1,18 +1,53 @@
 accuracy,epochs,units,layers,l2_value,optimizer,rate,time,user,model_execution_time,notes,activation
-0.9090909090909091,100,50,3,0.01,adam,0.01,2023-12-19T15:39:28Z,turne,1818.2799999999988,Hyperparameter tuning,NA
-0.9090909090909092,50,50,3,0.01,adam,0.01,2023-12-19T15:08:47Z,turne,760.7000000000044,Hyperparameter tuning,NA
-0.9090909090909092,1000,50,3,0.01,adam,0.005,2023-12-19T14:55:45Z,turne,16473,Hyperparameter tuning,NA
-0.9090909090909092,150,50,3,0.01,adam,0.005,2023-12-19T10:20:52Z,turne,3346.3799999999974,Hyperparameter tuning,NA
-0.9090909090909092,100,50,3,0.01,adam,0.005,2023-12-19T09:24:43Z,turne,1753,Hyperparameter tuning,NA
-0.9090909090909092,50,50,3,0.01,adam,0.005,2023-12-19T08:55:10Z,turne,826.0600000000013,Hyperparameter tuning,NA
-0.9090909090909092,1000,50,3,0.01,adam,0.001,2023-12-19T08:41:04Z,turne,11205.82,Hyperparameter tuning,NA
-0.9090909090909092,150,50,3,0.01,adam,0.001,2023-12-19T05:33:59Z,turne,1207.4199999999985,Hyperparameter tuning,NA
-0.9090909090909092,100,50,3,0.01,adam,0.001,2023-12-19T05:13:35Z,turne,675.5200000000004,Hyperparameter tuning,NA
-0.9090909090909092,50,50,3,0.01,adam,0.001,2023-12-19T05:02:04Z,turne,271.5500000000029,Hyperparameter tuning,NA
-0.9090909090909092,100,50,3,0.01,adam,0.4,2023-12-19T04:46:50Z,turne,488.2999999999993,attemped baseline,NA
-0.9268879268879268,100,50,3,0.01,adam,0.4,2023-12-18T20:47:43Z,Dusty_Turner1,1313.9400000000023,attemped baseline,NA
-0.9268879268879268,100,50,3,0.01,adam,0.4,2023-12-18T20:24:13Z,Dusty_Turner1,697.0200000000186,attemped baseline,NA
-0.8774886246150614,10,100,3,0.9,adam,0.1,2023-12-18T20:02:49Z,Dusty_Turner1,70.38000000000466,attemped baseline,NA
+0.909090909,100,50,3,0.01,adam,0.01,2023-12-19T15:39:28Z,turne,1818.28,Hyperparameter tuning,NA
+0.909090909,50,50,3,0.01,adam,0.01,2023-12-19T15:08:47Z,turne,760.7,Hyperparameter tuning,NA
+0.909090909,1000,50,3,0.01,adam,0.005,2023-12-19T14:55:45Z,turne,16473,Hyperparameter tuning,NA
+0.909090909,150,50,3,0.01,adam,0.005,2023-12-19T10:20:52Z,turne,3346.38,Hyperparameter tuning,NA
+0.909090909,100,50,3,0.01,adam,0.005,2023-12-19T09:24:43Z,turne,1753,Hyperparameter tuning,NA
+0.909090909,50,50,3,0.01,adam,0.005,2023-12-19T08:55:10Z,turne,826.06,Hyperparameter tuning,NA
+0.909090909,1000,50,3,0.01,adam,0.001,2023-12-19T08:41:04Z,turne,11205.82,Hyperparameter tuning,NA
+0.909090909,150,50,3,0.01,adam,0.001,2023-12-19T05:33:59Z,turne,1207.42,Hyperparameter tuning,NA
+0.909090909,100,50,3,0.01,adam,0.001,2023-12-19T05:13:35Z,turne,675.52,Hyperparameter tuning,NA
+0.909090909,50,50,3,0.01,adam,0.001,2023-12-19T05:02:04Z,turne,271.55,Hyperparameter tuning,NA
+0.909090909,100,70,3,0.1,adam,0.005,2023-12-19T15:43:01Z,dusty_turner1,720.187,Smart Hyperparameter Tuning,NA
+0.909090909,50,30,3,0.1,adam,0.01,2023-12-19T15:30:49Z,dusty_turner1,354.694,Smart Hyperparameter Tuning,NA
+0.909090909,150,50,3,0.1,adam,0.001,2023-12-19T15:24:41Z,dusty_turner1,1481.411,Smart Hyperparameter Tuning,NA
+0.909090909,1000,70,3,0.01,adam,0.001,2023-12-19T14:59:48Z,dusty_turner1,8001.621,Smart Hyperparameter Tuning,NA
+0.909090909,1000,50,3,0.1,adam,0.01,2023-12-19T12:46:16Z,dusty_turner1,6128.896,Smart Hyperparameter Tuning,NA
+0.909090909,50,50,3,0.1,adam,0.01,2023-12-19T11:03:57Z,dusty_turner1,343.066,Smart Hyperparameter Tuning,NA
+0.909090909,50,50,3,0.01,adam,0.01,2023-12-19T10:58:05Z,dusty_turner1,185.119,Smart Hyperparameter Tuning,NA
+0.909090909,100,70,3,0.01,adam,0.001,2023-12-19T10:54:51Z,dusty_turner1,376.184,Smart Hyperparameter Tuning,NA
+0.909090909,50,30,3,0.01,adam,0.001,2023-12-19T10:48:26Z,dusty_turner1,221.205,Smart Hyperparameter Tuning,NA
+0.909090909,100,50,3,0.05,adam,0.01,2023-12-19T10:44:36Z,dusty_turner1,443.975,Smart Hyperparameter Tuning,NA
+0.909090909,1000,30,3,0.01,adam,0.005,2023-12-19T10:37:03Z,dusty_turner1,3374.871,Smart Hyperparameter Tuning,NA
+0.909090909,150,30,3,0.1,adam,0.001,2023-12-19T09:40:40Z,dusty_turner1,700.03,Smart Hyperparameter Tuning,NA
+0.909090909,50,70,3,0.05,adam,0.01,2023-12-19T09:28:51Z,dusty_turner1,209.93,Smart Hyperparameter Tuning,NA
+0.909090909,150,30,3,0.05,adam,0.01,2023-12-19T09:25:08Z,dusty_turner1,1050.345,Smart Hyperparameter Tuning,NA
+0.909090909,100,50,3,0.05,adam,0.01,2023-12-19T09:07:29Z,dusty_turner1,338.448,Smart Hyperparameter Tuning,NA
+0.909090909,150,30,3,0.1,adam,0.01,2023-12-19T09:01:42Z,dusty_turner1,727.887,Smart Hyperparameter Tuning,NA
+0.909090909,50,50,3,0.05,adam,0.001,2023-12-19T08:49:25Z,dusty_turner1,192.015,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.1,adam,0.005,2023-12-19T08:46:04Z,dusty_turner1,732.888,Smart Hyperparameter Tuning,NA
+0.909090909,100,70,3,0.1,adam,0.005,2023-12-19T08:33:43Z,dusty_turner1,319.582,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.05,adam,0.001,2023-12-19T08:28:15Z,dusty_turner1,466.802,Smart Hyperparameter Tuning,NA
+0.909090909,100,30,3,0.1,adam,0.001,2023-12-19T08:20:20Z,dusty_turner1,472.935,Smart Hyperparameter Tuning,NA
+0.909090909,150,30,3,0.1,adam,0.005,2023-12-19T08:12:20Z,dusty_turner1,440.517,Smart Hyperparameter Tuning,NA
+0.909090909,1000,30,3,0.05,adam,0.01,2023-12-19T08:04:53Z,dusty_turner1,2822.173,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.05,adam,0.005,2023-12-19T07:17:42Z,dusty_turner1,707.684,Smart Hyperparameter Tuning,NA
+0.909090909,100,50,3,0.05,adam,0.001,2023-12-19T07:05:47Z,dusty_turner1,308.081,Smart Hyperparameter Tuning,NA
+0.909090909,100,30,3,0.05,adam,0.001,2023-12-19T07:00:32Z,dusty_turner1,464.59,Smart Hyperparameter Tuning,NA
+0.909090909,1000,30,3,0.1,adam,0.001,2023-12-19T06:52:41Z,dusty_turner1,2837.408,Smart Hyperparameter Tuning,NA
+0.909090909,50,30,3,0.05,adam,0.001,2023-12-19T06:05:15Z,dusty_turner1,158.545,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.01,adam,0.01,2023-12-19T06:02:30Z,dusty_turner1,429,Smart Hyperparameter Tuning,NA
+0.909090909,100,30,3,0.01,adam,0.01,2023-12-19T05:55:15Z,dusty_turner1,332.738,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.05,adam,0.001,2023-12-19T05:49:35Z,dusty_turner1,492.705,Smart Hyperparameter Tuning,NA
+0.909090909,100,70,3,0.05,adam,0.01,2023-12-19T05:41:17Z,dusty_turner1,287.687,Smart Hyperparameter Tuning,NA
+0.909090909,150,50,3,0.1,adam,0.01,2023-12-19T05:36:23Z,dusty_turner1,448.137,Smart Hyperparameter Tuning,NA
+0.909090909,150,30,3,0.1,adam,0.005,2023-12-19T05:28:49Z,dusty_turner1,418.149,Smart Hyperparameter Tuning,NA
+0.909090909,150,70,3,0.05,adam,0.005,2023-12-19T05:21:45Z,dusty_turner1,401.211,Smart Hyperparameter Tuning,NA
+0.909090909,100,50,3,0.01,adam,0.4,2023-12-19T04:46:50Z,turne,488.3,attemped baseline,NA
+0.926887927,100,50,3,0.01,adam,0.4,2023-12-18T20:47:43Z,Dusty_Turner1,1313.94,attemped baseline,NA
+0.926887927,100,50,3,0.01,adam,0.4,2023-12-18T20:24:13Z,Dusty_Turner1,697.02,attemped baseline,NA
+0.877488625,10,100,3,0.9,adam,0.1,2023-12-18T20:02:49Z,Dusty_Turner1,70.38,attemped baseline,NA
 0.926887927,100,50,3,0.1,adam,0.5,2023-12-18T19:58:44Z,Dusty_Turner1,288.64,attemped baseline,NA
 0.926887927,100,50,3,0.05,adam,0.5,2023-12-18T19:53:44Z,Dusty_Turner1,252.34,attemped baseline,NA
 0.926887927,100,50,3,0.01,adam,0.5,2023-12-18T19:49:20Z,Dusty_Turner1,225.84,attemped baseline,NA
