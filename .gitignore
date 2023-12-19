@@ -9,6 +9,8 @@
 .RDataTmp1
 *.RDS
 *.fst
+bfg-1.14.0.jar
+
 # mac files
 *.DS_Store
 
