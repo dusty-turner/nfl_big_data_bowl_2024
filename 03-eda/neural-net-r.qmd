@@ -383,7 +383,7 @@ accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(mo
   tibble(accuracy = accuracy, epochs = epochs_param, units = units_param, layers = layers_param, 
          l2_value = l2_value_param,
          optimizer = optimizer_param, rate = rate_param, time = now(), 
-         user = Sys.info()["user"], 
+         user = Sys.info()["user"], positive_weight_param = positive_weight_param,
          # activation = activation_param, 
          model_execution_time = model_execution_time, notes = notes_param) |> 
     bind_rows(raw_tracker) |> 
@@ -398,38 +398,51 @@ return(list(model = model, history = history))
 
 out <- run_nn(
   epochs_param = 100,
-  units_param = 75,
+  units_param = 50,
   rate_param = .4,
   l2_value_param = .001,
   layers_param = 3,
   batch_size_param = 441/1,
   notes_param = "using 1 week with new metric",
+  positive_weight_param = 11,
   optimizer_param = "adam"
   # activation_param = "relu"
 )
 
-epoch_values <- c(50, 100, 150, 1000)
+epoch_values <- c(100, 250, 1000)
 rate_values <- c(.001, .005, .01)
 l2_values <- c(.01, .05, .1)
 positive_weight_value <- c(3, 7, 11)
+<<<<<<< HEAD
 units_values <- c(50, 75, 100)
+=======
+units_value <- c(50,75,100)
+>>>>>>> fc59b6e80cbf7b7999962153a04b90687a2edf4d
 
 # Generate all combinations
+set.seed(123)
 param_grid <- expand.grid(epochs_param = epoch_values,
                           rate_param = rate_values,
                           l2_value_param = l2_values,
+<<<<<<< HEAD
                           positive_weight_param = positive_weight_value,
                           units_param = units_values)
+=======
+                          units_param = units_value,
+                          positive_weight_param = positive_weight_value) %>% 
+  sample_n(35)
+>>>>>>> fc59b6e80cbf7b7999962153a04b90687a2edf4d
 
-pmap(param_grid, function(epochs_param, rate_param, l2_value_param) {
+pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
   run_nn(
     epochs_param = epochs_param,
-    units_param = 50,  # Assuming a fixed value
+    units_param = units_param,  # Assuming a fixed value
     rate_param = rate_param,
     l2_value_param = l2_value_param,
     layers_param = 3,  # Assuming a fixed value
     batch_size_param = 441/1,  # Assuming a fixed value
     notes_param = "Hyperparameter tuning",
+    positive_weight_param = positive_weight_param,
     optimizer_param = "adam"  # Assuming a fixed value
     # activation_param = "relu"  # Uncomment if needed
   )
