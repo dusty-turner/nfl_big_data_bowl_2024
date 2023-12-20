@@ -2,10 +2,10 @@ library(tidyverse)
 library(gganimate)
 library(arrow)
 source(here::here("03-eda","ggtheme_field.R")) 
- 
+
 week_1 <-
   read_parquet(here::here("02-clean-data","tracking.parquet")) |> 
-  # filter(week_id == "week_1") |> 
+  simplifier() |> 
   left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |> 
   left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |> 
   left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |> 
@@ -315,8 +315,10 @@ defensive_model_building_data_model <-
 write_parquet(defensive_model_building_data, here::here("02-clean-data", "defensive_model_building_data.parquet"))
 
 ## week 1 is too big to save it all
-week_1 |> as_tibble() |> group_by(game_id) |> filter(cur_group_id() %in% 1:15) |> ungroup() |> 
-write_parquet(here::here("02-clean-data", "week_1.parquet"))
+
+week_1 |> as_tibble() |> group_by(game_id) |> filter(cur_group_id() %in% 1:16) |> ungroup() |>
+  write_parquet(here::here("02-clean-data", "week_1.parquet"))
+
 # I don't have clusters built in for passing plays
 # ## some plays don't end in tackles.  Some plays have a forced fumble
 # week_1 |> 
