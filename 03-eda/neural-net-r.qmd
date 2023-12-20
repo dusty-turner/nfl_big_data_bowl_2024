@@ -413,25 +413,16 @@ epoch_values <- c(100, 250, 1000)
 rate_values <- c(.001, .005, .01)
 l2_values <- c(.01, .05, .1)
 positive_weight_value <- c(3, 7, 11)
-<<<<<<< HEAD
-units_values <- c(50, 75, 100)
-=======
 units_value <- c(50,75,100)
->>>>>>> fc59b6e80cbf7b7999962153a04b90687a2edf4d
 
 # Generate all combinations
 set.seed(123)
 param_grid <- expand.grid(epochs_param = epoch_values,
                           rate_param = rate_values,
                           l2_value_param = l2_values,
-<<<<<<< HEAD
-                          positive_weight_param = positive_weight_value,
-                          units_param = units_values)
-=======
                           units_param = units_value,
                           positive_weight_param = positive_weight_value) %>% 
   sample_n(35)
->>>>>>> fc59b6e80cbf7b7999962153a04b90687a2edf4d
 
 pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
   run_nn(
