@@ -66,3 +66,71 @@ y_list_maker <- function(data) {
     )
   }
 }
+
+custom_accuracy <- function(y_true, y_pred) {
+  # Apply threshold to get binary class predictions
+  threshold <- 0.5
+  y_pred_binary <- k_cast(k_greater_equal(y_pred, threshold), 'float32')
+  
+  # Calculate accuracy
+  correct_predictions <- k_equal(y_pred_binary, y_true)
+  return(k_mean(correct_predictions))
+}
+
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
+  # Calculate binary crossentropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Apply weights
+  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+  weighted_bce <- weights * bce
+  
+  # Return mean loss over the batch
+  return(keras::k_mean(weighted_bce))
+}
+
+# Custom F1 Score with a unique name
+f1_score <- function(y_true, y_pred) {
+  precision <- k_cast(k_sum(k_round(k_clip(y_true * y_pred, 0, 1))) / k_sum(k_round(k_clip(y_pred, 0, 1)) + k_epsilon()), 'float32')
+  recall <- k_cast(k_sum(k_round(k_clip(y_true * y_pred, 0, 1))) / k_sum(k_round(k_clip(y_true, 0, 1)) + k_epsilon()), 'float32')
+  f1 <- 2 * ((precision * recall) / (precision + recall + k_epsilon()))
+  k_mean(f1, axis = -1L) %>% k_identity(name = 'f1_score')  # Assign a unique name
+}
+
+# # Custom Log Loss with a unique name
+# log_loss <- function(y_true, y_pred) {
+#   loss <- keras::binary_crossentropy(target = y_true, output = y_pred)
+#   k_mean(loss, axis = -1L) %>% k_identity(name = 'log_loss')  # Assign a unique name
+# }
+
+
+# Define Model Checkpoint Callback
+model_checkpoint_callback <- callback_model_checkpoint(
+  filepath = "best_model.h5",  # Save the best model to this file path
+  save_best_only = TRUE,
+  monitor = "val_loss",
+  verbose = 1
+)
+
+# Define Reduce Learning Rate on Plateau Callback
+reduce_lr_callback <- callback_reduce_lr_on_plateau(
+  monitor = "val_loss",
+  factor = 0.1,
+  patience = 5,
+  verbose = 1
+)
+
+# Define TensorBoard Callback
+tensorboard_callback <- callback_tensorboard(
+  log_dir = "./logs",
+  histogram_freq = 1
+)
+
+# Define CSV Logger Callback
+csv_logger_callback <- callback_csv_logger("training_log.csv")
+
+early_stop_callback <- callback_early_stopping(
+  monitor = "val_loss",  # Monitor the validation loss
+  patience = 10,         # Number of epochs with no improvement after which training will be stopped
+  restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
+)

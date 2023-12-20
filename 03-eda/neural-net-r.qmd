@@ -261,24 +261,7 @@ tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, 
 tracking_test <- tracking_list[test_indices]
 ```
 
-### Model Stuff
-
-```{r}
-custom_accuracy <- function(y_true, y_pred) {
-  # Apply threshold to get binary class predictions
-  threshold <- 0.5
-  y_pred_binary <- k_cast(k_greater_equal(y_pred, threshold), 'float32')
-
-  # Calculate accuracy
-  correct_predictions <- k_equal(y_pred_binary, y_true)
-  return(k_mean(correct_predictions))
-}
-
-
-
-
-```
-
+## Build Model
 
 ```{r}
 run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, 
@@ -286,21 +269,7 @@ run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epoc
                    layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
 
   keras::backend()$clear_session()
-  
-  
-  weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
-  # Calculate binary crossentropy
-  bce <- keras::k_binary_crossentropy(y_true, y_pred)
-  
-  # Apply weights
-  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
-  weighted_bce <- weights * bce
 
-  # Return mean loss over the batch
-  return(keras::k_mean(weighted_bce))
-}
-  
-  
   raw_tracker <-
     read_csv(here::here("04-models", "model_tracker.csv")) 
     raw_tracker |> 
@@ -342,6 +311,24 @@ run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epoc
              ) %>%
   layer_dropout(rate = rate_param) %>%
   layer_lstm(units = units_param, return_sequences = TRUE,
+             # recurrent_activation = 'relu' ## this made it give NANs for the loss
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param)
+             ) %>%
+  layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = units_param, return_sequences = TRUE,
+             # recurrent_activation = 'relu' ## this made it give NANs for the loss
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param)
+             ) %>%
+  layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = units_param, return_sequences = TRUE,
+             # recurrent_activation = 'relu' ## this made it give NANs for the loss
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param)
+             ) %>%
+  layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = units_param, return_sequences = TRUE,
   #            recurrent_activation = 'relu'
              kernel_regularizer = regularizer_l2(l2_value_param),
              recurrent_regularizer = regularizer_l2(l2_value_param)
@@ -359,10 +346,15 @@ run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epoc
 # Compile the model
 model %>% compile(
   loss = weighted_binary_crossentropy,
-  # loss = 'binary_crossentropy',
   optimizer = optimizer_adam(learning_rate = 0.001),
-  metrics = list(custom_accuracy)
-  # metrics = 'accuracy'
+  metrics = list(
+    custom_accuracy,
+    metric_precision(),    # Precision
+    metric_recall(),       # Recall
+    f1_score,              # F1 Score
+    metric_auc(),          # AUC-ROC
+    log_loss               # Log Loss
+  )
 )
 
 model_start_time <- tictoc::tic()
@@ -380,12 +372,19 @@ model_execution_time <- (model_end_time$toc - model_end_time$tic)[[1]]  # Calcul
 
 accuracy <- sum(array(ifelse(predict(model, x_test) > 0.5, 1, 0), dim(predict(model, x_test))) == y_test) / length(y_test)
 
-  tibble(accuracy = accuracy, epochs = epochs_param, units = units_param, layers = layers_param, 
-         l2_value = l2_value_param,
-         optimizer = optimizer_param, rate = rate_param, time = now(), 
-         user = Sys.info()["user"], positive_weight_param = positive_weight_param,
-         # activation = activation_param, 
-         model_execution_time = model_execution_time, notes = notes_param) |> 
+final_precision <- history$metrics$precision[length(history$metrics$precision)]
+final_recall <- history$metrics$recall[length(history$metrics$recall)]
+final_f1_score <- history$metrics$f1_score[length(history$metrics$f1_score)]
+final_auc <- history$metrics$auc[length(history$metrics$auc)]
+final_log_loss <- history$metrics$log_loss[length(history$metrics$log_loss)]
+
+
+tibble(
+  accuracy = accuracy, precision = final_precision, recall = final_recall, f1_score = final_f1_score, auc = final_auc, 
+  log_loss = final_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
+  optimizer = optimizer_param, rate = rate_param, time = now(), user = Sys.info()["user"], 
+  positive_weight_param = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
+)|> 
     bind_rows(raw_tracker) |> 
     arrange(desc(time)) |> 
     print() |> 
@@ -400,10 +399,10 @@ out <- run_nn(
   epochs_param = 100,
   units_param = 50,
   rate_param = .4,
-  l2_value_param = .001,
-  layers_param = 3,
+  l2_value_param = .01,
+  layers_param = 6,
   batch_size_param = 441/1,
-  notes_param = "using 1 week with new metric",
+  notes_param = "trying to zero in a best model",
   positive_weight_param = 11,
   optimizer_param = "adam"
   # activation_param = "relu"
