@@ -325,7 +325,7 @@ time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the 
 # Compile the model
 model %>% compile(
   loss = weighted_binary_crossentropy,
-  optimizer = optimizer_adam(learning_rate = 0.001),
+  optimizer = optimizer_adam(learning_rate = 0.01),
   metrics = list(
     custom_accuracy,       # Assuming this is a predefined metric
     metric_precision(),    # Precision
@@ -381,7 +381,7 @@ return(list(model = model, history = history))
 
 
 out <- run_nn(
-  epochs_param = 100,
+  epochs_param = 1000,
   units_param = 50,
   rate_param = .4,
   l2_value_param = .01,
@@ -393,11 +393,11 @@ out <- run_nn(
   # activation_param = "relu"
 )
 
-epoch_values <- c(100)
-rate_values <- c(.4)
-l2_values <- c(.01)
-positive_weight_value <- c(3, 7, 11)
-units_value <- c(50,75)
+epoch_values <- c(1000)
+rate_values <- c(1:9/10)
+l2_values <- c(.01,.001)
+positive_weight_value <- c(3,7,11)
+units_value <- c(75)
 
 # Generate all combinations
 set.seed(123)

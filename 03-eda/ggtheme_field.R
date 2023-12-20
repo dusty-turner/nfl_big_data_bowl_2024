@@ -1,3 +1,6 @@
+library(keras)
+library(tensorflow)
+
 theme_field <- theme(panel.background = element_rect(fill = "white",
                                                      colour = "white",
                                                      linewidth = 0.5, linetype = "solid"),
@@ -131,7 +134,7 @@ csv_logger_callback <- callback_csv_logger("training_log.csv")
 
 early_stop_callback <- callback_early_stopping(
   monitor = "val_loss",  # Monitor the validation loss
-  patience = 10,         # Number of epochs with no improvement after which training will be stopped
+  patience = 100,         # Number of epochs with no improvement after which training will be stopped
   restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
 )
 
