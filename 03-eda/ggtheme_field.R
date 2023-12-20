@@ -134,3 +134,25 @@ early_stop_callback <- callback_early_stopping(
   patience = 10,         # Number of epochs with no improvement after which training will be stopped
   restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
 )
+
+# Define the LSTM model architecture with more regularization
+# model <- keras_model_sequential() %>%
+#   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
+#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
+#                            # recurrent_activation = 'relu' ## this made it give NANs for the loss
+#                            kernel_regularizer = regularizer_l2(l2_value_param),
+#                            recurrent_regularizer = regularizer_l2(l2_value_param)
+#                            )) %>%
+#   layer_dropout(rate = rate_param) %>%
+#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
+#   #                          recurrent_activation = 'relu'
+#                            kernel_regularizer = regularizer_l2(l2_value_param),
+#                            recurrent_regularizer = regularizer_l2(l2_value_param)
+#                            )) %>%
+#   layer_dropout(rate = rate_param) %>%
+#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
+#   #                          recurrent_activation = 'relu'
+#                            kernel_regularizer = regularizer_l2(l2_value_param),
+#                            recurrent_regularizer = regularizer_l2(l2_value_param)
+#                            )) %>%
+#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the unit count based on output shape
