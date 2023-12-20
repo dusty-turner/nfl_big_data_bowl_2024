@@ -1,4 +1,8 @@
 accuracy,epochs,units,layers,l2_value,optimizer,rate,time,user,model_execution_time,notes,activation
+0.7621226241915897,100,100,3,0.001,adam,0.4,2023-12-20T05:11:15Z,turne,500.98999999999796,using 1 week with new metric,NA
+0.48661357282046935,100,75,3,0.05,adam,0.4,2023-12-20T04:58:49Z,turne,322.4699999999975,using 1 week with new metric,NA
+0.7407156372673614,100,75,3,0.001,adam,0.4,2023-12-20T04:51:50Z,turne,290.75,using 1 week with new metric,NA
+0.6573470021745884,100,75,3,0.01,adam,0.4,2023-12-20T04:42:57Z,turne,216.6999999999971,using 1 week with new metric,NA
 0.5592504730435764,100,50,3,0.01,adam,0.4,2023-12-20T04:12:26Z,turne,695.7799999999988,using 1 week with new metric,NA
 0.571620209551244,100,50,3,0.01,adam,0.4,2023-12-20T03:47:24Z,turne,327.15000000000146,using 1 week with new metric,NA
 0.3576421248835042,20,50,3,0.01,adam,0.4,2023-12-20T03:41:13Z,turne,48.81999999999971,using 1 week with new metric,NA

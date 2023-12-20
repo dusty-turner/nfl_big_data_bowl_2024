@@ -400,7 +400,7 @@ out <- run_nn(
   epochs_param = 100,
   units_param = 75,
   rate_param = .4,
-  l2_value_param = .01,
+  l2_value_param = .001,
   layers_param = 3,
   batch_size_param = 441/1,
   notes_param = "using 1 week with new metric",
@@ -412,12 +412,14 @@ epoch_values <- c(50, 100, 150, 1000)
 rate_values <- c(.001, .005, .01)
 l2_values <- c(.01, .05, .1)
 positive_weight_value <- c(3, 7, 11)
+units_values <- c(50, 75, 100)
 
 # Generate all combinations
 param_grid <- expand.grid(epochs_param = epoch_values,
                           rate_param = rate_values,
                           l2_value_param = l2_values,
-                          positive_weight_param = positive_weight_value)
+                          positive_weight_param = positive_weight_value,
+                          units_param = units_values)
 
 pmap(param_grid, function(epochs_param, rate_param, l2_value_param) {
   run_nn(
