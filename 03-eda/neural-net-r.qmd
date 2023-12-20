@@ -325,7 +325,7 @@ time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the 
 # Compile the model
 model %>% compile(
   loss = weighted_binary_crossentropy,
-  optimizer = optimizer_adam(learning_rate = 0.001),
+  optimizer = optimizer_adam(learning_rate = 0.01),
   metrics = list(
     custom_accuracy,       # Assuming this is a predefined metric
     metric_precision(),    # Precision
