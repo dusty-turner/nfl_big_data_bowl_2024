@@ -203,6 +203,51 @@ week_1 <-
   # End: Create Frames from Tackle Column
   ######
 
+####
+# Start: These don't have tackles in their plays
+####
+bad <-
+  week_1 |> 
+  group_by(game_id, play_id, display_name) |> 
+  reframe(test = mean(as.numeric(as.character(tackle)))) |> 
+  group_by(game_id, play_id) |> 
+  reframe(sum = sum(test))  |> 
+  filter(sum != 1) |> 
+  mutate(temp = str_c(game_id, "_", play_id)) 
+####
+# End: These don't have tackles in their plays
+####
+####
+# Start: Fix the ones with tackles not in their plays
+####
+fixed_these <-
+  week_1 |> 
+  mutate(temp = str_c(game_id, "_", play_id)) |> 
+  filter(temp %in% bad$temp) |> 
+  filter(!str_detect(string = play_description, pattern = "TOUCHDOWN")) |> 
+  select(game_id, play_id, frame_id, tackle, display_name, play_description) |> 
+  distinct(display_name, play_description, frame_id, .keep_all = TRUE) |>
+  rowwise() |> 
+  mutate(tackle_made = as.factor(is_name_in_description(display_name, play_description))) |> 
+  ungroup()
+
+fixed_these
+####
+# End: Fix the ones with tackles not in their plays
+####
+####
+# Start: Add back in the fixed ones
+####
+week_1 <-
+  week_1 |> 
+  left_join(fixed_these) |> 
+  mutate(tackle = ifelse(!is.na(tackle_made), as.character(tackle_made), as.character(tackle))) |> 
+  select(-tackle_made)
+####
+# Start: Add back in the fixed ones
+####
+
+
 #### add in clusters for defense
 
 clust_dat <-

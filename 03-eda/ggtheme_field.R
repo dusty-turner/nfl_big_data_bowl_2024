@@ -126,24 +126,29 @@ early_stop_callback <- callback_early_stopping(
   restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
 )
 
-# Define the LSTM model architecture with more regularization
-# model <- keras_model_sequential() %>%
-#   layer_masking(mask_value = 0, input_shape = c(max_length, num_features)) %>%
-#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
-#                            # recurrent_activation = 'relu' ## this made it give NANs for the loss
-#                            kernel_regularizer = regularizer_l2(l2_value_param),
-#                            recurrent_regularizer = regularizer_l2(l2_value_param)
-#                            )) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
-#   #                          recurrent_activation = 'relu'
-#                            kernel_regularizer = regularizer_l2(l2_value_param),
-#                            recurrent_regularizer = regularizer_l2(l2_value_param)
-#                            )) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   bidirectional(layer_lstm(units = units_param, return_sequences = TRUE,
-#   #                          recurrent_activation = 'relu'
-#                            kernel_regularizer = regularizer_l2(l2_value_param),
-#                            recurrent_regularizer = regularizer_l2(l2_value_param)
-#                            )) %>%
-#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the unit count based on output shape
+
+# Function to check if transformed player's name is mentioned in the tackle part of the play description
+is_name_in_description <- function(player_name = these_are_broke$display_name[21], description = these_are_broke$play_description[21]) {
+  # Function to convert "First Last" to "F. Last"
+  convert_name_format <- function(name) {
+    parts <- str_split(name, " ", simplify = TRUE)
+    if (ncol(parts) > 1) {
+      return(paste0(str_sub(parts[, 1], 1, 1), ".", parts[, 2]))
+    } else {
+      return(name)
+    }
+  }
+  
+  transformed_name <- convert_name_format(player_name)
+  
+  # Regex pattern to capture various phrases that precede the tackle details
+  pattern <- "for (no gain|-?\\d+ yard(s)?) \\([^)]+\\)"
+  tackle_description <- str_extract(description, pattern)
+  
+  # Check if the extracted part contains the transformed player name
+  if (!is.na(tackle_description)) {
+    return(as.integer(str_detect(tackle_description, fixed(transformed_name))))
+  } else {
+    return(0)  # Return 0 if there is no matching part
+  }
+}
