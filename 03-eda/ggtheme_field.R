@@ -107,22 +107,22 @@ model_checkpoint_callback <- callback_model_checkpoint(
 reduce_lr_callback <- callback_reduce_lr_on_plateau(
   monitor = "val_loss",
   factor = 0.1,
-  patience = 5,
+  patience = 100,
   verbose = 1
 )
 
 # Define TensorBoard Callback
-tensorboard_callback <- callback_tensorboard(
-  log_dir = "./logs",
-  histogram_freq = 1
-)
+# tensorboard_callback <- callback_tensorboard(
+#   log_dir = "./logs",
+#   histogram_freq = 1
+# )
 
 # Define CSV Logger Callback
-csv_logger_callback <- callback_csv_logger("training_log.csv")
+# csv_logger_callback <- callback_csv_logger("training_log.csv")
 
 early_stop_callback <- callback_early_stopping(
   monitor = "val_loss",  # Monitor the validation loss
-  patience = 100,         # Number of epochs with no improvement after which training will be stopped
+  patience = 200,         # Number of epochs with no improvement after which training will be stopped
   restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
 )
 
