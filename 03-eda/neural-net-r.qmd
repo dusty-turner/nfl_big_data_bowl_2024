@@ -264,12 +264,50 @@ tracking_test <- tracking_list[test_indices]
 ## Build Model
 
 ```{r}
+  # Define Model Checkpoint Callback
+model_checkpoint_callback <- callback_model_checkpoint(
+  filepath = "best_model.h5",  # Save the best model to this file path
+  save_best_only = TRUE,
+  monitor = "val_loss",
+  verbose = 1
+)
+# Define Reduce Learning Rate on Plateau Callback
+reduce_lr_callback <- callback_reduce_lr_on_plateau(
+  monitor = "val_loss",
+  factor = 0.1,
+  patience = 5,
+  verbose = 1
+)
+early_stop_callback <- callback_early_stopping(
+  monitor = "val_loss",  # Monitor the validation loss
+  patience = 100,         # Number of epochs with no improvement after which training will be stopped
+  restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
+)
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
+# Calculate binary crossentropy
+bce <- keras::k_binary_crossentropy(y_true, y_pred)
+
+# Apply weights
+weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+weighted_bce <- weights * bce
+
+# Return mean loss over the batch
+return(keras::k_mean(weighted_bce))
+}
+
+
 run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, 
                    optimizer_param = 'adam', positive_weight_param = 11,
                    layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
 
   keras::backend()$clear_session()
 
+  print(units_param)
+  print(rate_param)
+  print(l2_value_param)
+  print(positive_weight_param)
+  print(epochs_param)
+  
   raw_tracker <-
     read_csv(here::here("04-models", "model_tracker.csv")) 
     raw_tracker |> 
@@ -301,39 +339,41 @@ layer_lstm(units = units_param, return_sequences = TRUE,
            recurrent_regularizer = regularizer_l2(l2_value_param)
            ) %>%
 layer_dropout(rate = rate_param) %>%
-layer_lstm(units = units_param, return_sequences = TRUE,
-           # recurrent_activation = 'relu' ## this made it give NANs for the loss
-           kernel_regularizer = regularizer_l2(l2_value_param),
-           recurrent_regularizer = regularizer_l2(l2_value_param)
-           ) %>%
-layer_dropout(rate = rate_param) %>%
-layer_lstm(units = units_param, return_sequences = TRUE,
-#            recurrent_activation = 'relu'
-           kernel_regularizer = regularizer_l2(l2_value_param),
-           recurrent_regularizer = regularizer_l2(l2_value_param)
-           ) %>%
-layer_dropout(rate = rate_param) %>%
-layer_lstm(units = units_param, return_sequences = TRUE,
-#            recurrent_activation = 'relu'
-           kernel_regularizer = regularizer_l2(l2_value_param),
-           recurrent_regularizer = regularizer_l2(l2_value_param)
-           ) %>%
+# layer_lstm(units = units_param, return_sequences = TRUE,
+#            # recurrent_activation = 'relu' ## this made it give NANs for the loss
+#            kernel_regularizer = regularizer_l2(l2_value_param),
+#            recurrent_regularizer = regularizer_l2(l2_value_param)
+#            ) %>%
+# layer_dropout(rate = rate_param) %>%
+# layer_lstm(units = units_param, return_sequences = TRUE,
+# #            recurrent_activation = 'relu'
+#            kernel_regularizer = regularizer_l2(l2_value_param),
+#            recurrent_regularizer = regularizer_l2(l2_value_param)
+#            ) %>%
+# layer_dropout(rate = rate_param) %>%
+# layer_lstm(units = units_param, return_sequences = TRUE,
+# #            recurrent_activation = 'relu'
+#            kernel_regularizer = regularizer_l2(l2_value_param),
+#            recurrent_regularizer = regularizer_l2(l2_value_param)
+#            ) %>%
 time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the unit count based on output shape
 
-    
+
+
     
 # Compile the model
 model %>% compile(
-  loss = weighted_binary_crossentropy,
-  optimizer = optimizer_adam(learning_rate = 0.01),
-  metrics = list(
-    custom_accuracy,       # Assuming this is a predefined metric
-    metric_precision(),    # Precision
-    metric_recall(),       # Recall
+  loss = "binary_crossentropy",
+    # loss = weighted_binary_crossentropy,
+  optimizer = optimizer_adam(learning_rate = 0.001)
+  # metrics = list(
+#    custom_accuracy,       # Assuming this is a predefined metric
+#    metric_precision(),    # Precision
+#    metric_recall(),       # Recall
     # f1_score,              # F1 Score (custom)
-    metric_auc()          # AUC-ROC
+#    metric_auc()          # AUC-ROC
     # log_loss               # Log Loss (custom)
-  )
+  # )
 )
 
 model_start_time <- tictoc::tic()
@@ -343,14 +383,14 @@ history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test),
-  callbacks = list(
-    early_stop_callback,
-    model_checkpoint_callback,
-    reduce_lr_callback
+  validation_data = list(x_test, y_test)
+#  callbacks = list(
+ #   early_stop_callback,
+  #  model_checkpoint_callback,
+   # reduce_lr_callback
     # tensorboard_callback,
     # csv_logger_callback
-  )
+  #)
 )
 
 model_end_time <- tictoc::toc()
@@ -368,7 +408,7 @@ tibble(
   accuracy = final_accuracy, precision = final_precision, recall = final_recall, f1_score = final_f1_score, auc = final_auc, 
   log_loss = final_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
   optimizer = optimizer_param, rate = rate_param, time = now(), user = Sys.info()["user"], 
-  positive_weight_param = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
+  positive_weight = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
 ) |> 
     bind_rows(raw_tracker) |> 
     arrange(desc(time)) |> 
@@ -381,23 +421,25 @@ return(list(model = model, history = history))
 
 
 out <- run_nn(
-  epochs_param = 1000,
-  units_param = 50,
-  rate_param = .4,
+  epochs_param = 4,
+  units_param = 75,
+  rate_param = .05,
   l2_value_param = .01,
-  layers_param = 6,
+  layers_param = 3,
   batch_size_param = 441/1,
   notes_param = "trying to zero in a best model",
-  positive_weight_param = 11,
+  positive_weight_param = 9,
   optimizer_param = "adam"
   # activation_param = "relu"
 )
 
-epoch_values <- c(1000)
-rate_values <- c(1:9/10)
-l2_values <- c(.01,.001)
-positive_weight_value <- c(3,7,11)
+epoch_values <- c(4)
+rate_values <- c(.05,1,1.5)
+l2_values <- c(.001)
+positive_weight_value <- c(9,11,13)
 units_value <- c(75)
+
+map2(.x = c(9,11), .y = c(3,4), .f = ~run_nn(positive_weight_param = .x, epochs_param = .y))
 
 # Generate all combinations
 set.seed(123)
@@ -407,21 +449,21 @@ param_grid <- expand.grid(epochs_param = epoch_values,
                           units_param = units_value,
                           positive_weight_param = positive_weight_value) 
   # sample_n(35)
+pmap(param_grid, run_nn)
 
-pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
-  run_nn(
-    epochs_param = epochs_param,
-    units_param = units_param,  # Assuming a fixed value
-    rate_param = rate_param,
-    l2_value_param = l2_value_param,
-    layers_param = 6,  # Assuming a fixed value
-    batch_size_param = 441/1,  # Assuming a fixed value
-    notes_param = "Hyperparameter tuning",
-    positive_weight_param = positive_weight_param,
-    optimizer_param = "adam"  # Assuming a fixed value
-    # activation_param = "relu"  # Uncomment if needed
-  )
-})
+
+
+pmap_dfr(param_grid, ~run_nn(
+  epochs_param = ..1,
+  units_param = ..4,  # Assuming a fixed value
+  rate_param = ..2,
+  l2_value_param = ..3,
+  layers_param = 6,  # Assuming a fixed value
+  batch_size_param = 441,  # Assuming a fixed value
+  notes_param = "Hyperparameter tuning",
+  positive_weight_param = ..5,
+  optimizer_param = "adam"  # Assuming a fixed value
+))
 
 
 # View the training history

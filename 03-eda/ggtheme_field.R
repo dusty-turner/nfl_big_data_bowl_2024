@@ -80,17 +80,6 @@ custom_accuracy <- function(y_true, y_pred) {
   return(k_mean(correct_predictions))
 }
 
-weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
-  # Calculate binary crossentropy
-  bce <- keras::k_binary_crossentropy(y_true, y_pred)
-  
-  # Apply weights
-  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
-  weighted_bce <- weights * bce
-  
-  # Return mean loss over the batch
-  return(keras::k_mean(weighted_bce))
-}
 
 # Custom F1 Score with a unique name
 f1_score <- function(y_true, y_pred) {
@@ -107,21 +96,6 @@ f1_score <- function(y_true, y_pred) {
 # }
 
 
-# Define Model Checkpoint Callback
-model_checkpoint_callback <- callback_model_checkpoint(
-  filepath = "best_model.h5",  # Save the best model to this file path
-  save_best_only = TRUE,
-  monitor = "val_loss",
-  verbose = 1
-)
-
-# Define Reduce Learning Rate on Plateau Callback
-reduce_lr_callback <- callback_reduce_lr_on_plateau(
-  monitor = "val_loss",
-  factor = 0.1,
-  patience = 5,
-  verbose = 1
-)
 
 # Define TensorBoard Callback
 tensorboard_callback <- callback_tensorboard(
@@ -132,11 +106,7 @@ tensorboard_callback <- callback_tensorboard(
 # Define CSV Logger Callback
 csv_logger_callback <- callback_csv_logger("training_log.csv")
 
-early_stop_callback <- callback_early_stopping(
-  monitor = "val_loss",  # Monitor the validation loss
-  patience = 100,         # Number of epochs with no improvement after which training will be stopped
-  restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
-)
+
 
 # Define the LSTM model architecture with more regularization
 # model <- keras_model_sequential() %>%

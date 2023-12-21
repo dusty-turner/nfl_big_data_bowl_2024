@@ -1,5 +1,9 @@
 epochs,units,layers,l2_value,optimizer,rate,time,user,positive_weight,model_execution_time,notes,accuracy,precision,recall,auc,activation
-4,75,6,0.001,adam,0.05,2023-12-20T21:27:17Z,dusty_turner1,9,14.143000000000029,Hyperparameter tuning,NA,NA,NA,NA,NA
+4,50,3,0.01,adam,0.5,2023-12-20T21:32:10Z,dusty_turner1,11,15.23700000000008,NA,NA,NA,NA,NA,NA
+3,50,3,0.01,adam,0.5,2023-12-20T21:31:54Z,dusty_turner1,9,12.79300000000012,NA,NA,NA,NA,NA,NA
+10,50,3,0.01,adam,0.5,2023-12-20T21:29:45Z,dusty_turner1,11,22.347999999999956,NA,NA,NA,NA,NA,NA
+10,50,3,0.01,adam,0.5,2023-12-20T21:29:22Z,dusty_turner1,9,21.20999999999981,NA,NA,NA,NA,NA,NA
+4,75,6,0.001,adam,0.05,2023-12-20T21:27:17Z,dusty_turner1,9,14.143000000000027,Hyperparameter tuning,NA,NA,NA,NA,NA
 4,75,3,0.001,adam,0.05,2023-12-20T21:24:43Z,dusty_turner1,9,13.929999999999836,NA,NA,NA,NA,NA,NA
 4,75,6,0.001,adam,0.05,2023-12-20T21:23:02Z,dusty_turner1,9,13.563000000000102,Hyperparameter tuning,NA,NA,NA,NA,NA
 4,50,6,0.001,adam,0.05,2023-12-20T21:21:43Z,dusty_turner1,75,13.205999999999904,Hyperparameter tuning,NA,NA,NA,NA,NA
