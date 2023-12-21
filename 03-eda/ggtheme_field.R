@@ -80,18 +80,6 @@ custom_accuracy <- function(y_true, y_pred) {
   return(k_mean(correct_predictions))
 }
 
-weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
-  # Calculate binary crossentropy
-  bce <- keras::k_binary_crossentropy(y_true, y_pred)
-  
-  # Apply weights
-  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
-  weighted_bce <- weights * bce
-  
-  # Return mean loss over the batch
-  return(keras::k_mean(weighted_bce))
-}
-
 # Custom F1 Score with a unique name
 f1_score <- function(y_true, y_pred) {
   precision <- k_cast(k_sum(k_round(k_clip(y_true * y_pred, 0, 1))) / k_sum(k_round(k_clip(y_pred, 0, 1)) + k_epsilon()), 'float32')
