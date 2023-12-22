@@ -1,4 +1,3 @@
-<<<<<<< HEAD,,,,,,,,,,,,,,,
 accuracy,precision,recall,auc,epochs,units,layers,l2_value,rate,positive_weight_param,optimizer,time,user,model_execution_time,notes,activation
 0.8367341160774231,0.10165292024612427,0.10130134969949722,0.5154145956039429,1000,200,3,0.1,0.2,9.090909091,adam,2023-12-21T16:59:51Z,dusty_turner1,2153.983,Hyperparameter tuning 1111,tanh
 0.8364763259887695,0.10155975073575974,0.10152849555015564,0.5155177116394043,1000,200,3,0.1,0.1,9.090909091,adam,2023-12-21T16:23:54Z,dusty_turner1,2556.5610000000015,Hyperparameter tuning 1111,tanh
