@@ -29,8 +29,11 @@ source(here::here("03-eda", "data_cleaning.R"))
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
+mod <- read_rds("model_data.rds")
 
-week_1 |> select(tackle) |> count(tackle)
+x_train <- mod$x_train
+y_train <- mod$y_train
+max_length <- mod$max_length
 
 ```
 
@@ -215,8 +218,12 @@ num_players <- 11  # Adjust if necessary
 tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, num_players = num_players)
 
 # Filter out the tracking arrays for the test set
+
 tracking_test <- tracking_list[test_indices]
+
+write_rds(list(x_train = x_train, y_train = y_train, test_data = test_data, max_length = max_length), "model_data.rds")
 ```
+
 
 ## Build Model
 
@@ -258,11 +265,11 @@ layer_lstm(units = units_param, return_sequences = TRUE,
            recurrent_regularizer = regularizer_l2(l2_value_param)
            ) %>%
 layer_dropout(rate = rate_param) %>%
-# layer_lstm(units = units_param, return_sequences = TRUE,
-#            # recurrent_activation = 'relu' ## this made it give NANs for the loss
-#            kernel_regularizer = regularizer_l2(l2_value_param),
-#            recurrent_regularizer = regularizer_l2(l2_value_param)
-#            ) %>%
+layer_lstm(units = units_param, return_sequences = TRUE,
+           # recurrent_activation = 'relu' ## this made it give NANs for the loss
+           kernel_regularizer = regularizer_l2(l2_value_param),
+           recurrent_regularizer = regularizer_l2(l2_value_param)
+           ) %>%
 # layer_dropout(rate = rate_param) %>%
 # layer_lstm(units = units_param, return_sequences = TRUE,
 # #            recurrent_activation = 'relu'
@@ -275,7 +282,7 @@ layer_dropout(rate = rate_param) %>%
 #            kernel_regularizer = regularizer_l2(l2_value_param),
 #            recurrent_regularizer = regularizer_l2(l2_value_param)
 #            ) %>%
-time_distributed(layer_dense(units = 11, activation = 'softmax'))  # Adjust the unit count based on output shape
+time_distributed(layer_dense(units = 11, activation = 'sigmoid'))  # Adjust the unit count based on output shape
 
 weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = positive_weight_param) {
   # Calculate binary crossentropy
@@ -310,14 +317,14 @@ history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test),
-  callbacks = list(
-    early_stop_callback,
-    model_checkpoint_callback,
-    reduce_lr_callback
-    # tensorboard_callback,
-    # csv_logger_callback
-  )
+  validation_data = list(x_test, y_test)
+  # callbacks = list(
+  #   early_stop_callback,
+  #   model_checkpoint_callback,
+  #   reduce_lr_callback
+  #   # tensorboard_callback,
+  #   # csv_logger_callback
+  # )
 )
 
 model_end_time <- tictoc::toc()
@@ -354,22 +361,22 @@ newdata %>%
 
 out <- run_nn(
   epochs_param = 1000,
-  units_param = 50,
+  units_param = 150,
   rate_param = .1,
   l2_value_param = .001,
-  layers_param = 3,
-  batch_size_param = 4000,
+  layers_param = 4,
+  batch_size_param = 3994,
   positive_weight_param = ratio,
-  notes_param = "trying to zero in a best model",
+  notes_param = "best from grid search with more data",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
 
 epoch_values <- c(1000)
-rate_values <- c(.1,.05,.1,.2)
-l2_values <- c(.001,.01,.1)
+rate_values <- c(.05,.1,.15)
+l2_values <- c(.001)
 positive_weight_value <- c(ratio)
-units_value <- c(50,100,200)
+units_value <- c(100,150,200)
 
 # Generate all combinations
 set.seed(123)
@@ -476,9 +483,6 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
   annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
 
 
-
-
-
 ```
 
 
@@ -503,6 +507,8 @@ animated_plot <-
   transition_reveal(frame_id)
 
 anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+list.files() %>% as_tibble() %>% filter(str_detect(value, "gganim_plot")) %>% pull() %>% file.remove()
 
 animated_plot2 <-
 week_1 |> 
