@@ -52,7 +52,6 @@ accuracy,precision,recall,auc,epochs,units,layers,l2_value,rate,positive_weight_
 0.852788508,0.12877464294433594,0.15879948437213898,0.5662669539451599,1000,100,3,0.001,0.1,8,adam,2023-12-21T03:22:41Z,dusty_turner1,209.69399999999996,Hyperparameter tuning,tanh
 0.2760077118873596,0.10032258927822112,0.7977929711341858,0.5697842836380005,1000,100,3,0.001,0.1,11,adam,2023-12-21T03:18:15Z,dusty_turner1,186.41000000000008,Hyperparameter tuning,tanh
 0.7833120226860046,0.1154882088303566,0.27710771560668945,0.5621901750564575,1000,100,3,0.001,0.1,9,adam,2023-12-21T03:15:07Z,dusty_turner1,208.004,Hyperparameter tuning,tanh
-0.902636468,0.14111801981925964,0.023103302,0.5442724227905273,1000,100,3,0.001,0.1,7,adam,2023-12-21T03:11:38Z,dusty_turner1,241.5169999999999,Hyperparameter tuning,tanh
 0.38735488057136536,0.093545526,0.6939746737480164,0.5208091139793396,2,75,6,0.001,0.1,5,adam,2023-12-20T21:35:11Z,Dusty_Turner1,92.22000000000116,Hyperparameter tuning,tanh
 0.41976046562194824,0.091907397,0.6201303005218506,0.5114753842353821,2,75,6,0.001,0.1,3,adam,2023-12-20T21:33:17Z,Dusty_Turner1,172.98000000001048,Hyperparameter tuning,tanh
 0.4665056906436217,NA,NA,NA,250,100,3,0.1,0.001,NA,adam,2023-12-20T20:08:47Z,turne,7426.88,Hyperparameter tuning,tanh
@@ -63,7 +62,6 @@ accuracy,precision,recall,auc,epochs,units,layers,l2_value,rate,positive_weight_
 0.6352269197096784,NA,NA,NA,100,75,3,0.05,0.001,NA,adam,2023-12-20T12:51:04Z,turne,1742.1900000000023,Hyperparameter tuning,tanh
 0.7223234205992827,NA,NA,NA,250,50,3,0.01,1e-4,NA,adam,2023-12-20T11:16:35Z,turne,2978.0599999999977,Hyperparameter tuning,tanh
 0.7171693637210879,NA,NA,NA,500,75,3,0.01,0.005,NA,adam,2023-12-20T10:26:47Z,turne,6413.909999999996,Hyperparameter tuning,tanh
-0.909436866,NA,NA,NA,250,50,3,0.05,0.005,NA,adam,2023-12-20T08:39:38Z,turne,2194.4199999999983,Hyperparameter tuning,tanh
 0.5122002880623571,NA,NA,NA,250,50,3,0.05,1e-4,NA,adam,2023-12-20T08:02:54Z,turne,1661.989999999998,Hyperparameter tuning,tanh
 0.622151148,NA,NA,NA,500,75,3,0.05,1e-4,NA,adam,2023-12-20T07:35:03Z,turne,3921.220000000001,Hyperparameter tuning,tanh
 0.6224123810330707,NA,NA,NA,500,100,3,0.1,0.005,NA,adam,2023-12-20T06:29:31Z,turne,3520.340000000004,Hyperparameter tuning,tanh
@@ -80,70 +78,8 @@ accuracy,precision,recall,auc,epochs,units,layers,l2_value,rate,positive_weight_
 0.57162021,NA,NA,NA,100,50,3,0.01,0.4,NA,adam,2023-12-20T03:47:24Z,turne,327.15000000000146,using 1 week with new metric,tanh
 0.3576421248835042,NA,NA,NA,20,50,3,0.01,0.4,11,adam,2023-12-20T03:41:13Z,turne,48.81999999999971,using 1 week with new metric,tanh
 0.3576421248835042,NA,NA,NA,20,50,3,0.01,0.4,NA,adam,2023-12-20T03:41:13Z,turne,48.81999999999971,using 1 week with new metric,tanh
-0.908321331,NA,NA,NA,10,50,3,0.01,0.4,11,adam,2023-12-20T03:20:04Z,turne,30.090000000000146,using all weeks data,tanh
-0.908321331,NA,NA,NA,10,50,3,0.01,0.4,NA,adam,2023-12-20T03:20:04Z,turne,30.090000000000146,using all weeks data,tanh
-0.909090909,NA,NA,NA,100,70,3,0.1,0.005,NA,adam,2023-12-19T15:43:01Z,dusty_turner1,720.187,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.01,0.01,NA,adam,2023-12-19T15:39:28Z,turne,1818.28,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,50,30,3,0.1,0.01,NA,adam,2023-12-19T15:30:49Z,dusty_turner1,354.694,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,50,3,0.1,0.001,NA,adam,2023-12-19T15:24:41Z,dusty_turner1,1481.411,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.01,0.01,NA,adam,2023-12-19T15:08:47Z,turne,760.7,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,1000,70,3,0.01,0.001,NA,adam,2023-12-19T14:59:48Z,dusty_turner1,8001.621,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,1000,50,3,0.01,0.005,NA,adam,2023-12-19T14:55:45Z,turne,16473,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,1000,50,3,0.1,0.01,NA,adam,2023-12-19T12:46:16Z,dusty_turner1,6128.896,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.1,0.01,NA,adam,2023-12-19T11:03:57Z,dusty_turner1,343.066,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.01,0.01,NA,adam,2023-12-19T10:58:05Z,dusty_turner1,185.119,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,70,3,0.01,0.001,NA,adam,2023-12-19T10:54:51Z,dusty_turner1,376.184,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,30,3,0.01,0.001,NA,adam,2023-12-19T10:48:26Z,dusty_turner1,221.205,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.05,0.01,NA,adam,2023-12-19T10:44:36Z,dusty_turner1,443.975,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,1000,30,3,0.01,0.005,NA,adam,2023-12-19T10:37:03Z,dusty_turner1,3374.871,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,50,3,0.01,0.005,NA,adam,2023-12-19T10:20:52Z,turne,3346.38,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,150,30,3,0.1,0.001,NA,adam,2023-12-19T09:40:40Z,dusty_turner1,700.03,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,70,3,0.05,0.01,NA,adam,2023-12-19T09:28:51Z,dusty_turner1,209.93,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,30,3,0.05,0.01,NA,adam,2023-12-19T09:25:08Z,dusty_turner1,1050.345,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.01,0.005,NA,adam,2023-12-19T09:24:43Z,turne,1753,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.05,0.01,NA,adam,2023-12-19T09:07:29Z,dusty_turner1,338.448,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,30,3,0.1,0.01,NA,adam,2023-12-19T09:01:42Z,dusty_turner1,727.887,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.01,0.005,NA,adam,2023-12-19T08:55:10Z,turne,826.06,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.05,0.001,NA,adam,2023-12-19T08:49:25Z,dusty_turner1,192.015,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.1,0.005,NA,adam,2023-12-19T08:46:04Z,dusty_turner1,732.888,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,1000,50,3,0.01,0.001,NA,adam,2023-12-19T08:41:04Z,turne,11205.82,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,100,70,3,0.1,0.005,NA,adam,2023-12-19T08:33:43Z,dusty_turner1,319.582,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.05,0.001,NA,adam,2023-12-19T08:28:15Z,dusty_turner1,466.802,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,30,3,0.1,0.001,NA,adam,2023-12-19T08:20:20Z,dusty_turner1,472.935,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,30,3,0.1,0.005,NA,adam,2023-12-19T08:12:20Z,dusty_turner1,440.517,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,1000,30,3,0.05,0.01,NA,adam,2023-12-19T08:04:53Z,dusty_turner1,2822.173,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.05,0.005,NA,adam,2023-12-19T07:17:42Z,dusty_turner1,707.684,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.05,0.001,NA,adam,2023-12-19T07:05:47Z,dusty_turner1,308.081,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,30,3,0.05,0.001,NA,adam,2023-12-19T07:00:32Z,dusty_turner1,464.59,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,1000,30,3,0.1,0.001,NA,adam,2023-12-19T06:52:41Z,dusty_turner1,2837.408,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,50,30,3,0.05,0.001,NA,adam,2023-12-19T06:05:15Z,dusty_turner1,158.545,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.01,0.01,NA,adam,2023-12-19T06:02:30Z,dusty_turner1,429,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,30,3,0.01,0.01,NA,adam,2023-12-19T05:55:15Z,dusty_turner1,332.738,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.05,0.001,NA,adam,2023-12-19T05:49:35Z,dusty_turner1,492.705,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,70,3,0.05,0.01,NA,adam,2023-12-19T05:41:17Z,dusty_turner1,287.687,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,50,3,0.1,0.01,NA,adam,2023-12-19T05:36:23Z,dusty_turner1,448.137,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,50,3,0.01,0.001,NA,adam,2023-12-19T05:33:59Z,turne,1207.42,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,150,30,3,0.1,0.005,NA,adam,2023-12-19T05:28:49Z,dusty_turner1,418.149,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,150,70,3,0.05,0.005,NA,adam,2023-12-19T05:21:45Z,dusty_turner1,401.211,Smart Hyperparameter Tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.01,0.001,NA,adam,2023-12-19T05:13:35Z,turne,675.52,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,50,50,3,0.01,0.001,NA,adam,2023-12-19T05:02:04Z,turne,271.55,Hyperparameter tuning,tanh
-0.909090909,NA,NA,NA,100,50,3,0.01,0.4,NA,adam,2023-12-19T04:46:50Z,turne,488.3,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.01,0.4,NA,adam,2023-12-18T20:47:43Z,Dusty_Turner1,1313.94,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.01,0.4,NA,adam,2023-12-18T20:24:13Z,Dusty_Turner1,697.02,attemped baseline,tanh
 0.877488625,NA,NA,NA,10,100,3,0.9,0.1,NA,adam,2023-12-18T20:02:49Z,Dusty_Turner1,70.38,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.1,0.5,NA,adam,2023-12-18T19:58:44Z,Dusty_Turner1,288.64,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.05,0.5,NA,adam,2023-12-18T19:53:44Z,Dusty_Turner1,252.34,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.01,0.5,NA,adam,2023-12-18T19:49:20Z,Dusty_Turner1,225.84,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.005,0.5,NA,adam,2023-12-18T19:45:22Z,Dusty_Turner1,240.67,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,0.001,0.5,NA,adam,2023-12-18T19:41:11Z,Dusty_Turner1,227.94,attemped baseline,tanh
-0.926887927,NA,NA,NA,10,100,3,NA,0.5,NA,adam,2023-12-18T19:37:12Z,Dusty_Turner1,46.31,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,100,3,NA,0.5,NA,adam,2023-12-18T19:18:51Z,Dusty_Turner1,839.45,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,75,3,NA,0.5,NA,adam,2023-12-18T19:04:34Z,Dusty_Turner1,590.02,attemped baseline,tanh
-0.926887927,NA,NA,NA,100,50,3,NA,0.5,NA,adam,2023-12-18T18:54:26Z,Dusty_Turner1,454.95,attemped baseline,tanh
-0.926887927,NA,NA,NA,10,100,3,NA,0.5,NA,adam,2023-12-18T18:44:41Z,Dusty_Turner1,83.18,attemped baseline,tanh
-0.926887927,NA,NA,NA,10,100,3,NA,0.5,NA,adam,2023-12-18T18:40:51Z,Dusty_Turner1,47.53,attemped baseline,tanh
 0.891946283,NA,NA,NA,100,75,3,NA,0.4,NA,adam,2023-12-18T17:56:25Z,Dusty_Turner1,168.86,attemped baseline,relu
 0.734620424,NA,NA,NA,6,75,3,NA,0.4,NA,adam,2023-12-18T17:51:02Z,Dusty_Turner1,20.72,attemped baseline,relu
 0.73889967,NA,NA,NA,6,50,3,NA,0.4,NA,adam,2023-12-18T17:50:16Z,Dusty_Turner1,15.57,attemped baseline,relu
 0.739485716,NA,NA,NA,6,50,3,NA,0.4,NA,adam,2023-12-18T17:31:16Z,Dusty_Turner1,36.55,attemped baseline,relu
-0.926871341,NA,NA,NA,600,50,3,NA,0.4,NA,adam,2023-12-18T17:06:21Z,Dusty_Turner1,1108.54,attemped baseline,relu
