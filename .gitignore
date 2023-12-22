@@ -1,5 +1,5 @@
 # Project related files
-
+model_data.rds
 *.parquet
 *bayesian_model.rds
 01-raw-data*

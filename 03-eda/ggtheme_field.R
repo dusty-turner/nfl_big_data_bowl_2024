@@ -107,7 +107,7 @@ model_checkpoint_callback <- callback_model_checkpoint(
 reduce_lr_callback <- callback_reduce_lr_on_plateau(
   monitor = "val_loss",
   factor = 0.1,
-  patience = 50,
+  patience = 100,
   verbose = 1
 )
 
@@ -122,7 +122,7 @@ reduce_lr_callback <- callback_reduce_lr_on_plateau(
 
 early_stop_callback <- callback_early_stopping(
   monitor = "val_loss",  # Monitor the validation loss
-  patience = 100,         # Number of epochs with no improvement after which training will be stopped
+  patience = 150,         # Number of epochs with no improvement after which training will be stopped
   restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
 )
 
