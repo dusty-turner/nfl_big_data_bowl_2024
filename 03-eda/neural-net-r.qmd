@@ -34,6 +34,7 @@ mod <- read_rds("model_data.rds")
 x_train <- mod$x_train
 y_train <- mod$y_train
 max_length <- mod$max_length
+num_features <- dim(x_train)[3]
 
 ```
 
@@ -221,7 +222,7 @@ tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, 
 
 tracking_test <- tracking_list[test_indices]
 
-write_rds(list(x_train = x_train, y_train = y_train, test_data = test_data, max_length = max_length), "model_data.rds")
+write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length), "model_data.rds")
 ```
 
 
@@ -317,14 +318,14 @@ history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test)
-  # callbacks = list(
+  validation_data = list(x_test, y_test),
+  callbacks = list(
   #   early_stop_callback,
-  #   model_checkpoint_callback,
-  #   reduce_lr_callback
+    model_checkpoint_callback,
+    reduce_lr_callback
   #   # tensorboard_callback,
   #   # csv_logger_callback
-  # )
+  )
 )
 
 model_end_time <- tictoc::toc()
@@ -360,17 +361,17 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 1000,
+  epochs_param = 3000,
   units_param = 150,
-  rate_param = .1,
+  rate_param = .05,
   l2_value_param = .001,
   layers_param = 4,
   batch_size_param = 3994,
   positive_weight_param = ratio,
   notes_param = "best from grid search with more data",
-  optimizer_param = "adam"
+  optimizer_param = "adam",
   # activation_param = "relu"
-)
+git)
 
 epoch_values <- c(1000)
 rate_values <- c(.05,.1,.15)
@@ -393,8 +394,8 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
     units_param = units_param,  # Assuming a fixed value
     rate_param = rate_param,
     l2_value_param = l2_value_param,
-    layers_param = 3,  # Assuming a fixed value
-    batch_size_param = 4000,  # Assuming a fixed value
+    layers_param = 4,  # Assuming a fixed value
+    batch_size_param = 3994,  # Assuming a fixed value
     notes_param = "Hyperparameter tuning 1111",
     positive_weight_param = positive_weight_param,
     optimizer_param = "adam"  # Assuming a fixed value
