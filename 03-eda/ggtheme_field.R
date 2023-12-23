@@ -47,6 +47,7 @@ x_list_maker <- function(data) {
       .f = ~ get_play_data(.x, .y, newdata, num_features_per_player_arg = num_features_per_player),
       .progress = TRUE
     )
+    plan(sequential)
   }
 }
 
@@ -67,6 +68,7 @@ y_list_maker <- function(data) {
       .f = ~ create_target_matrix(.x, .y, newdata, padded_length = max_length),
       .progress = TRUE
     )
+    plan(sequential)
   }
 }
 
