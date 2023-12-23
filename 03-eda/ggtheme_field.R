@@ -41,13 +41,14 @@ x_list_maker <- function(data) {
   } else {
     library(furrr)
     plan(multisession)
-    future_map2(
+    out <- future_map2(
       .x = example_play$game_id,
       .y = example_play$play_id,
       .f = ~ get_play_data(.x, .y, newdata, num_features_per_player_arg = num_features_per_player),
       .progress = TRUE
     )
     plan(sequential)
+    return(out)
   }
 }
 
@@ -62,13 +63,14 @@ y_list_maker <- function(data) {
   } else {
     library(furrr)
     plan(multisession)
-    future_map2(
+    out <- future_map2(
       .x = example_play$game_id,
       .y = example_play$play_id,
       .f = ~ create_target_matrix(.x, .y, newdata, padded_length = max_length),
       .progress = TRUE
     )
     plan(sequential)
+    return(out)
   }
 }
 

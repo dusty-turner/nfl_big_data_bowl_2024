@@ -29,20 +29,21 @@ source(here::here("03-eda", "data_cleaning.R"))
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
-mod <- read_rds("model_data.rds")
-
-x_train <- mod$x_train
-y_train <- mod$y_train
-max_length <- mod$max_length
-num_features <- dim(x_train)[3]
+if (Sys.info()["user"] == "dusty_turner1") {
+  mod <- read_rds("model_data.rds")
+  x_train <- mod$x_train
+  y_train <- mod$y_train
+  max_length <- mod$max_length
+  num_features <- dim(x_train)[3]
+}
 
 ```
 
 ```{r}
 deff <-
 defensive_model_building_data %>% 
-  filter(is.na(pass_result)) |>
-  filter(frame_id >= 5) |> 
+  # filter(is.na(pass_result)) |>
+  # filter(frame_id >= 5) |> 
   filter(frames_from_tackle <=0) |> 
 
   # filter(frames_from_tackle >=-5) %>% 
@@ -222,7 +223,10 @@ tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, 
 
 tracking_test <- tracking_list[test_indices]
 
-write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length), "model_data.rds")
+
+if (Sys.info()["user"] == "dusty_turner1") {
+  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length), "model_data.rds")
+}
 ```
 
 
