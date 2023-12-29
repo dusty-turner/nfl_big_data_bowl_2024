@@ -35,6 +35,8 @@ if (Sys.info()["user"] == "dusty_turner1") {
   y_train <- mod$y_train
   max_length <- mod$max_length
   num_features <- dim(x_train)[3]
+  x_test <- mod$x_test
+  y_test <- mod$y_test
 }
 
 ```
@@ -365,21 +367,22 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 3000,
+  epochs_param = 10,
   units_param = 150,
   rate_param = .05,
   l2_value_param = .001,
   layers_param = 4,
-  batch_size_param = 3994,
+  batch_size_param = 7028/2,
   positive_weight_param = ratio,
-  notes_param = "best from grid search with more data",
-  optimizer_param = "adam",
+  notes_param = "experiment with all data",
+  optimizer_param = "adam"
   # activation_param = "relu"
-git)
+)
 
-epoch_values <- c(1000)
+
+epoch_values <- c(500)
 rate_values <- c(.05,.1,.15)
-l2_values <- c(.001)
+l2_values <- c(.001,.01)
 positive_weight_value <- c(ratio)
 units_value <- c(100,150,200)
 
@@ -389,7 +392,8 @@ param_grid <- expand.grid(epochs_param = epoch_values,
                           rate_param = rate_values,
                           l2_value_param = l2_values,
                           units_param = units_value,
-                          positive_weight_param = positive_weight_value) 
+                          positive_weight_param = positive_weight_value)  %>% 
+  slice(-c(1:2))
   # sample_n(35)
 
 pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
@@ -399,7 +403,7 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
     rate_param = rate_param,
     l2_value_param = l2_value_param,
     layers_param = 4,  # Assuming a fixed value
-    batch_size_param = 3994,  # Assuming a fixed value
+    batch_size_param = 7028,  # Assuming a fixed value
     notes_param = "Hyperparameter tuning 1111",
     positive_weight_param = positive_weight_param,
     optimizer_param = "adam"  # Assuming a fixed value
