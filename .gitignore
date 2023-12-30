@@ -10,6 +10,7 @@ model_data.rds
 *.RDS
 *.fst
 bfg-1.14.0.jar
+*04-models/
 
 # mac files
 *.DS_Store
