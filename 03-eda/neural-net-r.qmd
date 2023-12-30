@@ -367,12 +367,12 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 10,
-  units_param = 150,
+  epochs_param = 1000,
+  units_param = 100,
   rate_param = .05,
   l2_value_param = .001,
   layers_param = 4,
-  batch_size_param = 7028/2,
+  batch_size_param = 702,
   positive_weight_param = ratio,
   notes_param = "experiment with all data",
   optimizer_param = "adam"
@@ -393,7 +393,7 @@ param_grid <- expand.grid(epochs_param = epoch_values,
                           l2_value_param = l2_values,
                           units_param = units_value,
                           positive_weight_param = positive_weight_value)  %>% 
-  slice(-c(1:2))
+  slice(-c(1:14))
   # sample_n(35)
 
 pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
@@ -410,7 +410,6 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
     # activation_param = "relu"  # Uncomment if needed
   )
 })
-
 
 # View the training history
 plot(out$history)
