@@ -1,0 +1,186 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(keras)
+library(tensorflow)
+library(reticulate)
+library(data.table)
+library(gganimate)
+library(arrow)
+
+source(here::here("03-eda","ggtheme_field.R"))
+
+main_model <- read_rds(here::here("04-models", "model_results.rds"))
+
+test_joined_with_preds <- main_model$test_joined_with_preds
+week_1 <- main_model$week_1
+
+```
+
+
+
+```{r}
+
+test_joined_with_preds |> 
+  count(binary_predictions)
+
+test_joined_with_preds |> 
+  yardstick::accuracy(truth = tackle, estimate = binary_predictions)
+
+week_1 |> 
+  filter(frames_from_tackle >= -40) |> 
+  left_join(test_joined_with_preds) |> 
+  group_by(frames_from_tackle) |> 
+  # yardstick::accuracy(truth = tackle, estimate = binary_predictions) |> 
+  yardstick::precision(truth = tackle, estimate = binary_predictions) |>
+  # yardstick::recall(truth = tackle, estimate = binary_predictions) |> 
+  ggplot(aes(x = frames_from_tackle, y = .estimate)) +
+  geom_point() +
+  geom_line()
+
+test_joined_with_preds |> 
+  yardstick::precision(truth = tackle, estimate = binary_predictions) 
+
+test_joined_with_preds |> 
+  yardstick::recall(truth = tackle, estimate = binary_predictions)
+
+
+test_joined_with_preds |> 
+  group_by(game_id, play_id) |>
+  filter(cur_group_id() == 3) |> 
+  select(display_name, tackle, final_predictions, binary_predictions) |> 
+  arrange(display_name) |> 
+  print(n = Inf)
+```
+
+```{r}
+
+library(pROC)
+
+# Creating the ROC object
+roc_result<- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$final_predictions)
+
+# Calculating the AUC
+auc_value <- auc(roc_result)
+
+# Plotting the ROC curve
+ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
+  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
+
+
+```
+
+
+## Animations
+
+```{r}
+library(gganimate)
+
+week_1 |> count(game_idplay_id)
+
+ week_1 %>% filter(game_idplay_id == "20220908001102") |> filter(tackle == 1)
+
+# Assuming week_1 is your data frame
+animated_plot <-
+  week_1 %>% filter(game_idplay_id == "20220908001102") |> 
+  left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
+  filter(!is.na(final_predictions)) %>% 
+  group_by(game_id, play_id) %>% 
+  # filter(cur_group_id() == 4) |> 
+  ungroup()  |> 
+  select(frame_id, final_predictions, jersey_number) |> 
+  ggplot(aes(x = frame_id, y = final_predictions)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3) + 
+  facet_wrap(~jersey_number) +
+  transition_reveal(frame_id)
+
+anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
+
+
+animated_plot2 <-
+week_1 |> 
+  filter(game_idplay_id == "20220908001102") |>
+  # select(tackle, jersey_number) |> print(n = Inf)
+  left_join(test_joined_with_preds) |> 
+  relocate(final_predictions) |> 
+  filter(frame_id <= max(frame_id)-4) |> 
+  mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
+  mutate(color = final_predictions) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>%
+
+
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+      # ggplot(aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+animated_plot3 <-
+week_1 |> 
+  filter(game_idplay_id == "20220908001102") |>
+  # select(tackle, jersey_number) |> print(n = Inf)
+  left_join(test_joined_with_preds) |> 
+  relocate(final_predictions) |> 
+  filter(frame_id <= max(frame_id)-4) |> 
+  mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
+  group_by(frame_id) |> 
+  mutate(max_predict = final_predictions == max(final_predictions, na.rm = TRUE)) |> 
+  ungroup() |> 
+  mutate(color = max_predict) |> 
+  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
+  select(max_predict, display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>% 
+
+
+{
+  ggplot(data = ., aes(x = x, y = y, color = color)) +
+      # ggplot(aes(x = x, y = y, color = color)) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
+  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
+  # scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
+  theme_field
+}
+
+anm3 <- animate(animated_plot3, width = 800, height = 600, nframes = 100)
+
+# nn_briar <- 
+  test_joined_with_preds |> 
+  select(game_id, play_id, display_name,tackle, final_predictions) |> 
+  filter(!is.na(final_predictions)) |> 
+  mutate(tackle  = as.integer(as.character(tackle))) |> 
+  group_by(game_id, play_id, display_name) |> 
+  reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle)) |> 
+  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  group_by(display_name) |> 
+  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  arrange(tackles_over_expected)
+
+
+```
+

@@ -156,3 +156,16 @@ is_name_in_description <- function(player_name = these_are_broke$display_name[21
     return(0)  # Return 0 if there is no matching part
   }
 }
+
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = ratio) {
+  # Calculate binary crossentropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Apply weights
+  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+  weighted_bce <- weights * bce
+  
+  # Return mean loss over the batch
+  return(keras::k_mean(weighted_bce))
+}
+
