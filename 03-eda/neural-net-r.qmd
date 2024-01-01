@@ -37,6 +37,7 @@ if (Sys.info()["user"] == "dusty_turner1") {
   num_features <- dim(x_train)[3]
   x_test <- mod$x_test
   y_test <- mod$y_test
+  time_steps <- mod$time_steps
 }
 
 ```
@@ -227,7 +228,7 @@ tracking_test <- tracking_list[test_indices]
 
 
 if (Sys.info()["user"] == "dusty_turner1") {
-  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length), "model_data.rds")
+  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length, time_steps = time_steps, num_samples = num_samples, tracking_test = tracking_test), "04-models/model_data.rds")
 }
 
 ```
@@ -302,7 +303,7 @@ history <- model %>% fit(
   batch_size = batch_size_param,
   validation_data = list(x_test, y_test),
   callbacks = list(
-    early_stop_callback,
+    # early_stop_callback,
     model_checkpoint_callback,
     reduce_lr_callback
   #   # tensorboard_callback,
@@ -348,16 +349,16 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 1000,
+  epochs_param = 3000,
   # units_param = num_features,
   units_param = 400,
-  rate_param = .05,
+  rate_param = .04,
   l2_value_param = .001,
   layers_param = 2,
   batch_size_param = 7028,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "experiment with all data",
+  notes_param = "possibly best model running with callbacks",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
@@ -395,7 +396,7 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
 })
 
 # View the training history
-plot(out$history)
+plot(out$history) + xlim(0,430)
 # history$metrics |> as_tibble() |> print(n = Inf)
 ```
 
@@ -403,7 +404,7 @@ plot(out$history)
 ```{r}
 save_model_tf(out$model, str_c("04-models"))
 
-model2 <- load_model_tf("04-models/2023-12-31_01-40-00", custom_objects = list(
+model2 <- load_model_tf("04-models/2024-01-01_07-56-10", custom_objects = list(
   # model2 <- load_model_tf("04-models", custom_objects = list(
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
@@ -430,7 +431,7 @@ print(paste("Accuracy:", accuracy))
 # Flatten the tracking arrays for the test set
 tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
 
-# Flatten your model predictions in a similar manner
+  # Flatten your model predictions in a similar manner
 predictions_flat <- array_reshape(y_pred_test, c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
 
 # Now, filter out padded predictions using the tracking data
@@ -466,6 +467,11 @@ test_joined_with_preds |>
   arrange(display_name) |> 
   print(n = Inf)
 ```
+
+```{r}
+write_rds(list(test_joined_with_preds = test_joined_with_preds, week_1 = week_1),"04-models/model_results.rds")
+```
+
 
 
 ```{r}
@@ -554,7 +560,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
   group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(tackles_over_expected)
+  arrange(-tackles_over_expected)
 
 
 ```
