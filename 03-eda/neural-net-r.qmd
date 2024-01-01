@@ -231,7 +231,7 @@ tracking_test <- tracking_list[test_indices]
 
 
 if (Sys.info()["user"] == "dusty_turner1") {
-  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length), "model_data.rds")
+  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length, time_steps = time_steps, num_samples = num_samples, tracking_test = tracking_test), "04-models/model_data.rds")
 }
 
 ```
@@ -306,7 +306,7 @@ history <- model %>% fit(
   batch_size = batch_size_param,
   validation_data = list(x_test, y_test),
   callbacks = list(
-  #   early_stop_callback,
+    # early_stop_callback,
     model_checkpoint_callback,
     reduce_lr_callback
   #   # tensorboard_callback,
@@ -352,25 +352,26 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 1,
-  units_param = num_features,
-  rate_param = .05,
+  epochs_param = 3000,
+  # units_param = num_features,
+  units_param = 400,
+  rate_param = .04,
   l2_value_param = .001,
   layers_param = 2,
-  batch_size_param = 819,
+  batch_size_param = 7028,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "experiment with all data",
+  notes_param = "possibly best model running with callbacks",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
 
 
-epoch_values <- c(500)
-rate_values <- c(.05,.1,.15)
-l2_values <- c(.001,.01)
+epoch_values <- c(10000)
+rate_values <- c(.5,.75)
+l2_values <- c(.001)
 positive_weight_value <- c(ratio)
-units_value <- c(100,150,200)
+units_value <- c(400)
 
 # Generate all combinations
 set.seed(123)
@@ -378,8 +379,8 @@ param_grid <- expand.grid(epochs_param = epoch_values,
                           rate_param = rate_values,
                           l2_value_param = l2_values,
                           units_param = units_value,
-                          positive_weight_param = positive_weight_value)  %>% 
-  slice(-c(1:14))
+                          positive_weight_param = positive_weight_value)  
+
   # sample_n(35)
 
 pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
@@ -388,7 +389,7 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
     units_param = units_param,  # Assuming a fixed value
     rate_param = rate_param,
     l2_value_param = l2_value_param,
-    layers_param = 4,  # Assuming a fixed value
+    layers_param = 2,  # Assuming a fixed value
     batch_size_param = 7028,  # Assuming a fixed value
     notes_param = "Hyperparameter tuning 1111",
     positive_weight_param = positive_weight_param,
@@ -398,13 +399,16 @@ pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param,
 })
 
 # View the training history
-plot(out$history)
+plot(out$history) + xlim(0,430)
 # history$metrics |> as_tibble() |> print(n = Inf)
 ```
 
 
 ```{r}
+save_model_tf(out$model, str_c("04-models"))
+
 model2 <- load_model_tf("04-models/2024-01-01_07-56-10", custom_objects = list(
+  # model2 <- load_model_tf("04-models", custom_objects = list(
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
 ))
@@ -432,7 +436,7 @@ print(paste("Accuracy:", accuracy))
 # Flatten the tracking arrays for the test set
 tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
 
-# Flatten your model predictions in a similar manner
+  # Flatten your model predictions in a similar manner
 predictions_flat <- array_reshape(y_pred_test, c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
 
 # Now, filter out padded predictions using the tracking data
@@ -469,6 +473,11 @@ test_joined_with_preds |>
   print(n = Inf)
 ```
 
+```{r}
+write_rds(list(test_joined_with_preds = test_joined_with_preds, week_1 = week_1),"04-models/model_results.rds")
+```
+
+
 
 ```{r}
 
@@ -502,7 +511,7 @@ animated_plot <-
   left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
-  filter(cur_group_id() == 1) |> 
+  filter(cur_group_id() == 4) |> 
   ungroup()  |> 
   select(frame_id, final_predictions, jersey_number) |> 
   ggplot(aes(x = frame_id, y = final_predictions)) + 
@@ -522,17 +531,19 @@ week_1 |>
       mutate(final_predictions = ifelse(is.na(final_predictions), 0, final_predictions))
     ) |> 
   group_by(game_id, play_id) |> 
-  filter(cur_group_id() == 1) |>
-  filter(frame_id >=5) |> 
-  filter(frame_id <= max(frame_id)-4) |> 
+  filter(cur_group_id() == 4) |>
+  # filter(frame_id >=5) |> 
+  filter(frame_id <= max(frame_id)-4) |>
   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
   ungroup()  |> 
+  # select(final_predictions) %>% filter(!is.na(final_predictions)) %>% print(n = Inf)
   mutate(color = final_predictions) |> 
   mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
   select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>%
-  # filter(club == defensive_team) |> select(final_predictions, frame_id, display_name) |> print(n = Inf) |> pull(final_predictions) |> hist()
+  # filter(!is.na(final_predictions)) %>% pull(color) %>% range()
 {
   ggplot(data = ., aes(x = x, y = y, color = color)) +
+      # ggplot(aes(x = x, y = y, color = color)) +
   geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
   geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
   geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
@@ -554,7 +565,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
   group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(tackles_over_expected)
+  arrange(-tackles_over_expected)
 
 
 ```
