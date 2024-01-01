@@ -110,8 +110,8 @@ model_checkpoint_callback <- callback_model_checkpoint(
 # Define Reduce Learning Rate on Plateau Callback
 reduce_lr_callback <- callback_reduce_lr_on_plateau(
   monitor = "val_loss",
-  factor = 0.1,
-  patience = 100,
+  factor = 0.5,
+  patience = 300,
   verbose = 1
 )
 
