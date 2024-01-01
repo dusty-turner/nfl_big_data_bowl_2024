@@ -30,7 +30,7 @@ source(here::here("03-eda", "data_cleaning.R"))
 }
 
 if (Sys.info()["user"] == "dusty_turner1") {
-  mod <- read_rds("model_data.rds")
+  mod <- read_rds(here::here("04-models", "model_data.rds"))
   x_train <- mod$x_train
   y_train <- mod$y_train
   max_length <- mod$max_length
@@ -95,6 +95,9 @@ newdata <-
   select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), all_of(contains(discrete_factors)), tackle) |> 
   arrange(game_id, play_id, frame_id, display_name) 
   # select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, x_going, y_going, dir, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball, pass_probability, tackle) |> 
+
+newdata %>% 
+  mutate(across(.cols = all_of(continuous_factors), .fns = ~centerandscale))
 
 ```
 
@@ -395,7 +398,7 @@ plot(out$history) + xlim(0,430)
 ```{r}
 save_model_tf(out$model, str_c("04-models"))
 
-model2 <- load_model_tf("04-models/2024-01-01_07-56-10", custom_objects = list(
+model2 <- load_model_tf("04-models/2023-12-31_03-07-53", custom_objects = list(
   # model2 <- load_model_tf("04-models", custom_objects = list(
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
@@ -412,8 +415,6 @@ y_pred_test <- model2 %>% predict(x_test)
 
 # Binarize predictions (since we used a sigmoid activation, the output is a probability)
 y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
-
-y_pred_test[,,1][1,]
 
 # Calculate accuracy
 accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
