@@ -240,18 +240,6 @@ if (Sys.info()["user"] == "dusty_turner1") {
 ## Build Model
 
 ```{r}
-weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = ratio) {
-  # Calculate binary crossentropy
-  bce <- keras::k_binary_crossentropy(y_true, y_pred)
-  
-  # Apply weights
-  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
-  weighted_bce <- weights * bce
-  
-  # Return mean loss over the batch
-  return(keras::k_mean(weighted_bce))
-}
-
 run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, 
                    optimizer_param = 'adam', positive_weight_param = 11,
                    layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
