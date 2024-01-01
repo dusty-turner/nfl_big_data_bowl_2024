@@ -37,6 +37,10 @@ if (Sys.info()["user"] == "dusty_turner1") {
   num_features <- dim(x_train)[3]
   x_test <- mod$x_test
   y_test <- mod$y_test
+  time_steps <- mod$time_steps
+  num_samples <- mod$num_samples
+  tracking_test <- mod$tracking_test
+  test_data <- mod$test_data
 }
 
 ```
@@ -400,7 +404,7 @@ plot(out$history)
 
 
 ```{r}
-model2 <- load_model_tf("04-models/2023-12-30_13-49-44", custom_objects = list(
+model2 <- load_model_tf("04-models/2024-01-01_07-56-10", custom_objects = list(
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
 ))
@@ -416,6 +420,8 @@ y_pred_test <- model2 %>% predict(x_test)
 
 # Binarize predictions (since we used a sigmoid activation, the output is a probability)
 y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
+
+y_pred_test[,,1][1,]
 
 # Calculate accuracy
 accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
