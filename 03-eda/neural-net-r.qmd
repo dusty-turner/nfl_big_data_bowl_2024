@@ -92,12 +92,10 @@ newdata <-
   mutate(x_from_los = mean(x_from_los)) |> 
   ungroup() |> 
   distinct(.keep_all = TRUE) |> 
+  mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) %>% 
   select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), all_of(contains(discrete_factors)), tackle) |> 
   arrange(game_id, play_id, frame_id, display_name) 
   # select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, x_going, y_going, dir, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball, pass_probability, tackle) |> 
-
-newdata %>% 
-  mutate(across(.cols = all_of(continuous_factors), .fns = ~centerandscale))
 
 ```
 
@@ -268,6 +266,10 @@ model <- keras_model_sequential() %>%
              kernel_regularizer = regularizer_l2(l2_value_param),
              recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
   layer_dropout(rate = rate_param) %>%
+    layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+  layer_dropout(rate = rate_param) %>%
   layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
              kernel_regularizer = regularizer_l2(l2_value_param),
              recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
@@ -343,16 +345,16 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 3000,
+  epochs_param = 500,
   # units_param = num_features,
   units_param = 400,
-  rate_param = .04,
+  rate_param = .75,
   l2_value_param = .001,
-  layers_param = 2,
-  batch_size_param = 7028,
+  layers_param = 3,
+  batch_size_param = 7028/2,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "possibly best model running with callbacks",
+  notes_param = "after center and scaling",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
@@ -455,8 +457,9 @@ test_joined_with_preds |>
 
 
 test_joined_with_preds |> 
-  group_by(game_id, play_id) |>
-  filter(cur_group_id() == 3) |> 
+  mutate(game_idplay_id = str_c(game_id,play_id)) %>% 
+  # group_by(game_id, play_id) |>
+  filter(game_idplay_id=="2022090800167") %>% 
   select(display_name, tackle, final_predictions, binary_predictions) |> 
   arrange(display_name) |> 
   print(n = Inf)
@@ -497,12 +500,13 @@ library(gganimate)
 # Assuming week_1 is your data frame
 animated_plot <-
   week_1 %>% 
+    filter(game_idplay_id == "2022090800167") %>% 
   left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
-  filter(cur_group_id() == 4) |> 
+  # filter(cur_group_id() == 4) |> pull(game_idplay_id)
   ungroup()  |> 
-  select(frame_id, final_predictions, jersey_number) |> 
+  select(frame_id, final_predictions, jersey_number, tackle) |>
   ggplot(aes(x = frame_id, y = final_predictions)) + 
   geom_line() +
   geom_point(show.legend = FALSE, size = 3) + 
@@ -513,14 +517,15 @@ anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
 
 animated_plot2 <-
 week_1 |> 
-  filter(play_id %in% test_joined_with_preds$play_id) |> 
-  filter(game_id %in% test_joined_with_preds$game_id) |> 
+  filter(game_idplay_id=="2022090800167") %>% 
+  # filter(play_id %in% test_joined_with_preds$play_id) |> 
+  # filter(game_id %in% test_joined_with_preds$game_id) |> 
   left_join(
     test_joined_with_preds |> select(game_id, play_id, display_name, frame_id, final_predictions) |> 
       mutate(final_predictions = ifelse(is.na(final_predictions), 0, final_predictions))
     ) |> 
   group_by(game_id, play_id) |> 
-  filter(cur_group_id() == 4) |>
+  # filter(cur_group_id() == 4) |>
   # filter(frame_id >=5) |> 
   filter(frame_id <= max(frame_id)-4) |>
   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
@@ -554,7 +559,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
   group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(-tackles_over_expected)
+  arrange(tackles_over_expected)
 
 
 ```

@@ -273,7 +273,7 @@ defensive_model_building_data <-
   week_1 |>
   filter(defensive_team == club) |>
   group_by(game_id, play_id, frame_id) |>
-  mutate(rank = as.factor(rank(distance_to_ball))) |>
+  mutate(rank = as.factor(round(rank(distance_to_ball)))) |>
   ungroup()
 
 run_play_alignments <-
