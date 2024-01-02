@@ -1,4 +1,6 @@
 # Project related files
+*.h5
+04-models/202*
 model_data.rds
 *.parquet
 *bayesian_model.rds

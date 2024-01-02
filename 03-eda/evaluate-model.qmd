@@ -14,14 +14,22 @@ message: false
 
 ```{r}
 library(tidyverse)
-library(keras)
-library(tensorflow)
-library(reticulate)
-library(data.table)
+# library(keras)
+# library(tensorflow)
+# library(reticulate)
+# library(data.table)
 library(gganimate)
-library(arrow)
+# library(arrow)
 
 source(here::here("03-eda","ggtheme_field.R"))
+
+read_csv(here::here("04-models", "model_tracker.csv"))
+
+model2 <- load_model_tf("04-models/2023-01-02_09-57-23", custom_objects = list(
+  # model2 <- load_model_tf("04-models", custom_objects = list(
+    weighted_binary_crossentropy = weighted_binary_crossentropy,
+    python_function = weighted_binary_crossentropy
+))
 
 main_model <- read_rds(here::here("04-models", "model_results.rds"))
 
@@ -125,8 +133,7 @@ week_1 |>
   mutate(color = final_predictions) |> 
   mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
   select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>%
-
-
+  # select(frame_id, display_name, final_predictions) |> print(n = Inf)
 {
   ggplot(data = ., aes(x = x, y = y, color = color)) +
       # ggplot(aes(x = x, y = y, color = color)) +
@@ -138,6 +145,8 @@ week_1 |>
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
 }
+
+anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
 animated_plot3 <-
 week_1 |> 
