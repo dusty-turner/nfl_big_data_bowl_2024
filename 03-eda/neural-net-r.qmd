@@ -98,7 +98,7 @@ non_centered_newdata <-
 
 new_data <- 
   non_centered_newdata |> 
-  mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) %>% 
+  mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) 
 ```
 
 ### Shape up Data
