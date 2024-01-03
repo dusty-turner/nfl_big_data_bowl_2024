@@ -36,6 +36,15 @@ main_model <- read_rds(here::here("04-models", "model_results.rds"))
 test_joined_with_preds <- main_model$test_joined_with_preds
 week_1 <- main_model$week_1
 
+
+test_joined_with_preds <-
+test_joined_with_preds |> 
+  select(game_id, play_id, display_name, final_predictions, binary_predictions, frame_id) |> 
+  left_join(non_centered_newdata |> mutate(game_id = as.character(game_id), play_id = as.character(play_id))) |> 
+  mutate(tackle = as.factor(as.character(tackle)))
+
+
+
 ```
 
 
@@ -47,29 +56,29 @@ test_joined_with_preds |>
 
 test_joined_with_preds |> 
   yardstick::accuracy(truth = tackle, estimate = binary_predictions)
+test_joined_with_preds |> 
+  yardstick::recall(truth = tackle, estimate = binary_predictions)
+test_joined_with_preds |> 
+  yardstick::precision(truth = tackle, estimate = binary_predictions)
+
+test_joined_with_preds |> select(binary_predictions)
 
 week_1 |> 
+  mutate(tackle = as.factor(tackle))  |> 
   filter(frames_from_tackle >= -40) |> 
   left_join(test_joined_with_preds) |> 
   group_by(frames_from_tackle) |> 
-  # yardstick::accuracy(truth = tackle, estimate = binary_predictions) |> 
-  yardstick::precision(truth = tackle, estimate = binary_predictions) |>
-  # yardstick::recall(truth = tackle, estimate = binary_predictions) |> 
+  # yardstick::accuracy(truth = tackle, estimate = binary_predictions) |>
+  # yardstick::precision(truth = tackle, estimate = binary_predictions) |>
+  yardstick::recall(truth = tackle, estimate = binary_predictions) |>
   ggplot(aes(x = frames_from_tackle, y = .estimate)) +
   geom_point() +
   geom_line()
 
 test_joined_with_preds |> 
-  yardstick::precision(truth = tackle, estimate = binary_predictions) 
-
-test_joined_with_preds |> 
-  yardstick::recall(truth = tackle, estimate = binary_predictions)
-
-
-test_joined_with_preds |> 
   group_by(game_id, play_id) |>
   filter(cur_group_id() == 3) |> 
-  select(display_name, tackle, final_predictions, binary_predictions) |> 
+  select(display_name, tackle, final_predictions, binary_predictions, jersey_number) |> 
   arrange(display_name) |> 
   print(n = Inf)
 ```
@@ -102,7 +111,7 @@ library(gganimate)
 
 week_1 |> count(game_idplay_id)
 
- week_1 %>% filter(game_idplay_id == "20220908001102") |> filter(tackle == 1)
+week_1 %>% filter(game_idplay_id == "20220908001102") |> filter(tackle == 1) |> select(display_name, jersey_number)
 
 # Assuming week_1 is your data frame
 animated_plot <-
