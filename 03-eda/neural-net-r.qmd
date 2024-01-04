@@ -475,10 +475,7 @@ test_joined_with_preds |>
 ```
 
 ```{r}
-write_rds(list(test_joined_with_preds = test_joined_with_preds, week_1 = week_1),"04-models/model_results.rds")
-write_rds(list(test_joined_with_preds = test_joined_with_preds, week_1 = week_1),"../../Desktop/nfl_big_data_bowl_2024/04-models/model_results.rds")
-file.copy(from = "04-models/model_results.rds", to = "../../Desktop/nfl_big_data_bowl_2024/04-models/model_results.rds", overwrite = TRUE)
-list.files("../../Desktop/nfl_big_data_bowl_2024/04-models/model_results.rds")
+write_rds(test_joined_with_preds,"04-models/test_joined_with_preds.rds")
 ```
 
 
@@ -571,7 +568,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
   group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(tackles_over_expected)
+  arrange(-tackles_over_expected)
 
 
 ```
