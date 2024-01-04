@@ -361,7 +361,8 @@ write_parquet(defensive_model_building_data, here::here("02-clean-data", "defens
 
 ## week 1 is too big to save it all
 
-week_1 |> as_tibble() |> group_by(game_id) |> filter(cur_group_id() %in% 1:16) |> ungroup() |>
+week_1 |> as_tibble() |> 
+  # group_by(game_id) |> filter(cur_group_id() %in% 1:16) |> ungroup() |>
   write_parquet(here::here("02-clean-data", "week_1.parquet"))
 
 # I don't have clusters built in for passing plays
