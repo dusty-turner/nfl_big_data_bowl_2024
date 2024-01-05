@@ -47,7 +47,7 @@ if (Sys.info()["user"] == "dusty_turner1") {
 
 ```{r}
 deff <-
-defensive_model_building_data %>% 
+defensive_model_building_data %>%   
   # filter(is.na(pass_result)) |>
   # filter(frame_id >= 5) |> 
   filter(frames_from_tackle <=0) |> 
