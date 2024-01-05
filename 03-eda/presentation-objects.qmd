@@ -304,7 +304,7 @@ anim_save("05-presentation-files/projected_movement_anim.gif", animation = proje
 ## Orientation Fan
 
 ```{r}
-orientation_fan <-
+orientation_fan_1 <-
 players |> 
   filter(defensive_team == club) |> 
     mutate(color = ifelse(ball_in_fan3 == "yes", "No", "Yes")) |> 
@@ -323,9 +323,55 @@ players |>
   labs(y = "", x = "", title = str_wrap(.$play_description[1], width = 80)) 
 }
 
-orientation_fan_anim <- animate(orientation_fan, width = 800, height = 600, nframes = 100)
+orientation_fan_1_anim <- animate(orientation_fan_1, width = 800, height = 600, nframes = 100)
 
-anim_save("05-presentation-files/orientation_fan.gif", animation = orientation_fan_anim)
+anim_save("05-presentation-files/orientation_fan_1.gif", animation = orientation_fan_1_anim)
+
+orientation_fan_2 <-
+players |> 
+  filter(defensive_team == club) |> 
+    mutate(color = ifelse(ball_in_fan3 == "yes", "No", "Yes")) |> 
+  select(distance_to_ball, display_name, x, y, x_going, y_going, x_ball, y_ball,x_left, x_right, y_left, y_right, color,  absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball, v_approach) %>% 
+  filter(is_football == "not_football") %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, group = display_name, color = color)) +
+  gg_field(yardmin = los_values[1]-1, yardmax = los_values[2]-2, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 2, alpha = .75) +
+  geom_point(size = 5, show.legend = FALSE) +
+  scale_color_manual(values = c("No" = "pink", "Yes" = my_custom_blue), na.value = "black") +
+  geom_point(data = players_football, size = 5, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  geom_segment(aes(xend = x_left, yend = y_left), arrow = arrow(length = unit(0.02, "npc")), color = "purple", show.legend = FALSE) +
+  geom_segment(aes(xend = x_right, yend = y_right), arrow = arrow(length = unit(0.02, "npc")), color = "purple", show.legend = FALSE) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "", title = str_wrap(.$play_description[1], width = 80)) 
+}
+
+orientation_fan_2_anim <- animate(orientation_fan_2, width = 800, height = 600, nframes = 100)
+
+anim_save("05-presentation-files/orientation_fan_2.gif", animation = orientation_fan_2_anim)
+
+orientation_fan_3 <-
+players |> 
+  filter(defensive_team == club) |> 
+    mutate(color = ifelse(ball_in_fan3 == "yes", "No", "Yes")) |> 
+  select(distance_to_ball, display_name, x, y, x_going, y_going, x_ball, y_ball,x_left, x_right, y_left, y_right, color,  absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball, v_approach) %>% 
+  filter(is_football == "not_football") %>% 
+{
+  ggplot(data = ., aes(x = x, y = y, group = display_name, color = color)) +
+  gg_field(yardmin = los_values[1]-1, yardmax = los_values[2]-2, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 2, alpha = .75) +
+  geom_point(size = 5, show.legend = FALSE) +
+  scale_color_manual(values = c("No" = "pink", "Yes" = my_custom_blue), na.value = "black") +
+  geom_point(data = players_football, size = 5, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  geom_segment(aes(xend = x_left, yend = y_left), arrow = arrow(length = unit(0.02, "npc")), color = "purple", show.legend = FALSE) +
+  geom_segment(aes(xend = x_right, yend = y_right), arrow = arrow(length = unit(0.02, "npc")), color = "purple", show.legend = FALSE) +
+  transition_time(time) + ease_aes("linear") +
+  labs(y = "", x = "", title = str_wrap(.$play_description[1], width = 80)) 
+}
+
+orientation_fan_3_anim <- animate(orientation_fan_3, width = 800, height = 600, nframes = 100)
+
+anim_save("05-presentation-files/orientation_fan_3.gif", animation = orientation_fan_3_anim)
 ```
 
 

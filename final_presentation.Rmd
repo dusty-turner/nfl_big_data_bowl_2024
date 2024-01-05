@@ -1,0 +1,124 @@
+---
+output: html_document
+---
+
+# Introduction
+
+When we watch a football game, the players making the tackles often capture our attention, garnering recognition, lucrative contracts, and Pro Bowl appearances. However, this analysis challenges the idea that these players are always the most impactful. Centering on Tackles Over Replacement (TOR), this study seeks to understand a player's value in comparison to potential substitutes. Could another player achieve similar or superior performance? By focusing solely on TOR, we delve deep into the essence of player contributions, exploring their true value in the dynamic environment of football.
+
+In this study, I have developed a series of features within the dataset to enhance the model's capability to predict who will make a tackle at any given moment. Using an LSTM neural network, the analysis is dedicated to calculating TOR, thereby offering a novel perspective on player value and performance in football.
+
+# Methods
+
+## Model Selection
+I compared Elastic Net, Random Forest, XGBoost, and LSTM Elastic Net to identify the best model for predicting tackle probabilities. The LSTM model outperformed others in accuracy on the test set. Model performance metrics will be detailed in the validation section.
+
+## LSTM Configuration
+- I executed a grid search over various LSTM parameters, including nodes, layers, and dropout rates. I selected the Adam optimizer for its gradient descent efficiency.
+- Sequence padding standardized play lengths.
+- The final parameters were 400 nodes per LSTM layer, a 75% dropout rate to prevent overfitting, and .001 L2 penalty.
+- The model initially had 65 features, which increased to 950 after one-hot encoding.
+
+These parameters significantly enhanced the LSTM model's accuracy in predicting tackle probabilities, demonstrating its robustness in analyzing football data.
+
+## Feature Development
+
+To enhance the model's ability to predict tackle probabilities, I developed features akin to what a human might use to identify potential tacklers. This includes basic aspects like ball position, speed, direction, orientation, and indicators for the ball carrier. I then developed other more mathematical features to help the model pick up on the intricacies of player movement and tackle dynamics.  I will explain these features in details as they are vital to the model understanding the intracasies of football. 
+
+- **Distance to the Ball**:
+    - Formula: $d = \sqrt{(x_{\text{ball}} - x_{\text{player}})^2 + (y_{\text{ball}} - y_{\text{player}})^2}$
+
+- **Future Projections of Players and the Ball**:
+    - Player projection: $x_{\text{future}} = x_{\text{current}} + v_{x\text{-current}} \Delta t + \frac{1}{2} a_{x_{\text{current}}} \Delta t^2$, $y_{\text{future}} = y_{\text{current}} + v_{y\text{-current}} \Delta t + \frac{1}{2} a_{y_{\text{current}}} \Delta t^2$
+    - Ball projection: $x_{\text{future}} = x_{\text{current}} + v_{x\text{-current}} \Delta t + \frac{1}{2} a_{x_{\text{current}}} \Delta t^2$, $y_{\text{future}} = y_{\text{current}} + v_{y\text{-current}} \Delta t + \frac{1}{2} a_{y_{\text{current}}} \Delta t^2$
+
+<table style='margin: 0 auto'>
+<tr>
+<th colspan="3"></th>
+<tr>
+<td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/distance.gif?raw=true" alt="Drawing" style="width: 500px;"/> </td>
+<td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/projected_movement_anim.gif?raw=true" alt="Drawing" style="width: 500px;"/> </td>
+<td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/projected_movement_to_ball.gif?raw=true" alt="Drawing" style="width: 500px;"/> </td>
+<tr>
+</table>
+
+- **Generating 'Approach Velocity' Vector**:
+    - The variable $v_{\text{approach}}$ measures the speed at which a player is moving towards or away from the ball along the line connecting their positions, factoring in both their speed and direction.
+    - Larger values of $v_{\text{approach}}$: Indicate a faster approach towards the ball, suggesting a higher likelihood of making a tackle or interaction.
+    - Smaller or negative values of $v_{\text{approach}}$: Imply a slower or opposite direction of movement relative to the ball, indicating a lower likelihood of direct play involvement.
+
+
+
+$$
+\begin{align*}
+v_{\text{rel-x}} &= s_{\text{ball}} \sin\left(\frac{\pi}{180} \text{dir}_{\text{ball}}\right) - s_{\text{player}} \sin\left(\frac{\pi}{180} \text{dir}_{\text{player}}\right) \\
+v_{\text{rel-y}} &= s_{\text{ball}} \cos\left(\frac{\pi}{180} \text{dir}_{\text{ball}}\right) - s_{\text{player}} \cos\left(\frac{\pi}{180} \text{dir}_{\text{player}}\right) \\
+\text{magnitude} &= \sqrt{(x_{\text{ball}} - x_{\text{player}})^2 + (y_{\text{ball}} - y_{\text{player}})^2} \\
+dx_{\text{unit}} &= \frac{x_{\text{ball}} - x_{\text{player}}}{\text{magnitude}}; \quad dy_{\text{unit}} = \frac{y_{\text{ball}} - y_{\text{player}}}{\text{magnitude}} \\
+v_{\text{approach}} &= v_{\text{rel-x}} \times dx_{\text{unit}} + v_{\text{rel-y}} \times dy_{\text{unit}}
+\end{align*}
+$$
+
+
+
+
+
+- **Creating an Orientation 'Fan'**:
+    - I identified a likely tackling zone in front of each player by identifying a 60 degree window up to 3 yeards in the direction they are facing.  The animatino below shows this orientation fan and the player lights up when the football is within this zone. Within the model, I created 3 factors, one for 1, 2, and 3 yards away from the defensive players. 
+
+<table style='margin: 0 auto'>
+<tr>
+<th colspan="3"></th>
+<tr>
+<td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/orientation_fan_3.gif?raw=true" alt="Drawing" style="width: 500px;"/> </td>
+<tr>
+</table>
+
+- **Classifying Defensive Alignments Using Clustering Techniques**:
+   - **Positional Indicators with Clustering**: Clustering pre-snap positions provides insights into players' roles, aiding in predicting their tackling behavior.
+- **Strategic Insights from Formations**: Analyzing clustered pre-snap alignments reveals team strategies, impacting where and how tackles might occur.
+- **Adaptability Analysis**: Clustering shows the versatility of players in different positions, influencing their tackling opportunities.
+
+Utilizing clustering for pre-snap alignments offers a detailed perspective on player positions and team tactics, key for accurate tackle prediction.
+
+
+<table style='margin: 0 auto'>
+    <tr>
+        <th>Positional Clustering Insights</th>
+        <th>Strategic Formations Analysis</th>
+        <th>Adaptability Assessment</th>
+    </tr>
+    <tr>
+        <td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/positions_static.png?raw=true" alt="Positional Clustering" style="width: 500px;"/> </td>
+        <td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/hdr_start_points.png?raw=true" alt="Strategic Formations" style="width: 500px;"/> </td>
+        <td> <img src="https://raw.githubusercontent.com/dusty-turner/blog-reboot/master/static/baylor/nextgen/assignment_clusters.png?raw=true" alt="Assignment Clusters" style="width: 500px;"/> </td>
+    </tr>
+</table>
+
+
+Data Cleaning and Final Preparation:
+- Encountered minimal missing data in the dataset, handled appropriately.
+- For continuous variables with missing values, mean imputation was applied.
+- Median imputation was used for categorical variables with missing data.
+- Excluded factors not relevant to the analysis of football plays, such as jersey numbers.
+
+
+This meticulous feature development process prepared the data effectively for model testing.
+
+# Tackles Over Expected by Position
+Explanation of this metric with relevant visualizations.
+
+# Visualizations and Animations of Tackles
+Presentation of visuals and animations, with descriptions.
+
+# Value-Added Metric
+Description of the value-added metric for each player.
+
+# Results and Discussion
+Discussion of the results and their implications.
+
+# Conclusion
+Summary of key findings and potential future work.
+
+# References and Acknowledgements
+Acknowledgements and references.
