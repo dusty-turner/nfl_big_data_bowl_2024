@@ -14,12 +14,8 @@ message: false
 
 ```{r}
 library(tidyverse)
-# library(keras)
-# library(tensorflow)
-# library(reticulate)
-# library(data.table)
 library(gganimate)
-# library(arrow)
+library(arrow)
 
 source(here::here("03-eda","ggtheme_field.R"))
 
@@ -31,9 +27,13 @@ read_csv(here::here("04-models", "model_tracker.csv"))
 #     python_function = weighted_binary_crossentropy
 # ))
 
-test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds.rds"))
 week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 
+test_joined_with_preds <- 
+  read_rds(here::here("04-models", "test_joined_with_preds.rds")) |> 
+  select(game_id, play_id, display_name, frame_id, final_predictions, binary_predictions) |> 
+  left_join(week_1) |> 
+  mutate(tackle = as.factor(tackle))
 ```
 
 
@@ -52,11 +52,13 @@ test_joined_with_preds |>
 
 test_joined_with_preds |> select(binary_predictions)
 
-week_1 |> 
-  mutate(tackle = as.factor(tackle))  |> 
-  filter(frames_from_tackle >= -40) |> 
-  left_join(test_joined_with_preds) |> 
+# week_1 |> 
+#   mutate(tackle = as.factor(tackle))  |> 
+#   left_join(test_joined_with_preds) 
+
+test_joined_with_preds |> 
   group_by(frames_from_tackle) |> 
+  filter(frames_from_tackle >= -40) |>
   # yardstick::accuracy(truth = tackle, estimate = binary_predictions) |>
   # yardstick::precision(truth = tackle, estimate = binary_predictions) |>
   yardstick::recall(truth = tackle, estimate = binary_predictions) |>
@@ -98,20 +100,18 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
 ```{r}
 library(gganimate)
 
-week_1 |> count(game_idplay_id)
 
-# week_1 %>% filter(game_idplay_id == "20220908001102") |> filter(tackle == 1) |> select(display_name, jersey_number)
-# week_1 %>% filter(game_idplay_id == "20220908001030") |> filter(tackle == 1) |> select(display_name, jersey_number)
-# week_1 %>% filter(game_idplay_id == "20220908001358") |> filter(tackle == 1) |> select(display_name, jersey_number)
-week_1 %>% filter(game_idplay_id == "2022090800122") |> filter(tackle == 1) |> select(display_name, jersey_number)
+
+test_joined_with_preds |> filter(is.na(pass_result)) |> count(game_idplay_id) 
+
+stub <- "20220908001736"
+
+week_1 %>% filter(game_idplay_id == stub) |> filter(tackle == 1) |> select(display_name, jersey_number)
 
 # Assuming week_1 is your data frame
 animated_plot <-
-  # week_1 %>% filter(game_idplay_id == "20220908001102") |> 
-  # week_1 %>% filter(game_idplay_id == "20220908001030") |> 
-  # week_1 %>% filter(game_idplay_id == "20220908001358") |> 
-  week_1 %>% filter(game_idplay_id == "2022090800122") |> 
-  left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
+  test_joined_with_preds %>% filter(game_idplay_id == stub) |> 
+  # left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
   # filter(cur_group_id() == 4) |> 
@@ -127,12 +127,8 @@ anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
 
 
 animated_plot2 <-
-week_1 |> 
-  # filter(game_idplay_id == "20220908001102") |>
-  # filter(game_idplay_id == "20220908001030") |>
-  # filter(game_idplay_id == "20220908001358") |>
-  filter(game_idplay_id == "2022090800122") |>
-  left_join(test_joined_with_preds) |> 
+week_1 |>  filter(game_idplay_id == stub) |>
+  left_join(test_joined_with_preds |> filter(game_idplay_id == stub)) |> 
   relocate(final_predictions) |> 
   filter(frame_id <= max(frame_id)-4) |> 
   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
@@ -156,10 +152,9 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
 animated_plot3 <-
 week_1 |> 
-  # filter(game_idplay_id == "20220908001102") |>
   filter(game_idplay_id == "20220908001030") |>
   # select(tackle, jersey_number) |> print(n = Inf)
-  left_join(test_joined_with_preds) |> 
+  left_join(test_joined_with_preds |> filter(game_idplay_id == "20220908001030")) |> 
   relocate(final_predictions) |> 
   filter(frame_id <= max(frame_id)-4) |> 
   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
@@ -169,8 +164,6 @@ week_1 |>
   mutate(color = max_predict) |> 
   mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
   select(max_predict, display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>% 
-
-
 {
   ggplot(data = ., aes(x = x, y = y, color = color)) +
       # ggplot(aes(x = x, y = y, color = color)) +
@@ -186,16 +179,18 @@ week_1 |>
 anm3 <- animate(animated_plot3, width = 800, height = 600, nframes = 100)
 
 # nn_briar <- 
-  test_joined_with_preds |> 
-  select(game_id, play_id, display_name,tackle, final_predictions) |> 
+week_1 |> select(game_id, play_id, display_name, frame_id, position) |> 
+  # select(tackle, jersey_number) |> print(n = Inf)
+  left_join(test_joined_with_preds) |> 
+  select(game_id, play_id, display_name,tackle, position, final_predictions) |> 
   filter(!is.na(final_predictions)) |> 
   mutate(tackle  = as.integer(as.character(tackle))) |> 
   group_by(game_id, play_id, display_name) |> 
-  reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle)) |> 
+  reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle), position = position[1]) |> 
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
-  group_by(display_name) |> 
+  group_by(display_name, position) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(tackles_over_expected)
+  arrange(-tackles_over_expected) 
 
 
 ```
