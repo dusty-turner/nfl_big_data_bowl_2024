@@ -30,8 +30,6 @@ source(here::here("03-eda", "data_cleaning.R"))
 }
 
 
-week_1 |> select(tackle) |> count(tackle)
-
 ```
 
 ```{r}
