@@ -51,25 +51,19 @@ test_joined_with_preds |> distinct(game_idplay_id, display_name, binary_predicti
 
 
 
-test_joined_with_preds |> filter(is.na(pass_result)) |> 
-  select(display_name, final_predictions, frame_id, tackle, jersey_number, binary_predictions, game_idplay_id, defensive_team) |> 
-  filter(binary_predictions == tackle) |>
-  filter(tackle == 1) |> 
-  filter(defensive_team == "DAL") |> 
-  print(n = Inf)
 
-
-
-test_joined_with_preds |> filter(is.na(pass_result)) |> count(game_idplay_id) 
-
-stub <- "20220908002072" ## seems too perfect
-stub <- "20220908002163" ## good example of a player over performing
-stub <- "2022091105889" ## ## good one of a dlineman making a tackle
-stub <- "2022091113756" ## ## parsons down field tackle
+# stub <- "20220908002072" ## seems too perfect
+# stub <- "20220908002163" ## good example of a player over performing
+# stub <- "2022091105889" ## ## good one of a dlineman making a tackle
+# stub <- "2022091113756" ## ## parsons down field tackle
 stub <- "20220911133173" ## donavon wilson
 
 week_1 %>% filter(game_idplay_id == stub) |> filter(tackle == 1) |> select(display_name, jersey_number)
+```
 
+## Prediction over Time
+
+```{r}
 # Assuming week_1 is your data frame
 animated_plot <-
   test_joined_with_preds %>% filter(game_idplay_id == stub) |> 
@@ -107,9 +101,11 @@ test_joined_with_preds |> filter(game_idplay_id == stub) |>
   labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
   theme_field
 }
+```
 
+## Follows Players Around Field
 
-
+```{r}
 animated_plot2 <-
 test_joined_with_preds |> filter(game_idplay_id == stub) |> 
   relocate(final_predictions) |> 
@@ -132,7 +128,11 @@ test_joined_with_preds |> filter(game_idplay_id == stub) |>
 }
 
 anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
+```
 
+## Follows Most likely tackle
+
+```{r}
 animated_plot3 <-
 test_joined_with_preds |> filter(game_idplay_id == stub) |>   relocate(final_predictions) |> 
   filter(frame_id <= max(frame_id)-4) |> 
@@ -291,6 +291,7 @@ players |>
   geom_point(size = 5) +
   geom_point(data = players_football, size = 5, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
   geom_segment(aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
+  geom_segment(data = players_football, aes(xend = x_going, yend = y_going), arrow = arrow(length = unit(0.03, "npc")), color = "black") +
   transition_time(time) + ease_aes("linear") +
   labs(y = "", x = "", title = str_wrap(.$play_description[1], width = 80)) 
 }
