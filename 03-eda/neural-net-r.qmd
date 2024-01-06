@@ -59,21 +59,19 @@ defensive_model_building_data %>%
   mutate(position = replace_na(position, "unknown")) %>%
   mutate(position = factor(position)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
-           position, offense_formation, quarter, down, rank,
+           position, offense_formation, quarter, down, rank, alignment_cluster, 
            defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
 library(mltools)
 library(data.table)
 
-should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box")
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box", "alignment_cluster")
 
-# continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball")
 continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
 
 discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
-                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1")
+                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "alignment_cluster")
 
-      
 non_centered_newdata <-
   deff |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
@@ -354,7 +352,7 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 500,
+  epochs_param = 1000,
   units_param = 400,
   rate_param = .75,
   l2_value_param = .001,
@@ -363,7 +361,7 @@ out <- run_nn(
   batch_size_param = 7028/2,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "after center and scaling no more regularization",
+  notes_param = "aadd in cluster 2 layers 1000 epoch - the last one had weird behavior at 450",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
