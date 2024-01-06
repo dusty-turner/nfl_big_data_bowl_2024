@@ -198,12 +198,21 @@ week_1 <-
   mutate(row_with_tackle = mean(ifelse(event == "tackle", cur_group_rows(), NA ), na.rm = TRUE)) |>
   mutate(frames_from_tackle = cur_group_rows() - row_with_tackle) |>
   ungroup() |>
-  select(-row_with_tackle)
+  select(-row_with_tackle) %>% 
   ######
   # End: Create Frames from Tackle Column
   ######
+  ######. 
+  # Start: ID play Type
+  ######
+  mutate(play_type = case_when(pass_result == "C" ~ "pass",
+                               pass_result == "R" ~ "scramble",
+                               TRUE ~ "run")) 
+  ######
+  # End: ID play Type
+  ######
 
-####
+ ####
 # Start: These don't have tackles in their plays
 ####
 bad <-
@@ -231,7 +240,6 @@ fixed_these <-
   mutate(tackle_made = as.factor(is_name_in_description(display_name, play_description))) |> 
   ungroup()
 
-fixed_these
 ####
 # End: Fix the ones with tackles not in their plays
 ####
@@ -354,8 +362,8 @@ defensive_model_building_data_model <-
   select(game_idplay_id, game_id, play_id, nfl_id, frame_id, club, tackle, x, y, x_going, y_going, s, a, position,
          rank, club, defenders_in_the_box, ball_carrier, ball_carrier_id, ball_carrier_display_name, absolute_yardline_number,
          time, defensive_team, display_name, distance_to_ball, distance_to_ball_next, play_description, is_football, alignment,
-         alignment_cluster, pass_result, v_approach, ball_in_fan3, ball_in_fan2, ball_in_fan1, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball) |>
-  filter(frame_id > 5)
+         alignment_cluster, pass_result, v_approach, ball_in_fan3, ball_in_fan2, ball_in_fan1, x_ball, y_ball, o_ball, x_ball_next, y_ball_next, s_ball, play_type) 
+  # filter(frame_id > 5)
 
 write_parquet(defensive_model_building_data, here::here("02-clean-data", "defensive_model_building_data.parquet"))
 
@@ -364,6 +372,8 @@ write_parquet(defensive_model_building_data, here::here("02-clean-data", "defens
 week_1 |> as_tibble() |> 
   # group_by(game_id) |> filter(cur_group_id() %in% 1:16) |> ungroup() |>
   write_parquet(here::here("02-clean-data", "week_1.parquet"))
+
+
 
 # I don't have clusters built in for passing plays
 # ## some plays don't end in tackles.  Some plays have a forced fumble

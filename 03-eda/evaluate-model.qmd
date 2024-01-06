@@ -31,8 +31,19 @@ read_csv(here::here("04-models", "model_tracker.csv"))
 #     python_function = weighted_binary_crossentropy
 # ))
 
-test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds.rds"))
+main_model <- read_rds(here::here("04-models", "model_results.rds"))
+
+test_joined_with_preds <- main_model$test_joined_with_preds
+week_1 <- main_model$week_1
 week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
+
+test_joined_with_preds <-
+test_joined_with_preds |> 
+  select(game_id, play_id, display_name, final_predictions, binary_predictions, frame_id) |> 
+  left_join(non_centered_newdata |> mutate(game_id = as.character(game_id), play_id = as.character(play_id))) |> 
+  mutate(tackle = as.factor(as.character(tackle)))
+
+
 
 ```
 
