@@ -29,19 +29,19 @@ source(here::here("03-eda", "data_cleaning.R"))
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
-if (Sys.info()["user"] == "dusty_turner1") {
-  mod <- read_rds(here::here("04-models", "model_data.rds"))
-  x_train <- mod$x_train
-  y_train <- mod$y_train
-  max_length <- mod$max_length
-  num_features <- dim(x_train)[3]
-  x_test <- mod$x_test
-  y_test <- mod$y_test
-  time_steps <- mod$time_steps
-  num_samples <- mod$num_samples
-  tracking_test <- mod$tracking_test
-  test_data <- mod$test_data
-}
+# if (Sys.info()["user"] == "dusty_turner1") {
+#   mod <- read_rds(here::here("04-models", "model_data.rds"))
+#   x_train <- mod$x_train
+#   y_train <- mod$y_train
+#   max_length <- mod$max_length
+#   num_features <- dim(x_train)[3]
+#   x_test <- mod$x_test
+#   y_test <- mod$y_test
+#   time_steps <- mod$time_steps
+#   num_samples <- mod$num_samples
+#   tracking_test <- mod$tracking_test
+#   test_data <- mod$test_data
+# }
 
 ```
 
@@ -59,18 +59,22 @@ defensive_model_building_data %>%
   mutate(position = replace_na(position, "unknown")) %>%
   mutate(position = factor(position)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
-           position, offense_formation, quarter, down, rank, alignment_cluster, 
+           position, offense_formation, quarter, down, rank, 
+           alignment_cluster, play_type,
            defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
 library(mltools)
 library(data.table)
 
-should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box", "alignment_cluster")
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box",
+                       "alignment_cluster", "play_type")
 
 continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
 
 discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
-                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "alignment_cluster")
+                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1",
+                      "alignment_cluster", "play_type"
+                      )
 
 non_centered_newdata <-
   deff |> 
@@ -357,11 +361,11 @@ out <- run_nn(
   rate_param = .75,
   l2_value_param = .001,
   # l2_value_param = 0,
-  layers_param = 2,
+  layers_param = 3,
   batch_size_param = 7028/2,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "aadd in cluster 2 layers 1000 epoch - the last one had weird behavior at 450",
+  notes_param = "add in play type 2 layers 500 epoch",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
@@ -461,14 +465,16 @@ test_joined_with_preds |>
   count(binary_predictions)
 
 test_joined_with_preds |> 
-  # group_by(pass_result) %>% 
+group_by(play_type) %>%
   yardstick::accuracy(truth = tackle, estimate = binary_predictions) %>%
   print(n = Inf)
 
 test_joined_with_preds |> 
+  group_by(play_type) %>% 
   yardstick::precision(truth = tackle, estimate = binary_predictions) 
 
 test_joined_with_preds |> 
+  group_by(play_type) %>% 
   yardstick::recall(truth = tackle, estimate = binary_predictions)
 
 
@@ -476,13 +482,13 @@ test_joined_with_preds |>
   mutate(game_idplay_id = str_c(game_id,play_id)) %>% 
   # group_by(game_id, play_id) |>
   filter(game_idplay_id=="2022090800167") %>% 
-  select(display_name, tackle, final_predictions, binary_predictions) |> 
+  select(display_name, tackle, final_predictions, binary_predictions, jersey_number) |> 
   arrange(display_name) |> 
   print(n = Inf)
 ```
 
 ```{r}
-write_rds(test_joined_with_preds,"04-models/test_joined_with_preds_2024-01-06_18-30-20.rds")
+write_rds(test_joined_with_preds,"04-models/test_joined_with_preds_2024-01-07_01-24-06.rds")
 ```
 
 
