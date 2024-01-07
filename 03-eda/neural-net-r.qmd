@@ -60,22 +60,19 @@ defensive_model_building_data %>%
   mutate(position = factor(position)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
            position, offense_formation, quarter, down, rank, 
-           # alignment_cluster, 
+           alignment_cluster, play_type,
            defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
 library(mltools)
 library(data.table)
 
-should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box" 
-                       # "alignment_cluster"
-                       )
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box","alignment_cluster", "play_type")
 
 continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
 
 discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
-                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1"
-                      # "alignment_cluster"
-                      )
+                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1",
+                      "alignment_cluster", "play_type")
 
 non_centered_newdata <-
   deff |> 
@@ -309,14 +306,14 @@ history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test),
-  callbacks = list(
+  validation_data = list(x_test, y_test)
+  # callbacks = list(
     # early_stop_callback,
-    model_checkpoint_callback,
-    reduce_lr_callback
+    # model_checkpoint_callback,
+    # reduce_lr_callback
   #   # tensorboard_callback,
   #   # csv_logger_callback
-  )
+  # )
 )
 
 model_end_time <- tictoc::toc()
@@ -357,16 +354,16 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 5,
+  epochs_param = 500,
   units_param = 400,
   rate_param = .75,
   l2_value_param = .001,
   # l2_value_param = 0,
-  layers_param = 2,
+  layers_param = 3,
   batch_size_param = 7028/2,
   positive_weight_param = ratio,
   # positive_weight_param = ratio,
-  notes_param = "aadd in cluster 2 layers 1000 epoch - the last one had weird behavior at 450",
+  notes_param = "add in play type 2 layers 500 epoch",
   optimizer_param = "adam"
   # activation_param = "relu"
 )
@@ -457,16 +454,27 @@ test_data |>
   mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) |> 
   mutate(game_idplay_id = str_c(game_id, play_id))
 
+test_joined_with_preds <- 
+test_joined_with_preds %>% 
+  select(game_id,play_id, frame_id, display_name, final_predictions, binary_predictions) %>% 
+  left_join(week_1) %>% 
+  mutate(tackle = as.factor(tackle)) 
+  
+
 test_joined_with_preds |> 
   count(binary_predictions)
 
 test_joined_with_preds |> 
-  yardstick::accuracy(truth = tackle, estimate = binary_predictions)
+group_by(play_type) %>%
+  yardstick::accuracy(truth = tackle, estimate = binary_predictions) %>%
+  print(n = Inf)
 
 test_joined_with_preds |> 
+  group_by(play_type) %>% 
   yardstick::precision(truth = tackle, estimate = binary_predictions) 
 
 test_joined_with_preds |> 
+  group_by(play_type) %>% 
   yardstick::recall(truth = tackle, estimate = binary_predictions)
 
 
@@ -474,13 +482,13 @@ test_joined_with_preds |>
   mutate(game_idplay_id = str_c(game_id,play_id)) %>% 
   # group_by(game_id, play_id) |>
   filter(game_idplay_id=="2022090800167") %>% 
-  select(display_name, tackle, final_predictions, binary_predictions) |> 
+  select(display_name, tackle, final_predictions, binary_predictions, jersey_number) |> 
   arrange(display_name) |> 
   print(n = Inf)
 ```
 
 ```{r}
-write_rds(test_joined_with_preds,"04-models/test_joined_with_preds.rds")
+write_rds(test_joined_with_preds,"04-models/test_joined_with_preds_2024-01-07_01-24-06.rds")
 ```
 
 
@@ -514,7 +522,7 @@ library(gganimate)
 # Assuming week_1 is your data frame
 animated_plot <-
   week_1 %>% 
-    filter(game_idplay_id == "2022090800167") %>% 
+    filter(game_idplay_id == "2022090800167") %>%  
   left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
@@ -573,6 +581,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   group_by(game_idplay_id, display_name)  |> 
   summarise(mean_error_play = mean(part)) |> 
   group_by(display_name) |> 
+<<<<<<< HEAD
   summarise(average_tackles_over_expected = mean(mean_error_play), n = n()) |> 
   arrange(-average_tackles_over_expected) |> 
   filter(n >= 10)
@@ -728,6 +737,9 @@ player_out_results |>
   group_by(display_name) |> 
   summarise(total_probability_added = sum(total_probability_added), average_probability_added = mean(average_probability_added)) |> 
   arrange(total_probability_added)
+  # reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
+  # arrange(tackles_over_expected)
+
 
 ```
 
