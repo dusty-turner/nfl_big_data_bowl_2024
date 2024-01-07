@@ -18,7 +18,7 @@ library(gganimate)
 library(arrow)
 source(here::here("03-eda","ggtheme_field.R"))
 
-test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds.rds"))
+test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds_2024-01-06_18-30-20.rds"))
 week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 defensive_model_building_data <- read_parquet(here::here("02-clean-data", "defensive_model_building_data.parquet"))
 
@@ -31,6 +31,7 @@ defensive_model_building_data <- read_parquet(here::here("02-clean-data", "defen
 ```{r}
 library(gganimate)
 
+<<<<<<< HEAD
 test_joined_with_preds <-
 week_1 |> left_join(
 test_joined_with_preds |> 
@@ -64,10 +65,25 @@ week_1 %>% filter(game_idplay_id == stub) |> filter(tackle == 1) |> select(displ
 ## Prediction over Time
 
 ```{r}
+
+test_joined_with_preds %>% filter(tackle == binary_predictions) %>% filter(tackle == 1) %>% group_by(game_idplay_id) %>% summarise(range = max(final_predictions) - min(final_predictions), display_name = display_name[1], jersey_number = jersey_number[1]) %>% arrange(-range) 
+
+
+test_joined_with_preds |> filter(is.na(pass_result)) |> filter(possession_team == "TB", defensive_team == "DAL") |> filter(tackle == 1) %>%  count(game_idplay_id, pass_result, display_name, jersey_number) 
+
+week_1 %>% filter(game_idplay_id == "20220911133263") |> filter(tackle == 1) |> select(display_name, jersey_number, pass_result)
+
+test_joined_with_preds %>% mutate(game_idplay_id = str_c(game_id,play_id)) %>% filter(game_idplay_id == "2022092509148") |> filter(tackle == 1) |> select(display_name)
+
+
 # Assuming week_1 is your data frame
 animated_plot <-
   test_joined_with_preds %>% filter(game_idplay_id == stub) |> 
   # left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
+# Assuming week_1 is your data frame
+animated_plot <-
+  week_1 %>% filter(game_idplay_id == "20220911133173") |> 
+  left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
   # filter(cur_group_id() == 4) |> 
@@ -108,6 +124,7 @@ test_joined_with_preds |> filter(game_idplay_id == stub) |>
 ```{r}
 animated_plot2 <-
 test_joined_with_preds |> filter(game_idplay_id == stub) |> 
+  left_join(test_joined_with_preds) |> 
   relocate(final_predictions) |> 
   filter(frame_id <= max(frame_id)-4) |> 
   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
