@@ -304,14 +304,14 @@ history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test),
-  callbacks = list(
+  validation_data = list(x_test, y_test)
+  # callbacks = list(
     # early_stop_callback,
-    model_checkpoint_callback,
-    reduce_lr_callback
+    # model_checkpoint_callback,
+    # reduce_lr_callback
   #   # tensorboard_callback,
   #   # csv_logger_callback
-  )
+  # )
 )
 
 model_end_time <- tictoc::toc()
@@ -352,7 +352,7 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 1000,
+  epochs_param = 500,
   units_param = 400,
   rate_param = .75,
   l2_value_param = .001,
@@ -450,11 +450,20 @@ test_data |>
   mutate(final_predictions = as.double(final_predictions)) |> 
   mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) 
 
+test_joined_with_preds <- 
+test_joined_with_preds %>% 
+  select(game_id,play_id, frame_id, display_name, final_predictions, binary_predictions) %>% 
+  left_join(week_1) %>% 
+  mutate(tackle = as.factor(tackle)) 
+  
+
 test_joined_with_preds |> 
   count(binary_predictions)
 
 test_joined_with_preds |> 
-  yardstick::accuracy(truth = tackle, estimate = binary_predictions)
+  # group_by(pass_result) %>% 
+  yardstick::accuracy(truth = tackle, estimate = binary_predictions) %>%
+  print(n = Inf)
 
 test_joined_with_preds |> 
   yardstick::precision(truth = tackle, estimate = binary_predictions) 
@@ -473,7 +482,7 @@ test_joined_with_preds |>
 ```
 
 ```{r}
-write_rds(test_joined_with_preds,"04-models/test_joined_with_preds.rds")
+write_rds(test_joined_with_preds,"04-models/test_joined_with_preds_2024-01-06_18-30-20.rds")
 ```
 
 
@@ -507,7 +516,7 @@ library(gganimate)
 # Assuming week_1 is your data frame
 animated_plot <-
   week_1 %>% 
-    filter(game_idplay_id == "2022090800167") %>% 
+    filter(game_idplay_id == "2022090800167") %>%  
   left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
@@ -566,7 +575,7 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
   group_by(display_name) |> 
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(-tackles_over_expected)
+  arrange(tackles_over_expected)
 
 
 ```
