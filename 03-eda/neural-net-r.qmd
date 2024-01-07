@@ -29,19 +29,19 @@ source(here::here("03-eda", "data_cleaning.R"))
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
-if (Sys.info()["user"] == "dusty_turner1") {
-  mod <- read_rds(here::here("04-models", "model_data.rds"))
-  x_train <- mod$x_train
-  y_train <- mod$y_train
-  max_length <- mod$max_length
-  num_features <- dim(x_train)[3]
-  x_test <- mod$x_test
-  y_test <- mod$y_test
-  time_steps <- mod$time_steps
-  num_samples <- mod$num_samples
-  tracking_test <- mod$tracking_test
-  test_data <- mod$test_data
-}
+# if (Sys.info()["user"] == "dusty_turner1") {
+#   mod <- read_rds(here::here("04-models", "model_data.rds"))
+#   x_train <- mod$x_train
+#   y_train <- mod$y_train
+#   max_length <- mod$max_length
+#   num_features <- dim(x_train)[3]
+#   x_test <- mod$x_test
+#   y_test <- mod$y_test
+#   time_steps <- mod$time_steps
+#   num_samples <- mod$num_samples
+#   tracking_test <- mod$tracking_test
+#   test_data <- mod$test_data
+# }
 
 ```
 
@@ -59,18 +59,23 @@ defensive_model_building_data %>%
   mutate(position = replace_na(position, "unknown")) %>%
   mutate(position = factor(position)) |> 
   select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
-           position, offense_formation, quarter, down, rank, alignment_cluster, 
+           position, offense_formation, quarter, down, rank, 
+           # alignment_cluster, 
            defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
 
 library(mltools)
 library(data.table)
 
-should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box", "alignment_cluster")
+should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box" 
+                       # "alignment_cluster"
+                       )
 
 continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
 
 discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
-                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "alignment_cluster")
+                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1"
+                      # "alignment_cluster"
+                      )
 
 non_centered_newdata <-
   deff |> 
@@ -231,9 +236,9 @@ tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, 
 tracking_test <- tracking_list[test_indices]
 
 
-if (Sys.info()["user"] == "dusty_turner1") {
-  write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length, time_steps = time_steps, num_samples = num_samples, tracking_test = tracking_test), "04-models/model_data.rds")
-}
+# if (Sys.info()["user"] == "dusty_turner1") {
+#   write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length, time_steps = time_steps, num_samples = num_samples, tracking_test = tracking_test), "04-models/model_data.rds")
+# }
 
 ```
 
@@ -559,17 +564,20 @@ week_1 |>
 anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
 
 # nn_briar <- 
-  test_joined_with_preds |> 
-  select(game_id, play_id, display_name,tackle, final_predictions) |> 
+  test_joined_with_preds |>
+    mutate(game_idplay_id = str_c(game_id, play_id)) |> 
+  select(game_idplay_id, display_name,tackle, final_predictions) |> 
   filter(!is.na(final_predictions)) |> 
   mutate(tackle  = as.integer(as.character(tackle))) |> 
-  group_by(game_id, play_id, display_name) |> 
-  reframe(expected_prob_of_tackle = mean(final_predictions), tackle = mean(tackle)) |> 
-  mutate(tackles_over_expected_play = ifelse(tackle == 1, 1-expected_prob_of_tackle, -expected_prob_of_tackle)) |> 
+  mutate(part = tackle - final_predictions)   |> 
+  group_by(game_idplay_id, display_name)  |> 
+  summarise(mean_error_play = mean(part)) |> 
   group_by(display_name) |> 
-  reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  arrange(-tackles_over_expected)
-
+  summarise(average_tackles_over_expected = mean(mean_error_play), n = n()) |> 
+  arrange(-average_tackles_over_expected) |> 
+  filter(n >= 10)
+    
+  
 
 ```
 
