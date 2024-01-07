@@ -352,7 +352,7 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 1000,
+  epochs_param = 5,
   units_param = 400,
   rate_param = .75,
   l2_value_param = .001,
@@ -419,6 +419,7 @@ model2 <- load_model_tf("04-models/2023-12-31_03-07-53", custom_objects = list(
 
 ```{r}
 # Predict on test data
+
 y_pred_test <- out$model %>% predict(x_test)
 y_pred_test <- model2 %>% predict(x_test)
 
@@ -448,7 +449,8 @@ test_data |>
   mutate(play_id = as.character(play_id)) |> 
   mutate(tackle = as.factor(tackle)) |> 
   mutate(final_predictions = as.double(final_predictions)) |> 
-  mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) 
+  mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) |> 
+  mutate(game_idplay_id = str_c(game_id, play_id))
 
 test_joined_with_preds |> 
   count(binary_predictions)
@@ -568,6 +570,156 @@ anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
   reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
   arrange(-tackles_over_expected)
 
+
+```
+
+
+```{r}
+vectors <- NULL
+for (i in 1:10) {
+  # Create a vector of 10 ones
+  vector <- rep(1, 10)
+  
+  # Replace the ith element with 2
+  vector[i] <- 2
+  
+  # Add the vector to the list
+  vectors[[i]] <- vector
+}
+
+these_are_test_set <-
+example_play |> 
+  mutate(id = row_number()) |> 
+  filter(id %in% sort(test_indices)) |> 
+  mutate(game_idplay_id = str_c(game_id, play_id))
+
+test_set_data_for_tor <-
+newdata |> 
+  mutate(game_idplay_id = str_c(game_id, play_id)) |> 
+  filter(game_idplay_id %in% these_are_test_set$game_idplay_id)
+
+# double_creater(player_number = 1, vec = vectors[5])
+
+double_creater <- function(player_number, vec){
+
+  print(vec)
+  
+with_double_player <-
+test_set_data_for_tor |> 
+  group_by(game_idplay_id, frame_id) |>
+  filter(row_number() != player_number) |> 
+  mutate(id = vec) |> 
+  # mutate(id = c(2,1,1,1,1,1,1,1,1,1)) |> 
+  ungroup() |> 
+  relocate(game_idplay_id, id)  |> 
+  uncount(id) |> 
+  select(-game_idplay_id)
+
+
+
+player_removed <-
+test_set_data_for_tor |> 
+  group_by(game_idplay_id, frame_id) |> 
+  filter(row_number() == player_number) |> 
+  ungroup()  |> 
+  select(game_idplay_id, display_name) |> 
+  distinct()
+
+
+example_play_1 <-
+with_double_player |> 
+  distinct(game_id, play_id)
+
+x_list_1 <-
+    map2(
+      .x = example_play_1$game_id,
+      .y = example_play_1$play_id,
+      .f = ~ get_play_data(.x, .y, newdata, num_features_per_player_arg = num_features_per_player),
+      .progress = TRUE
+    )
+
+y_padded_1 <-
+    map2(
+      .x = example_play_1$game_id,
+      .y = example_play_1$play_id,
+      .f = ~ create_target_matrix(.x, .y, newdata, padded_length = max_length),
+      .progress = TRUE
+    )
+
+x_padded_1 <- lapply(x_list_1, pad_time_series, max_length = max_length)
+
+x_data_1 <- array(dim = c(length(x_padded_1), time_steps, num_features))
+for (i in 1:length(x_padded_1)) {
+  x_data_1[i, , ] <- x_padded[[i]]
+}
+
+y_data_1 <- array(dim = c(length(y_padded_1), max_length, ncol(y_padded[[1]])))
+for (i in 1:length(y_padded_1)) {
+  y_data_1[i, , ] <- y_padded_1[[i]]
+}
+
+tracking_list_1 <- lapply(x_list_1, create_tracking_array, max_length = max_length, num_players = 11)
+tracking_test_1 <- tracking_list_1
+
+y_pred_test_1 <- out$model %>% predict(x_data_1)
+
+y_pred_binarized_1 <- array(ifelse(y_pred_test_1 > 0.5, 1, 0), dim(y_pred_test_1))
+
+# Calculate accuracy
+accuracy_1 <- sum(y_pred_binarized_1 == y_data_1) / length(y_data_1)
+
+# Print accuracy
+print(paste("Accuracy:", accuracy_1))
+
+# Flatten the tracking arrays for the test set
+tracking_test_flat_1 <- array_reshape(do.call(cbind, tracking_test_1), c(dim(y_pred_test_1)[1] * dim(y_pred_test_1)[2] * dim(y_pred_test_1)[3]))
+
+
+
+# Flatten your model predictions in a similar manner
+predictions_flat_1 <- array_reshape(y_pred_test_1, c(dim(y_pred_test_1)[1] * dim(y_pred_test_1)[2] * dim(y_pred_test_1)[3]))
+
+# Now, filter out padded predictions using the tracking data
+final_predictions_1 <- predictions_flat_1[tracking_test_flat_1 == 1]
+
+test_joined_with_preds_1 <-
+with_double_player |> 
+  arrange(game_id, play_id, frame_id, display_name) |>
+  mutate(game_id = as.character(game_id)) |> 
+  mutate(play_id = as.character(play_id)) |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  mutate(final_predictions_1 = as.double(final_predictions_1)) |> 
+  mutate(binary_predictions_1 = as.factor(ifelse(final_predictions_1> .5, 1, 0))) |> 
+  mutate(game_idplay_id = str_c(game_id, play_id))
+
+test_joined_with_preds_1 |> 
+  # select(game_idplay_id, display_name, frame_id, tackle,  final_predictions_1, binary_predictions_1) |> 
+  select(game_idplay_id, display_name, frame_id, tackle, final_predictions_1) |> 
+  # left_join(test_joined_with_preds |> select(game_idplay_id, display_name, frame_id, final_predictions, binary_predictions)) |> 
+  left_join(test_joined_with_preds |> select(game_idplay_id, display_name, frame_id, final_predictions)) |> 
+  group_by(game_idplay_id, frame_id, display_name) |> 
+  filter(row_number() != 2) |> 
+  ungroup() |> 
+  mutate(delta_probability_added = final_predictions - final_predictions_1) |> 
+  group_by(game_idplay_id) |> 
+  summarise(increase_in_tackle_prob = sum(delta_probability_added)) |> 
+  ungroup() |> 
+  left_join(player_removed) |> 
+  group_by(display_name) |> 
+  summarise(total_probability_added = sum(increase_in_tackle_prob), average_probability_added = mean(increase_in_tackle_prob)) |>
+  ungroup() |> 
+  arrange(-total_probability_added) 
+
+}
+
+# map_dfr(.x = vectors[1:2], .f = ~double_creater(player_number = 1, vec = .x), .id = "vector_id")
+player_out_results <-
+map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id")
+
+player_out_results |> 
+  group_by(display_name) |> 
+  summarise(total_probability_added = sum(total_probability_added), average_probability_added = mean(average_probability_added)) |> 
+  arrange(total_probability_added)
 
 ```
 

@@ -5,7 +5,7 @@ source(here::here("03-eda","ggtheme_field.R"))
 
 week_1 <-
   read_parquet(here::here("02-clean-data","tracking.parquet")) |>
-  # simplifier() |>
+  simplifier() |>
   left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |>
   left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |>
   left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |>
