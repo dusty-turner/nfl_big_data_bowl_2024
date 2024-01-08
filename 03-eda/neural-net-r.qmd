@@ -29,19 +29,19 @@ source(here::here("03-eda", "data_cleaning.R"))
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
-# if (Sys.info()["user"] == "dusty_turner1") {
-#   mod <- read_rds(here::here("04-models", "model_data.rds"))
-#   x_train <- mod$x_train
-#   y_train <- mod$y_train
-#   max_length <- mod$max_length
-#   num_features <- dim(x_train)[3]
-#   x_test <- mod$x_test
-#   y_test <- mod$y_test
-#   time_steps <- mod$time_steps
-#   num_samples <- mod$num_samples
-#   tracking_test <- mod$tracking_test
-#   test_data <- mod$test_data
-# }
+if (Sys.info()["user"] == "dusty_turner1") {
+  mod <- read_rds(here::here("04-models", "model_data.rds"))
+  x_train <- mod$x_train
+  y_train <- mod$y_train
+  max_length <- mod$max_length
+  num_features <- dim(x_train)[3]
+  x_test <- mod$x_test
+  y_test <- mod$y_test
+  time_steps <- mod$time_steps
+  num_samples <- mod$num_samples
+  tracking_test <- mod$tracking_test
+  test_data <- mod$test_data
+}
 
 ```
 
@@ -407,9 +407,7 @@ plot(out$history) + xlim(0,430)
 
 
 ```{r}
-save_model_tf(out$model, str_c("04-models"))
-
-model2 <- load_model_tf("04-models/2023-12-31_03-07-53", custom_objects = list(
+model2 <- load_model_tf("04-models/2024-01-07_16-03-36", custom_objects = list(
   # model2 <- load_model_tf("04-models", custom_objects = list(
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
@@ -470,11 +468,11 @@ group_by(play_type) %>%
   print(n = Inf)
 
 test_joined_with_preds |> 
-  group_by(play_type) %>% 
+  group_by(play_type) %>%
   yardstick::precision(truth = tackle, estimate = binary_predictions) 
 
 test_joined_with_preds |> 
-  group_by(play_type) %>% 
+  group_by(play_type) %>%
   yardstick::recall(truth = tackle, estimate = binary_predictions)
 
 
