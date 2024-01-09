@@ -66,7 +66,7 @@ test_joined_with_preds |>
   mutate(color = final_predictions) |> 
   mutate(tackle = as.factor(ifelse(is.na(final_predictions), NA, as.character(tackle))))
   
-
+players |> select(quarter, play_description, pre_snap_home_score)
 
 # players <-
 # test_joined_with_preds |> filter(game_idplay_id == stub) |> 
@@ -113,8 +113,38 @@ test_joined_with_preds |> distinct(game_idplay_id, display_name, binary_predicti
   mutate(perc_predicted = n / sum(n)) |> select(-binary_predictions, -n))
 
 
-percofpredictionsplot <-
+# percofpredictionsplot <-
+# test_joined_with_preds |> distinct(game_idplay_id, display_name, tackle, position, play_type)  |> 
+#   count(position, tackle, position, play_type) |> 
+#   filter(tackle == 1) |>
+#   group_by(play_type) |> 
+#   mutate(perc_tackle = n / sum(n)) |> select(-tackle, -n) |> ungroup() |>  
+#   left_join(
+# 
+# test_joined_with_preds |> distinct(game_idplay_id, display_name, binary_predictions, position, play_type)  |> 
+#   count(position, binary_predictions, play_type) |> 
+#   filter(binary_predictions == 1) |> 
+#   group_by(play_type) |> 
+#   mutate(perc_predicted = n / sum(n)) |> select(-binary_predictions, -n) |> ungroup()
+# ) |> 
+#   filter(!is.na(position)) |> rename(Tackle = perc_tackle, Modeled = perc_predicted) |> 
+#   mutate(play_type = str_to_title(play_type)) |> 
+#   pivot_longer(cols = c("Tackle", "Modeled")) |> 
+#   ggplot(aes(x = name, y = value, fill = name)) +
+#   geom_col() +
+#   scale_fill_manual(values = c("Tackle" = "#1f77b4", "Modeled" = "#ff7f0e")) +
+#   scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 100)) +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "none" # This will remove the legend for the fill aesthetic
+#   ) +
+#   facet_grid(play_type~position) +
+#   labs(x = "", y = "")
+
+
+tmp_df <-
 test_joined_with_preds |> distinct(game_idplay_id, display_name, tackle, position, play_type)  |> 
+  filter(!position %in% c("MLB", "DB")) |> 
   count(position, tackle, position, play_type) |> 
   filter(tackle == 1) |>
   group_by(play_type) |> 
@@ -122,27 +152,42 @@ test_joined_with_preds |> distinct(game_idplay_id, display_name, tackle, positio
   left_join(
 
 test_joined_with_preds |> distinct(game_idplay_id, display_name, binary_predictions, position, play_type)  |> 
+    filter(!position %in% c("MLB", "DB")) |> 
   count(position, binary_predictions, play_type) |> 
   filter(binary_predictions == 1) |> 
   group_by(play_type) |> 
   mutate(perc_predicted = n / sum(n)) |> select(-binary_predictions, -n) |> ungroup()
 ) |> 
   filter(!is.na(position)) |> rename(Tackle = perc_tackle, Modeled = perc_predicted) |> 
-  mutate(play_type = str_to_title(play_type)) |> 
+  mutate(play_type = str_to_title(play_type)) |>  
   pivot_longer(cols = c("Tackle", "Modeled")) |> 
-  ggplot(aes(x = name, y = value, fill = name)) +
-  geom_col() +
+  mutate(play_type = as.factor(play_type))
+
+percofpredictionsplot <-
+tmp_df |> 
+  mutate(id = rep(1:24,each = 2)) |> 
+  mutate(play_type = fct_relevel(play_type, "Run")) |> 
+  ggplot(aes(x = name, y = value, color = position)) +
+  geom_point(aes(group = id), size = 3) +
+  geom_line(aes(group = id)) +
+  geom_text(data = filter(tmp_df, name == "Tackle"), aes(label = position), nudge_x = .2) +
   scale_fill_manual(values = c("Tackle" = "#1f77b4", "Modeled" = "#ff7f0e")) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 100)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none" # This will remove the legend for the fill aesthetic
   ) +
-  facet_grid(play_type~position) +
-  labs(x = "", y = "")
+  facet_grid(~play_type) +
+  labs(x = "", y = "") +
+    theme_minimal(base_size = 14) +
+  theme(legend.position = "none", 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_blank(),
+        panel.background = element_rect(color = "grey75"), 
+        plot.background = element_rect(fill = "white", color = NA)) 
 
 
-ggsave("05-presentation-files/perc-of-predictions-plot-1000-400.png", plot = percofpredictionsplot, width = 10, height = 4)
+ggsave("05-presentation-files/perc-of-predictions-plot-1000-400.svg", plot = percofpredictionsplot, width = 9, height = 6)
 
 ```
 
@@ -162,12 +207,17 @@ animated_plot <-
   scale_color_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
   labs(x = "Frame of Play", y = "Probability of Tackle") +
   facet_wrap(~id) +
-  transition_reveal(frame_id)
+  transition_reveal(frame_id) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none", panel.grid.minor = element_blank(), 
+        panel.background = element_rect(color = "grey75"), 
+        plot.background = element_rect(fill = "white", color = NA)) 
   
 anm1 <- animate(animated_plot, width = 466, height = 350, nframes = 100)
 
 
 anim_save("05-presentation-files/prob-tracker.gif", animation = anm1, dpi = 1000)
+# anim_save("05-presentation-files/prob-tracker.gif", animation = anm1, dpi = 1000)
 ```
 
 ## This is the main probability changer as play changes vis
@@ -196,6 +246,31 @@ players |>
 anm4 <- animate(field_anim, width = 466, height = 350, nframes = 100)
 
 anim_save("05-presentation-files/run-play-with-probs.gif", animation = anm4)
+
+
+field_anim_raw <-
+players |> 
+  filter(is_football == "not_football") %>%
+  mutate(offense = ifelse(club == defensive_team, "yes", "no")) |> 
+    select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id, tackle, offense) %>% 
+
+# {
+  ggplot(aes(x = x, y = y, fill = offense)) +
+  gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 1, alpha = .75) +
+  geom_point(shape = 21, size = 3, show.legend = FALSE) +
+  scale_fill_manual(values = c("yes" = "dodgerblue", "no" = "lightblue")) +
+  # geom_text(aes(label = jersey_number), color = "black", nudge_y = -1, size = 3) +
+  # scale_color_gradient(low = "yellow", high = "red", na.value = "dodgerblue") +
+  # scale_fill_gradient(low = "orange", high = "red", na.value = my_custom_blue) +
+  # scale_fill_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  transition_time(time) + ease_aes("linear")
+# }
+
+anm4_raw <- animate(field_anim_raw, width = 466, height = 350, nframes = 100)
+
+anim_save("05-presentation-files/run-play-raw.gif", animation = anm4_raw)
 
 ```
 
@@ -290,18 +365,18 @@ players |>
   filter(defensive_team == club) |> 
   select(distance_to_ball, display_name, x, y, x_ball, y_ball, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, distance_to_ball, v_approach) %>% 
   filter(is_football == "not_football") %>%
-{
-  ggplot(data = ., aes(x = x, y = y, color = v_approach)) +
+  ggplot(aes(x = x, y = y, fill = v_approach)) +
   gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
   geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 2, alpha = .75) +
-  geom_point(size = 5) +
-  geom_point(data = players_football, size = 5, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
-  scale_color_gradient2(na.value = "dodgerblue", low = "green", high = "green", mid = "red", midpoint = 0, guide = "none") +
+  geom_point(size = 3, shape = 21, color = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  # scale_fill_viridis_c(guide = "none") +
+  scale_fill_gradient2(na.value = "dodgerblue", low = "white", high = "white", mid = "blue", midpoint = 0, guide = "none") +
   transition_time(time) + ease_aes("linear") +
-  labs(y = "", x = "", title = str_wrap(.$play_description[1], width = 80)) 
-}
+  labs(y = "", x = "") 
 
-v_approach_anim <- animate(v_approach, width = 800, height = 600, nframes = 100)
+
+v_approach_anim <- animate(v_approach, width = 466, height = 350, nframes = 100)
 
 anim_save("05-presentation-files/v_approach_anim.gif", animation = v_approach_anim)
 
@@ -440,3 +515,312 @@ ggsave(filename = "05-presentation-files/assignment_clusters.png", plot = assign
 
 
 
+
+####### Pass Play
+
+
+```{r}
+
+test_joined_with_preds |> 
+  distinct(game_idplay_id)
+
+test_joined_with_preds |> 
+  relocate(game_idplay_id, tackle) |> 
+  filter(play_type == "pass") |> 
+  group_by(game_idplay_id) |> 
+  mutate(range = max(final_predictions) - min(final_predictions)) |> 
+  relocate(range) |> 
+  filter(game_idplay_id == stub) |>
+  filter(tackle == 1) |>
+  distinct(play_description, quarter) 
+  # filter(binary_predictions == 1) |>
+  print(n = Inf)
+
+
+# stub <- "20221009121429" ## this is anthony bar and its okay
+stub <- "2022090800167" 
+
+players_football <-
+week_1 |> 
+  filter(game_idplay_id == stub) |> 
+  filter(is_football == "football") |> 
+  filter(frame_id <= max(frame_id)-4)  
+  # filter(game_idplay_id %in% unique(test_joined_with_preds$game_idplay_id))
+
+
+players <-
+week_1 |> 
+  filter(game_idplay_id == stub) |> 
+  mutate(tackle = as.factor(ifelse(str_detect(display_name, "Kearse"), 1, tackle))) |> 
+  left_join(
+
+test_joined_with_preds |> 
+  filter(game_idplay_id == stub) |> 
+  select(game_idplay_id, frame_id, display_name, final_predictions, binary_predictions) 
+) |> 
+    filter(frame_id <= max(frame_id)-4) |> 
+  mutate(color = final_predictions) |> 
+  mutate(tackle = as.factor(ifelse(is.na(final_predictions), NA, as.character(tackle))))
+  
+players |> select(quarter, play_description, pre_snap_home_score)
+
+# players <-
+# test_joined_with_preds |> filter(game_idplay_id == stub) |> 
+#   relocate(game_idplay_id,final_predictions) |> 
+#   # filter(frame_id <= max(frame_id)-4) |> 
+#   mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
+#   mutate(color = final_predictions) |> 
+#   mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) 
+
+los_values <- players$x |> range()
+
+my_custom_blue <- rgb(86, 158, 242, maxColorValue = 255)  
+
+
+
+players |> 
+  filter(game_idplay_id == stub)  |> 
+  count(frame_id, time)
+
+players_football |> 
+  filter(game_idplay_id == stub) |> 
+  filter(is_football == "football") 
+```
+
+
+## Prediction over Time
+
+```{r}
+
+animated_plot_pass <-
+  players |> 
+  filter(!is.na(final_predictions)) |> 
+  select(frame_id, final_predictions, display_name, jersey_number, tackle) |>
+  mutate(id = str_c(display_name, ": ", jersey_number)) |> 
+  ggplot(aes(x = frame_id, y = final_predictions)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3, aes(color = tackle), shape = 21, fill = "black") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  labs(x = "Frame of Play", y = "Probability of Tackle") +
+  facet_wrap(~id) +
+  transition_reveal(frame_id) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none", panel.grid.minor = element_blank(), 
+        panel.background = element_rect(color = "grey75"), 
+        plot.background = element_rect(fill = "white", color = NA)) 
+  
+anm1_pass <- animate(animated_plot_pass, width = 466, height = 350, nframes = 100)
+
+
+anim_save("05-presentation-files/prob-tracker-pass.gif", animation = anm1_pass, dpi = 1000)
+```
+
+## This is the main probability changer as play changes vis
+
+```{r}
+
+
+field_anim_pass <-
+players |> 
+  filter(is_football == "not_football") %>%
+    select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id, tackle) %>% 
+
+# {
+  ggplot(aes(x = x, y = y, fill = color)) +
+  gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 1, alpha = .75) +
+  geom_point(shape = 21, size = 3, show.legend = FALSE, aes(color = tackle)) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1, size = 3) +
+  # scale_color_gradient(low = "yellow", high = "red", na.value = "dodgerblue") +
+  scale_fill_gradient(low = "orange", high = "red", na.value = my_custom_blue) +
+  scale_color_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  transition_time(time) + ease_aes("linear")
+# }
+
+anm4_pass <- animate(field_anim_pass, width = 466, height = 350, nframes = 100)
+
+anim_save("05-presentation-files/pass-play-with-probs.gif", animation = anm4)
+
+
+field_anim_pass_raw <-
+players |> 
+  filter(is_football == "not_football") %>%
+  mutate(offense = ifelse(club == defensive_team, "yes", "no")) |> 
+    select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id, tackle, offense) %>% 
+
+# {
+  ggplot(aes(x = x, y = y, fill = offense)) +
+  gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 1, alpha = .75) +
+  geom_point(shape = 21, size = 3, show.legend = FALSE) +
+  scale_fill_manual(values = c("yes" = "dodgerblue", "no" = "lightblue")) +
+  # geom_text(aes(label = jersey_number), color = "black", nudge_y = -1, size = 3) +
+  # scale_color_gradient(low = "yellow", high = "red", na.value = "dodgerblue") +
+  # scale_fill_gradient(low = "orange", high = "red", na.value = my_custom_blue) +
+  # scale_fill_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  transition_time(time) + ease_aes("linear")
+# }
+
+anm4_pass_raw <- animate(field_anim_pass_raw, width = 466, height = 350, nframes = 100)
+
+anim_save("05-presentation-files/pass-play-raw.gif", animation = anm4_pass_raw)
+
+```
+
+
+
+
+####### QB Scramble
+
+
+```{r}
+
+test_joined_with_preds |> 
+  filter(play_type == "scramble") |> 
+    distinct(game_idplay_id, play_description) |> 
+  # filter(str_detect(play_description, "Hurts"))
+  print(n = Inf)
+
+test_joined_with_preds |> 
+  relocate(game_idplay_id, tackle) |> 
+  filter(play_type == "scramble") |> 
+  # filter(str_detect(play_description, "Jackson")) |> 
+  group_by(game_idplay_id, display_name) |>
+  mutate(range = max(final_predictions) - min(final_predictions)) |>
+  relocate(range) |>
+  # filter(game_idplay_id == stub) |>
+  filter(tackle == 1) |> 
+  # distinct(play_description, quarter)
+  filter(binary_predictions == 1) |>
+  arrange(range) |> 
+  print(n = Inf)
+
+
+# stub <- "20220911001587" ## close
+stub <- "20221009012952" ## was damar hamlin and was cool
+# stub <- "2022102304126"
+
+players_football <-
+week_1 |> 
+  filter(game_idplay_id == stub) |> 
+  filter(is_football == "football") |> 
+  filter(frame_id <= max(frame_id)-4)  
+  # filter(game_idplay_id %in% unique(test_joined_with_preds$game_idplay_id))
+
+
+players <-
+week_1 |> 
+  filter(game_idplay_id == stub) |> 
+  mutate(tackle = as.factor(ifelse(str_detect(display_name, "Kearse"), 1, tackle))) |> 
+  left_join(
+
+test_joined_with_preds |> 
+  filter(game_idplay_id == stub) |> 
+  select(game_idplay_id, frame_id, display_name, final_predictions, binary_predictions) 
+) |> 
+    filter(frame_id <= max(frame_id)-4) |> 
+  mutate(color = final_predictions) |> 
+  mutate(tackle = as.factor(ifelse(is.na(final_predictions), NA, as.character(tackle))))
+  
+players |> select(quarter, play_description, pre_snap_home_score)
+
+los_values <- players$x |> range()
+
+my_custom_blue <- rgb(86, 158, 242, maxColorValue = 255)  
+
+
+
+players |> 
+  filter(game_idplay_id == stub)  |> 
+  count(frame_id, time)
+
+players_football |> 
+  filter(game_idplay_id == stub) |> 
+  filter(is_football == "football") 
+```
+
+
+## Prediction over Time
+
+```{r}
+
+animated_plot_scramble <-
+  players |> 
+  filter(!is.na(final_predictions)) |> 
+  select(frame_id, final_predictions, display_name, jersey_number, tackle) |>
+  mutate(id = str_c(display_name, ": ", jersey_number)) |> 
+  ggplot(aes(x = frame_id, y = final_predictions)) + 
+  geom_line() +
+  geom_point(show.legend = FALSE, size = 3, aes(color = tackle), shape = 21, fill = "black") + 
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  labs(x = "Frame of Play", y = "Probability of Tackle") +
+  facet_wrap(~id) +
+  transition_reveal(frame_id) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none", panel.grid.minor = element_blank(), 
+        panel.background = element_rect(color = "grey75"), 
+        plot.background = element_rect(fill = "white", color = NA)) 
+  
+anm1_scramble <- animate(animated_plot_scramble, width = 466, height = 350, nframes = 100)
+
+
+anim_save("05-presentation-files/prob-tracker-scramble.gif", animation = anm1_scramble, dpi = 1000)
+```
+
+## This is the main probability changer as play changes vis
+
+```{r}
+
+
+field_anim_scramble <-
+players |> 
+  filter(is_football == "not_football") %>%
+    select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id, tackle) %>% 
+
+# {
+  ggplot(aes(x = x, y = y, fill = color)) +
+  gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 1, alpha = .75) +
+  geom_point(shape = 21, size = 3, show.legend = FALSE, aes(color = tackle)) +
+  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1, size = 3) +
+  # scale_color_gradient(low = "yellow", high = "red", na.value = "dodgerblue") +
+  scale_fill_gradient(low = "orange", high = "red", na.value = my_custom_blue) +
+  scale_color_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  transition_time(time) + ease_aes("linear")
+# }
+
+anm4_scramble <- animate(field_anim_scramble, width = 466, height = 350, nframes = 100)
+
+anim_save("05-presentation-files/scramble-play-with-probs.gif", animation = anm4_scramble)
+
+
+field_anim_scramble_raw <-
+players |> 
+  filter(is_football == "not_football") %>%
+  mutate(offense = ifelse(club == defensive_team, "yes", "no")) |> 
+    select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id, tackle, offense) %>% 
+
+# {
+  ggplot(aes(x = x, y = y, fill = offense)) +
+  gg_field(yardmin = los_values[1]-3, yardmax = los_values[2]+3, buffer = 0) +
+  geom_vline(aes(xintercept = absolute_yardline_number), color = "yellow", linewidth = 1, alpha = .75) +
+  geom_point(shape = 21, size = 3, show.legend = FALSE) +
+  scale_fill_manual(values = c("yes" = "dodgerblue", "no" = "lightblue")) +
+  # geom_text(aes(label = jersey_number), color = "black", nudge_y = -1, size = 3) +
+  # scale_color_gradient(low = "yellow", high = "red", na.value = "dodgerblue") +
+  # scale_fill_gradient(low = "orange", high = "red", na.value = my_custom_blue) +
+  # scale_fill_manual(values = c("1" = "white", "0" = "black"), na.value = "black") +
+  geom_point(data = players_football, size = 3, show.legend = FALSE, color = "brown", fill = "brown", shape = 17) +
+  transition_time(time) + ease_aes("linear")
+# }
+
+anm4_scramble_raw <- animate(field_anim_scramble_raw, width = 466, height = 350, nframes = 100)
+
+anim_save("05-presentation-files/scramble-play-raw.gif", animation = anm4_scramble_raw)
+
+```

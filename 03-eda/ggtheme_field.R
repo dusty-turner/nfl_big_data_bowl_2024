@@ -322,3 +322,22 @@ gg_field <- function(yardmin=0, yardmax=120, buffer=5, direction="horiz",
   return(p)
   
 }
+
+library(tibble)
+
+team_colors <- tibble(
+  club = c("BUF", "LA", "NO", "ATL", "CLE", 
+           "CAR", "SF", "CHI", "CIN", "PIT",
+           "PHI", "DET", "IND", "HOU", "MIA",
+           "NE", "NYJ", "BAL", "TEN", "NYG",
+           "JAX", "WAS", "KC", "ARI", "LV",
+           "LAC", "MIN", "GB", "TB", "DAL",
+           "DEN", "SEA"),
+  Color = c("#00338d", "#002244", "#9f8958", "#a71930", "#fb4f14",
+            "#0085ca", "#aa0000", "#0b162a", "#000000", "#000000",
+            "#004953", "#005a8b", "#002c5f", "#03202f", "#008e97",
+            "#002244", "#125740", "#241773", "#002244", "#0b2265",
+            "#000000", "#773141", "#e31837", "#97233f", "#a5acaf",
+            "#002244", "#4f2683", "#203731", "#d50a0a", "#002244",
+            "#002244", "#002244")
+)

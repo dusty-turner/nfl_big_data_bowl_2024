@@ -208,6 +208,12 @@ tictoc::toc()
 
 # player_out_results %>% write_parquet("player_out_results.parquet")
 # player_out_results %>% write_rds("player_out_results.rds")
+```
+
+
+```{r}
+
+player_out_results <- read_parquet("player_out_results.parquet")
 
 player_probability_increase_by_play <-
 player_out_results %>% filter(!is.na(increase_in_tackle_prob)) %>% 
@@ -225,13 +231,114 @@ average_probability_increase %>%
   group_by(club) %>% 
   filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
 
+week_1 |> distinct(club) |> 
+  print(n = Inf)
+
+library(kableExtra)
 
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
   filter(n > 19) %>% 
-  arrange(-average_play_increase)
+  arrange(-average_play_increase) |> 
+  mutate(average_play_increase =  round(average_play_increase, 1)) |> 
+  left_join(team_colors) |> 
+  slice(1:5) |> 
+  select(-n) |> 
+  rename(Player = 1, ATPA = 2, Position = 3, Team = 4)  |> 
+  select(-Color) |> 
+  kableExtra::kable()
+
+
+average_probability_increase %>% 
+  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
+  filter(n > 19) %>% 
+  arrange(average_play_increase) |> 
+  mutate(average_play_increase =  round(average_play_increase, 1)) |> 
+  left_join(team_colors) |> 
+  slice(1:5) |> 
+  select(-n) |> 
+  rename(Player = 1, ATPA = 2, Position = 3, Team = 4)  |> 
+  select(-Color) |> 
+  kableExtra::kable()
+
+
+atpa <-
+average_probability_increase %>%
+  filter(n >= 20) %>%
+  ggplot(aes(y = average_play_increase, x = fct_reorder(display_name, -average_play_increase), fill = average_play_increase)) +
+  geom_col() +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient(low = "firebrick", high = "forestgreen") +
+  theme_minimal(15) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "none", panel.grid.major = element_blank()) +
+  labs(x = "", y = "Tackle Probability Added")
+
+ggsave(filename = "05-presentation-files/atpa.svg", plot = atpa, width = 10, height = 8)
+```
 
 
 
+
+```{r}
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >=20) |> 
+  arrange(-tackles_over_expected_per_play) |> 
+  select(-plays) |> 
+  slice(1:5) |> 
+  rename(Player = 1, Position = 2, Team = 3, TOE = 4) |> 
+  mutate(TOE = round(TOE,3)) |> 
+  kableExtra::kable()
+
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >=20) |> 
+  arrange(tackles_over_expected_per_play) |> 
+  select(-plays) |> 
+  slice(1:5) |> 
+  rename(Player = 1, Position = 2, Team = 3, TOE = 4) |> 
+  mutate(TOE = round(TOE,3)) |> 
+  kableExtra::kable() 
+
+
+toe_plot <-
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  distinct(game_idplay_id, frame_id, display_name, .keep_all = TRUE) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >= 20) |> distinct(display_name, .keep_all = TRUE)  |> 
+  ggplot(aes(y = tackles_over_expected_per_play, x = fct_reorder(display_name, -tackles_over_expected_per_play), fill = tackles_over_expected_per_play)) +
+  geom_col() +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient(low = "firebrick", high = "forestgreen") +
+  theme_minimal(15) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "none", panel.grid.major = element_blank()) +
+  labs(x = "", y = "Tackles Over Expected") +
+  ylim(-.5,.25)
+
+ggsave(filename = "05-presentation-files/toe.svg", plot = toe_plot, width = 10, height = 8)
+  
 ```
 
