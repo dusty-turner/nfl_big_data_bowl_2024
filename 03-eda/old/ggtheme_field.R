@@ -1,0 +1,343 @@
+library(keras)
+library(tensorflow)
+
+theme_field <- theme(panel.background = element_rect(fill = "white",
+                                                     colour = "white",
+                                                     linewidth = 0.5, linetype = "solid"),
+                     panel.grid.major = element_line(linewidth = 0.5, linetype = 'solid',
+                                                     colour = "black"),
+                     panel.grid.major.y = element_blank())
+
+grab <- function(x){
+  x[,,1] 
+}
+
+plot_matrix <- function(mat) {
+  par(mar = rep(0, 4))
+  standardize <- function(x) (x - min(x)) / (max(x) - min(x)) 
+  mat |>
+    standardize() |>
+    as.raster() |>
+    plot(interpolate = FALSE) # ?graphics::plot.raster
+}
+
+simplifier <- function(data){
+  if(Sys.info()["user"] == "dusty_turner1") {
+    data
+  } else {
+    data %>% 
+      filter(week_id == "week_1")
+  }
+}
+
+x_list_maker <- function(data) {
+  if (Sys.info()["user"] == "dusty_turner1") {
+    map2(
+      .x = example_play$game_id,
+      .y = example_play$play_id,
+      .f = ~ get_play_data(.x, .y, newdata, num_features_per_player_arg = num_features_per_player),
+      .progress = TRUE
+    )
+  } else {
+    library(furrr)
+    plan(multisession)
+    out <- future_map2(
+      .x = example_play$game_id,
+      .y = example_play$play_id,
+      .f = ~ get_play_data(.x, .y, newdata, num_features_per_player_arg = num_features_per_player),
+      .progress = TRUE
+    )
+    plan(sequential)
+    return(out)
+  }
+}
+
+y_list_maker <- function(data) {
+  if (Sys.info()["user"] == "dusty_turner1") {
+    map2(
+      .x = example_play$game_id,
+      .y = example_play$play_id,
+      .f = ~ create_target_matrix(.x, .y, newdata, padded_length = max_length),
+      .progress = TRUE
+    )
+  } else {
+    library(furrr)
+    plan(multisession)
+    out <- future_map2(
+      .x = example_play$game_id,
+      .y = example_play$play_id,
+      .f = ~ create_target_matrix(.x, .y, newdata, padded_length = max_length),
+      .progress = TRUE
+    )
+    plan(sequential)
+    return(out)
+  }
+}
+
+custom_accuracy <- function(y_true, y_pred) {
+  # Apply threshold to get binary class predictions
+  threshold <- 0.5
+  y_pred_binary <- k_cast(k_greater_equal(y_pred, threshold), 'float32')
+  
+  # Calculate accuracy
+  correct_predictions <- k_equal(y_pred_binary, y_true)
+  return(k_mean(correct_predictions))
+}
+
+# Custom F1 Score with a unique name
+f1_score <- function(y_true, y_pred) {
+  precision <- k_cast(k_sum(k_round(k_clip(y_true * y_pred, 0, 1))) / k_sum(k_round(k_clip(y_pred, 0, 1)) + k_epsilon()), 'float32')
+  recall <- k_cast(k_sum(k_round(k_clip(y_true * y_pred, 0, 1))) / k_sum(k_round(k_clip(y_true, 0, 1)) + k_epsilon()), 'float32')
+  f1 <- 2 * ((precision * recall) / (precision + recall + k_epsilon()))
+  k_mean(f1, axis = -1L) %>% k_identity(name = 'f1_score')  # Assign a unique name
+}
+
+# # Custom Log Loss with a unique name
+# log_loss <- function(y_true, y_pred) {
+#   loss <- keras::binary_crossentropy(target = y_true, output = y_pred)
+#   k_mean(loss, axis = -1L) %>% k_identity(name = 'log_loss')  # Assign a unique name
+# }
+
+
+# Define Model Checkpoint Callback
+model_checkpoint_callback <- callback_model_checkpoint(
+  filepath = "best_model.h5",  # Save the best model to this file path
+  save_best_only = TRUE,
+  monitor = "val_loss",
+  verbose = 1
+)
+
+# Define Reduce Learning Rate on Plateau Callback
+reduce_lr_callback <- callback_reduce_lr_on_plateau(
+  monitor = "val_loss",
+  factor = 0.5,
+  patience = 300,
+  verbose = 1
+)
+
+# Define TensorBoard Callback
+# tensorboard_callback <- callback_tensorboard(
+#   log_dir = "./logs",
+#   histogram_freq = 1
+# )
+
+# Define CSV Logger Callback
+# csv_logger_callback <- callback_csv_logger("training_log.csv")
+
+early_stop_callback <- callback_early_stopping(
+  monitor = "val_loss",  # Monitor the validation loss
+  patience = 150,         # Number of epochs with no improvement after which training will be stopped
+  restore_best_weights = TRUE  # Restores model weights from the epoch with the best value of the monitored quantity
+)
+
+
+# Function to check if transformed player's name is mentioned in the tackle part of the play description
+is_name_in_description <- function(player_name = these_are_broke$display_name[21], description = these_are_broke$play_description[21]) {
+  # Function to convert "First Last" to "F. Last"
+  convert_name_format <- function(name) {
+    parts <- str_split(name, " ", simplify = TRUE)
+    if (ncol(parts) > 1) {
+      return(paste0(str_sub(parts[, 1], 1, 1), ".", parts[, 2]))
+    } else {
+      return(name)
+    }
+  }
+  
+  transformed_name <- convert_name_format(player_name)
+  
+  # Regex pattern to capture various phrases that precede the tackle details
+  pattern <- "for (no gain|-?\\d+ yard(s)?) \\([^)]+\\)"
+  tackle_description <- str_extract(description, pattern)
+  
+  # Check if the extracted part contains the transformed player name
+  if (!is.na(tackle_description)) {
+    return(as.integer(str_detect(tackle_description, fixed(transformed_name))))
+  } else {
+    return(0)  # Return 0 if there is no matching part
+  }
+}
+
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = ratio) {
+  # Calculate binary crossentropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Apply weights
+  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+  weighted_bce <- weights * bce
+  
+  # Return mean loss over the batch
+  return(keras::k_mean(weighted_bce))
+}
+
+library(ggplot2)
+
+## Repo: https://github.com/mlfurman3/gg_field
+
+## arguments
+#-------------------------------------------------------------
+## yardmin: cutoff for left side of field, defaults to  0 (back of left endzone)
+## yardmax: cutoff for right side of field, defaults to  120 (back of right endzone)
+## buffer:  extra space included on each sideline, defaults to 5 yards each
+## direction: orientation of the field, options are "horiz" or "vert"
+## field_color: color for background of field
+## line_color: color for yard-line markers and field numbers
+## sideline_color: color for sideline buffer, defaults to same as field_color
+## endzone_color: color for endzones
+#-------------------------------------------------------------
+
+
+## gg_field function - set up as a list of annotations
+gg_field <- function(yardmin=0, yardmax=120, buffer=5, direction="horiz",
+                     field_color="forestgreen",line_color="white",
+                     sideline_color=field_color, endzone_color="darkgreen"){
+  
+  ## field dimensions (units=yards)
+  xmin <- 0
+  xmax <- 120
+  
+  ymin <- 0
+  ymax <- 53.33
+  
+  
+  ## distance from sideline to hash marks in middle (70 feet, 9 inches)
+  hash_dist <- (70*12+9)/36
+  
+  ## yard lines locations (every 5 yards) 
+  yd_lines <- seq(15,105,by=5)
+  
+  ## hash mark locations (left 1 yard line to right 1 yard line)
+  yd_hash <- 11:109
+  
+  ## field number size
+  num_size <- 5
+  
+  ## rotate field numbers with field direction
+  ## first element is for right-side up numbers, second for upside-down
+  angle_vec <- switch(direction, "horiz" = c(0, 180), "vert" = c(270, 90))
+  num_adj <- switch(direction, "horiz" = c(-1, 1), "vert" = c(1, -1))
+  
+  ## list of annotated geoms
+  p <- list(
+    
+    ## add field background 
+    annotate("rect", xmin=xmin, xmax=xmax, ymin=ymin-buffer, ymax=ymax+buffer, 
+             fill=field_color),
+    
+    ## add end zones
+    annotate("rect", xmin=xmin, xmax=xmin+10, ymin=ymin, ymax=ymax, fill=endzone_color),
+    annotate("rect", xmin=xmax-10, xmax=xmax, ymin=ymin, ymax=ymax, fill=endzone_color),
+    
+    ## add yardlines every 5 yards
+    annotate("segment", x=yd_lines, y=ymin, xend=yd_lines, yend=ymax,
+             col=line_color),
+    
+    ## add thicker lines for endzones, midfield, and sidelines
+    annotate("segment",x=c(0,10,60,110,120), y=ymin, xend=c(0,10,60,110,120), yend=ymax,
+             lwd=1.3, col=line_color),
+    annotate("segment",x=0, y=c(ymin, ymax), xend=120, yend=c(ymin, ymax),
+             lwd=1.3, col=line_color) ,
+    
+    ## add field numbers (every 10 yards)
+    ## field numbers are split up into digits and zeros to avoid being covered by yard lines
+    ## numbers are added separately to allow for flexible ggplot stuff like facetting
+    
+    ## 0
+    annotate("text",x=seq(20,100,by=10) + num_adj[2], y=ymin+12, label=0, angle=angle_vec[1],
+             col=line_color, size=num_size),
+    
+    ## 1
+    annotate("text",label=1,x=c(20,100) + num_adj[1], y=ymin+12, angle=angle_vec[1],
+             colour=line_color, size=num_size),
+    ## 2
+    annotate("text",label=2,x=c(30,90) + num_adj[1], y=ymin+12, angle=angle_vec[1],
+             colour=line_color, size=num_size),
+    ## 3
+    annotate("text",label=3,x=c(40,80) + num_adj[1], y=ymin+12, angle=angle_vec[1],
+             colour=line_color, size=num_size),
+    ## 4
+    annotate("text",label=4,x=c(50,70) + num_adj[1], y=ymin+12, angle=angle_vec[1],
+             colour=line_color, size=num_size),
+    ## 5
+    annotate("text",label=5,x=60 + num_adj[1], y=ymin+12, angle=angle_vec[1],
+             colour=line_color, size=num_size),
+    
+    
+    ## upside-down numbers for top of field
+    
+    ## 0
+    annotate("text",x=seq(20,100,by=10) + num_adj[1], y=ymax-12, angle=angle_vec[2],
+             label=0, col=line_color, size=num_size),
+    ## 1
+    annotate("text",label=1,x=c(20,100) + num_adj[2], y=ymax-12, angle=angle_vec[2],
+             colour=line_color, size=num_size),
+    ## 2
+    annotate("text",label=2,x=c(30,90) + num_adj[2], y=ymax-12, angle=angle_vec[2],
+             colour=line_color, size=num_size),
+    ## 3
+    annotate("text",label=3,x=c(40,80) + num_adj[2], y=ymax-12, angle=angle_vec[2],
+             colour=line_color, size=num_size),
+    ## 4
+    annotate("text",label=4,x=c(50,70) + num_adj[2], y=ymax-12, angle=angle_vec[2],
+             colour=line_color, size=num_size),
+    ## 5
+    annotate("text",label=5,x=60 + num_adj[2], y=ymax-12, angle=angle_vec[2],
+             colour=line_color, size=num_size),
+    
+    
+    ## add hash marks - middle of field
+    annotate("segment", x=yd_hash, y=hash_dist - 0.5, xend=yd_hash, yend=hash_dist + 0.5,
+             color=line_color),
+    annotate("segment", x=yd_hash, y=ymax - hash_dist - 0.5, 
+             xend=yd_hash, yend=ymax - hash_dist + 0.5,color=line_color),
+    
+    ## add hash marks - sidelines
+    annotate("segment", x=yd_hash, y=ymax, xend=yd_hash, yend=ymax-1, color=line_color),
+    annotate("segment", x=yd_hash, y=ymin, xend=yd_hash, yend=ymin+1, color=line_color),
+    
+    ## add conversion lines at 2-yard line
+    annotate("segment",x=12, y=(ymax-1)/2, xend=12, yend=(ymax+1)/2, color=line_color),
+    annotate("segment",x=108, y=(ymax-1)/2, xend=108, yend=(ymax+1)/2, color=line_color),
+    
+    ## cover up lines outside of field with sideline_color
+    annotate("rect", xmin=0, xmax=xmax, ymin=ymax, ymax=ymax+buffer, fill=sideline_color),
+    annotate("rect",xmin=0, xmax=xmax, ymin=ymin-buffer, ymax=ymin, fill=sideline_color),
+    
+    ## remove axis labels and tick marks
+    labs(x="", y=""),
+    theme(axis.text.x = element_blank(),axis.text.y = element_blank(),
+          axis.ticks = element_blank()),
+    
+    ## clip axes to view of field
+    if(direction=="horiz"){
+      coord_cartesian(xlim=c(yardmin, yardmax), ylim = c(ymin-buffer,ymax+buffer), 
+                      expand = FALSE)
+      
+    } else if (direction=="vert"){
+      ## flip entire plot to vertical orientation
+      coord_flip(xlim=c(yardmin, yardmax), ylim = c(ymin-buffer,ymax+buffer), expand = FALSE)
+      
+    }
+  )
+  
+  return(p)
+  
+}
+
+library(tibble)
+
+team_colors <- tibble(
+  club = c("BUF", "LA", "NO", "ATL", "CLE", 
+           "CAR", "SF", "CHI", "CIN", "PIT",
+           "PHI", "DET", "IND", "HOU", "MIA",
+           "NE", "NYJ", "BAL", "TEN", "NYG",
+           "JAX", "WAS", "KC", "ARI", "LV",
+           "LAC", "MIN", "GB", "TB", "DAL",
+           "DEN", "SEA"),
+  Color = c("#00338d", "#002244", "#9f8958", "#a71930", "#fb4f14",
+            "#0085ca", "#aa0000", "#0b162a", "#000000", "#000000",
+            "#004953", "#005a8b", "#002c5f", "#03202f", "#008e97",
+            "#002244", "#125740", "#241773", "#002244", "#0b2265",
+            "#000000", "#773141", "#e31837", "#97233f", "#a5acaf",
+            "#002244", "#4f2683", "#203731", "#d50a0a", "#002244",
+            "#002244", "#002244")
+)

@@ -19,7 +19,7 @@ library(tensorflow)
 library(reticulate)
 library(data.table)
 library(gganimate)
-source(here::here("03-eda","ggtheme_field.R"))
+source(here::here("03-eda","0-source-functions.R"))
 if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
 source(here::here("03-eda", "data_cleaning.R"))
 } else {

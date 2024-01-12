@@ -16,7 +16,7 @@ message: false
 library(tidyverse)
 library(gganimate)
 library(arrow)
-source(here::here("03-eda","ggtheme_field.R"))
+source(here::here("03-eda","0-source-functions.R"))
 
 test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds_2024-01-07_16-03-36.rds"))
 week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
@@ -206,14 +206,13 @@ player_out_results <-
 map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id", .progress = TRUE)
 tictoc::toc()
 
-# player_out_results %>% write_parquet("player_out_results.parquet")
-# player_out_results %>% write_rds("player_out_results.rds")
+# player_out_results %>% write_parquet(here::here("04-models","player_out_results.parquet"))
 ```
 
 
 ```{r}
 
-player_out_results <- read_parquet("player_out_results.parquet")
+player_out_results <- read_parquet(here::here("04-models","player_out_results.parquet"))
 
 player_probability_increase_by_play <-
 player_out_results %>% filter(!is.na(increase_in_tackle_prob)) %>% 

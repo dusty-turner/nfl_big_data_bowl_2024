@@ -16,7 +16,7 @@ message: false
 library(tidyverse)
 library(gganimate)
 library(arrow)
-source(here::here("03-eda","ggtheme_field.R"))
+source(here::here("03-eda","0-source-functions.R"))
 
 # test_joined_with_preds <- read_rds(here::here("04-models", "test_joined_with_preds_2024-01-06_18-30-20.rds"))
 week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))

@@ -21,7 +21,7 @@ library(tidyverse)
 library(gganimate)
 # library(arrow)
 
-source(here::here("03-eda","ggtheme_field.R"))
+source(here::here("03-eda","0-source-functions.R"))
 
 test_joined_with_preds <- read_rds("04-models/test_joined_with_preds_2024-01-07_16-03-36.rds")
 
