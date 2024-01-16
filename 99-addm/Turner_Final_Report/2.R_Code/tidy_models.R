@@ -1,6 +1,6 @@
 library(tidyverse)
 library(tidymodels)
-source(here::here("03-eda", "data_cleaning.R"))
+source(here::here("03-eda", "1-data-clearning.R"))
 
 running_data <- 
   dplyr::filter(defensive_model_building_data_model, is.na(pass_result)) |> select(-pass_result) |> 

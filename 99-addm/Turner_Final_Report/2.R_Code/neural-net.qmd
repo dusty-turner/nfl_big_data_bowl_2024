@@ -17,8 +17,8 @@ library(tidyverse)
 library(tidymodels)
 library(reticulate)
 
-if(digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
-source(here::here("03-eda", "data_cleaning.R"))
+if(digest::sha1(read_lines(here::here("03-eda", "1-data-clearning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
+source(here::here("03-eda", "1-data-clearning.R"))
 } else {
   defensive_model_building_data <- read_rds(here::here("02-clean-data", "data_cleaning_working.RDS"))
 }
