@@ -109,19 +109,21 @@ ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$se
 ```{r}
 library(gganimate)
 
-week_1 |> count(game_idplay_id)
+test_joined_with_preds |> 
+  filter(play_type == "scramble") %>% 
+  count(game_idplay_id)
 
 # week_1 %>% filter(game_idplay_id == "20220908001102") |> filter(tackle == 1) |> select(display_name, jersey_number)
 # week_1 %>% filter(game_idplay_id == "20220908001030") |> filter(tackle == 1) |> select(display_name, jersey_number)
 # week_1 %>% filter(game_idplay_id == "20220908001358") |> filter(tackle == 1) |> select(display_name, jersey_number)
-week_1 %>% filter(game_idplay_id == "2022090800122") |> filter(tackle == 1) |> select(display_name, jersey_number)
+week_1 %>% filter(game_idplay_id == "20220911001587") |> filter(tackle == 1) |> select(display_name, jersey_number)
 
 # Assuming week_1 is your data frame
 animated_plot <-
   # week_1 %>% filter(game_idplay_id == "20220908001102") |> 
   # week_1 %>% filter(game_idplay_id == "20220908001030") |> 
   # week_1 %>% filter(game_idplay_id == "20220908001358") |> 
-  week_1 %>% filter(game_idplay_id == "2022090800122") |> 
+  week_1 %>% filter(game_idplay_id == "20220911001587") |> 
   left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
   filter(!is.na(final_predictions)) %>% 
   group_by(game_id, play_id) %>% 
@@ -142,7 +144,7 @@ week_1 |>
   # filter(game_idplay_id == "20220908001102") |>
   # filter(game_idplay_id == "20220908001030") |>
   # filter(game_idplay_id == "20220908001358") |>
-  filter(game_idplay_id == "2022090800122") |>
+  filter(game_idplay_id == "20220911001587") |>
   left_join(test_joined_with_preds) |> 
   relocate(final_predictions) |> 
   filter(frame_id <= max(frame_id)-4) |> 
