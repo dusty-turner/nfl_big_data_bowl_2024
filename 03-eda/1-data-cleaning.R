@@ -5,7 +5,7 @@ source(here::here("03-eda","0-source-functions.R"))
 
 week_1 <-
   read_parquet(here::here("02-clean-data","tracking.parquet")) |>
-  # simplifier() |>
+  simplifier() |>
   left_join(y = read_parquet(here::here("02-clean-data","tackles.parquet"))) |>
   left_join(read_parquet(here::here("02-clean-data","plays.parquet"))) |>
   left_join(read_parquet(here::here("02-clean-data","players.parquet"))) |>
@@ -395,7 +395,7 @@ week_1 |> as_tibble() |>
 
 dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, play_id)
 
-digest::sha1(read_lines(here::here("03-eda", "data_cleaning.R"))) |> 
+digest::sha1(read_lines(here::here("03-eda", "1-data-cleaning.R"))) |> 
   write_lines("02-clean-data/cleaninghash.txt")
  
 # 

@@ -8,9 +8,14 @@ engines:
 cache: true
 warning: false
 message: false
+echo: false
 ---
 
-## Testing
+## Neural Network Explaination
+
+The purpose of this file is to highlight the intricacies of the data structure for this LSTM Neural Network.
+
+I present a summary of the data below.  I'm only showing about 1/9 of the data as I cannot work with it all on my office computer.
 
 ```{r}
 library(tidyverse)
@@ -20,7 +25,6 @@ library(reticulate)
 library(data.table)
 library(gganimate)
 library(arrow)
-
 source(here::here("03-eda","0-source-functions.R"))
 if(digest::sha1(read_lines(here::here("03-eda", "1-data-cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
   source(here::here("03-eda", "1-data-cleaning.R"))
@@ -29,7 +33,7 @@ if(digest::sha1(read_lines(here::here("03-eda", "1-data-cleaning.R"))) != read_l
   week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 }
 
-if (Sys.info()["user"] == "dusty_turner1") {
+if (Sys.info()["user"] == "dusty_turner1") { ## looks for cheese grater
   mod <- read_rds(here::here("04-models", "model_data.rds"))
   x_train <- mod$x_train
   y_train <- mod$y_train
@@ -44,6 +48,8 @@ if (Sys.info()["user"] == "dusty_turner1") {
 }
 
 ```
+
+
 
 ```{r}
 deff <-
@@ -100,6 +106,25 @@ newdata <-
   non_centered_newdata |> 
   mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) 
 ```
+
+The factors considered are below.
+
+```{r}
+select(non_centered_newdata, -display_name, -game_id, -play_id, -frame_id) |> skimr::skim()
+```
+
+## Keras / Tensorflow Requirements
+
+Keras/Tensorflow require an LSTM to be in a unique shape.  
+
+- Each row must be a time step.
+- Each play must be in its own unique matrix.
+
+This differs from how we typically conceptualize this data where each row is a player per time step.  
+
+The implications is that we must shape the data to have 11 'y's where each column is a 0/1 if that player makes a tackle.  We must then widen the data also so that each factor, x coordinate for example, has 11 columns, one for each player.
+
+Also, every matrix must be the same length.  This means that each play must be the same number of time steps.  We know this isn't true but we must pad all plays with '0' to be the length of the longest play.  This gets handled in our model specification. 
 
 ### Shape up Data
 
@@ -206,7 +231,32 @@ beepr::beep()
 
 ```
 
-### Spliting and Identifying Data
+The shape of our 'x' data is 1171 plays, 94 time steps long, by 946 factors wide. 
+
+```{r echo=TRUE}
+x_data |> dim()
+```
+
+You can see play 1 is 94 time steps long, by 946 factors wide. 
+
+```{r echo=TRUE}
+x_data[1,,] |> dim()
+```
+
+The shape of our 'y' data is 1171 plays, 94 time steps long, by 11 factors wide - one for each player. 
+
+```{r echo=TRUE}
+y_data |> dim()
+```
+
+You can see play 1 is 94 time steps long, by 946 factors wide. 
+
+```{r echo=TRUE}
+y_data[1,,] |> dim()
+```
+
+
+<!-- ### Spliting and Identifying Data -->
 
 ```{r}
 
@@ -239,10 +289,28 @@ tracking_test <- tracking_list[test_indices]
 
 ```
 
-
 ## Build Model
 
-```{r}
+
+- **Building the LSTM Model:**
+  - `keras_model_sequential()`: Initializes a sequential model.
+  - `layer_masking`: Applies masking on the input layer, ignoring zeros for padding.
+  - `layer_lstm`: Adds LSTM layers. `return_sequences` is set to `TRUE` for returning sequences.
+  - `kernel_regularizer` and `recurrent_regularizer`: Apply L2 regularization to the kernel and recurrent data of the LSTM.
+  - `layer_dropout`: Adds dropout layers with a rate of `.75` to prevent overfitting.
+
+- **Compiling the Model:**
+  - Compiles the model with:
+    - `loss = weighted_binary_crossentropy`: Specifies log loss with weighting to correct balance of 0/1.
+    - `optimizer = optimizer_adam(learning_rate = 0.001)`: Uses Adam optimizer with a learning rate of 0.001.
+    - `metrics`: Accuracy/Precision/Recall
+
+- **Training the Model:**
+  - `model %>% fit`: Trains the model with:
+    - Number of epochs (`500`).
+    - Batch size (`half of data`).
+
+```{r, echo=TRUE}
 run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, 
                    optimizer_param = 'adam', positive_weight_param = 11,
                    layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
@@ -274,18 +342,6 @@ model <- keras_model_sequential() %>%
   layer_dropout(rate = rate_param) %>%
   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
 
-# model <- keras_model_sequential() %>%
-#   layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
-#   layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
-
-    
-# Compile the model
 model %>% compile(
   loss = weighted_binary_crossentropy,
   optimizer = optimizer_adam(learning_rate = 0.001),
@@ -293,55 +349,16 @@ model %>% compile(
     custom_accuracy,       # Assuming this is a predefined metric
     metric_precision(),    # Precision
     metric_recall(),       # Recall
-    # f1_score,              # F1 Score (custom)
     metric_auc()          # AUC-ROC
-    # log_loss               # Log Loss (custom)
   )
 )
 
-model_start_time <- tictoc::tic()
-
-# Train the model
 history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
   validation_data = list(x_test, y_test)
-  # callbacks = list(
-    # early_stop_callback,
-    # model_checkpoint_callback,
-    # reduce_lr_callback
-  #   # tensorboard_callback,
-  #   # csv_logger_callback
-  # )
 )
-
-model_end_time <- tictoc::toc()
-model_execution_time <- (model_end_time$toc - model_end_time$tic)[[1]]  # Calculate execution time for model building and training
-
-final_accuracy <- history$metrics$python_function[length(history$metrics$precision)]
-final_precision <- history$metrics$precision[length(history$metrics$precision)]
-final_recall <- history$metrics$recall[length(history$metrics$recall)]
-final_f1_score <- history$metrics$f1_score[length(history$metrics$f1_score)]
-final_auc <- history$metrics$auc[length(history$metrics$auc)]
-final_log_loss <- history$metrics$log_loss[length(history$metrics$log_loss)]
-
-now_time <- now()
-formatted_time <- format(now_time, "%Y-%m-%d_%H-%M-%S")
-
-
-tibble(
-  accuracy = final_accuracy, precision = final_precision, recall = final_recall, f1_score = final_f1_score, auc = final_auc, 
-  log_loss = final_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
-  optimizer = optimizer_param, rate = rate_param, time = now_time, user = Sys.info()["user"], 
-  positive_weight_param = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
-) |> 
-    bind_rows(raw_tracker) |> 
-    arrange(desc(time)) |> 
-    print() |> 
-    write_csv(here::here("04-models", "model_tracker.csv"))
-
-save_model_tf(model, str_c("04-models/", formatted_time))
 
 return(list(model = model, history = history))  
   
@@ -354,240 +371,30 @@ newdata %>%
   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 500,
+  epochs_param = 5,
   units_param = 400,
   rate_param = .75,
   l2_value_param = .001,
-  # l2_value_param = 0,
   layers_param = 3,
   batch_size_param = 7028/2,
   positive_weight_param = ratio,
-  # positive_weight_param = ratio,
   notes_param = "add in play type 2 layers 500 epoch",
   optimizer_param = "adam"
-  # activation_param = "relu"
 )
-
-
-epoch_values <- c(10000)
-rate_values <- c(.5,.75)
-l2_values <- c(.001)
-positive_weight_value <- c(ratio)
-units_value <- c(400)
-
-# Generate all combinations
-set.seed(123)
-param_grid <- expand.grid(epochs_param = epoch_values,
-                          rate_param = rate_values,
-                          l2_value_param = l2_values,
-                          units_param = units_value,
-                          positive_weight_param = positive_weight_value)  
-
-  # sample_n(35)
-
-pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
-  run_nn(
-    epochs_param = epochs_param,
-    units_param = units_param,  # Assuming a fixed value
-    rate_param = rate_param,
-    l2_value_param = l2_value_param,
-    layers_param = 2,  # Assuming a fixed value
-    batch_size_param = 7028,  # Assuming a fixed value
-    notes_param = "Hyperparameter tuning 1111",
-    positive_weight_param = positive_weight_param,
-    optimizer_param = "adam"  # Assuming a fixed value
-    # activation_param = "relu"  # Uncomment if needed
-  )
-})
-
-# View the training history
-plot(out$history) + xlim(0,430)
-# history$metrics |> as_tibble() |> print(n = Inf)
 ```
 
+### Epoch Performance Over Time
 
 ```{r}
-model2 <- load_model_tf("04-models/2024-01-07_16-03-36", custom_objects = list(
-  # model2 <- load_model_tf("04-models", custom_objects = list(
-    weighted_binary_crossentropy = weighted_binary_crossentropy,
-    python_function = weighted_binary_crossentropy
-))
+plot(out$history) +
+  geom_line()
 ```
 
-### Accuracy
+### Tackles over Replacement
 
+To calculate this, I...
 
-```{r}
-# Predict on test data
-
-y_pred_test <- out$model %>% predict(x_test)
-y_pred_test <- model2 %>% predict(x_test)
-
-# Binarize predictions (since we used a sigmoid activation, the output is a probability)
-y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
-
-# Calculate accuracy
-accuracy <- sum(y_pred_binarized == y_test) / length(y_test)
-
-# Print accuracy
-print(paste("Accuracy:", accuracy))
-
-# Flatten the tracking arrays for the test set
-tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
-
-  # Flatten your model predictions in a similar manner
-predictions_flat <- array_reshape(y_pred_test, c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
-
-# Now, filter out padded predictions using the tracking data
-final_predictions <- predictions_flat[tracking_test_flat == 1]
-
-
-test_joined_with_preds <-
-test_data |> 
-  arrange(game_id, play_id, frame_id, display_name) |>
-  mutate(game_id = as.character(game_id)) |> 
-  mutate(play_id = as.character(play_id)) |> 
-  mutate(tackle = as.factor(tackle)) |> 
-  mutate(final_predictions = as.double(final_predictions)) |> 
-  mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) |> 
-  mutate(game_idplay_id = str_c(game_id, play_id))
-
-test_joined_with_preds <- 
-test_joined_with_preds %>% 
-  select(game_id,play_id, frame_id, display_name, final_predictions, binary_predictions) %>% 
-  left_join(week_1) %>% 
-  mutate(tackle = as.factor(tackle)) 
-  
-
-test_joined_with_preds |> 
-  count(binary_predictions)
-
-test_joined_with_preds |> 
-group_by(play_type) %>%
-  yardstick::accuracy(truth = tackle, estimate = binary_predictions) %>%
-  print(n = Inf)
-
-test_joined_with_preds |> 
-  group_by(play_type) %>%
-  yardstick::precision(truth = tackle, estimate = binary_predictions) 
-
-test_joined_with_preds |> 
-  group_by(play_type) %>%
-  yardstick::recall(truth = tackle, estimate = binary_predictions)
-
-
-test_joined_with_preds |> 
-  mutate(game_idplay_id = str_c(game_id,play_id)) %>% 
-  # group_by(game_id, play_id) |>
-  filter(game_idplay_id=="2022090800167") %>% 
-  select(display_name, tackle, final_predictions, binary_predictions, jersey_number) |> 
-  arrange(display_name) |> 
-  print(n = Inf)
-```
-
-```{r}
-write_rds(test_joined_with_preds,"04-models/test_joined_with_preds_2024-01-07_01-24-06.rds")
-```
-
-
-
-```{r}
-
-library(pROC)
-
-# Creating the ROC object
-roc_result<- roc(response = test_joined_with_preds$tackle, predictor = test_joined_with_preds$final_predictions)
-
-# Calculating the AUC
-auc_value <- auc(roc_result)
-
-# Plotting the ROC curve
-ggplot(data = data.frame(fpr = 1 - roc_result$specificities, tpr = roc_result$sensitivities), aes(x = fpr, y = tpr)) +
-  geom_line() +
-  geom_abline(linetype = "dashed") +
-  labs(x = "False Positive Rate", y = "True Positive Rate", title = "ROC Curve") +
-  annotate("text", x = 0.6, y = 0.4, label = paste("AUC =", round(auc_value, 2)))
-
-
-```
-
-
-## Animations
-
-```{r}
-library(gganimate)
-
-# Assuming week_1 is your data frame
-animated_plot <-
-  week_1 %>% 
-    filter(game_idplay_id == "2022090800167") %>%  
-  left_join(test_joined_with_preds %>% select(game_id, play_id, display_name, frame_id, final_predictions), by = c("game_id", "play_id", "display_name", "frame_id")) %>% 
-  filter(!is.na(final_predictions)) %>% 
-  group_by(game_id, play_id) %>% 
-  # filter(cur_group_id() == 4) |> pull(game_idplay_id)
-  ungroup()  |> 
-  select(frame_id, final_predictions, jersey_number, tackle) |>
-  ggplot(aes(x = frame_id, y = final_predictions)) + 
-  geom_line() +
-  geom_point(show.legend = FALSE, size = 3) + 
-  facet_wrap(~jersey_number) +
-  transition_reveal(frame_id)
-
-anm1 <- animate(animated_plot, width = 800, height = 600, nframes = 100)
-
-animated_plot2 <-
-week_1 |> 
-  filter(game_idplay_id=="2022090800167") %>% 
-  # filter(play_id %in% test_joined_with_preds$play_id) |> 
-  # filter(game_id %in% test_joined_with_preds$game_id) |> 
-  left_join(
-    test_joined_with_preds |> select(game_id, play_id, display_name, frame_id, final_predictions) |> 
-      mutate(final_predictions = ifelse(is.na(final_predictions), 0, final_predictions))
-    ) |> 
-  group_by(game_id, play_id) |> 
-  # filter(cur_group_id() == 4) |>
-  # filter(frame_id >=5) |> 
-  filter(frame_id <= max(frame_id)-4) |>
-  mutate(final_predictions = ifelse(club == defensive_team & is.na(final_predictions), 0, final_predictions)) |> 
-  ungroup()  |> 
-  # select(final_predictions) %>% filter(!is.na(final_predictions)) %>% print(n = Inf)
-  mutate(color = final_predictions) |> 
-  mutate(jersey_number = ifelse(defensive_team == club, jersey_number, "")) |> 
-  select(display_name, distance_to_ball, x, y, color, absolute_yardline_number, ball_carrier, play_id, time, play_description, is_football, club, jersey_number, final_predictions, defensive_team, frame_id) %>%
-  # filter(!is.na(final_predictions)) %>% pull(color) %>% range()
-{
-  ggplot(data = ., aes(x = x, y = y, color = color)) +
-      # ggplot(aes(x = x, y = y, color = color)) +
-  geom_vline(aes(xintercept = absolute_yardline_number), color = "blue") +
-  geom_point(aes(shape = is_football), size = 3, show.legend = FALSE) +
-  geom_text(aes(label = jersey_number), color = "black", nudge_y = -1) +
-  scale_color_gradient(low = "grey", high = "black", na.value = "dodgerblue") +
-  transition_time(time) + ease_aes("linear") +
-  labs(y = "", x = "Yards To Endzone", title = str_wrap(.$play_description[1], width = 80)) +
-  theme_field
-}
-
-anm2 <- animate(animated_plot2, width = 800, height = 600, nframes = 100)
-
-# nn_briar <- 
-  test_joined_with_preds |>
-    mutate(game_idplay_id = str_c(game_id, play_id)) |> 
-  select(game_idplay_id, display_name,tackle, final_predictions) |> 
-  filter(!is.na(final_predictions)) |> 
-  mutate(tackle  = as.integer(as.character(tackle))) |> 
-  mutate(part = tackle - final_predictions)   |> 
-  group_by(game_idplay_id, display_name)  |> 
-  summarise(mean_error_play = mean(part)) |> 
-  group_by(display_name) |> 
-<<<<<<< HEAD
-  summarise(average_tackles_over_expected = mean(mean_error_play), n = n()) |> 
-  arrange(-average_tackles_over_expected) |> 
-  filter(n >= 10)
-    
-  
-
-```
-
+The shape of my data for prediction is
 
 ```{r}
 vectors <- NULL
@@ -600,6 +407,39 @@ for (i in 1:10) {
   
   # Add the vector to the list
   vectors[[i]] <- vector
+}
+
+example_play <- distinct(newdata, game_id, play_id) 
+
+pad_time_series <- function(x, max_length) {
+    n_pad <- max_length - nrow(x)
+    pad_matrix <- matrix(0, nrow = n_pad, ncol = ncol(x))
+    rbind(x, pad_matrix)
+}
+
+create_target_matrix <- function(game_id_arg, play_id_arg, df, padded_length) {
+    # Filter and arrange data, then transform to wide format
+    target_matrix <- df %>%
+        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
+        arrange(frame_id, display_name) %>%
+        select(display_name, tackle) %>%
+        distinct() %>%
+        pivot_wider(names_from = display_name, values_from = tackle) %>%
+        mutate(n_rows = padded_length) %>%
+        uncount(n_rows) %>%
+        as.matrix()
+
+    # Set column names for clarity
+    colnames(target_matrix) <- paste0("Player ", 1:11)
+    target_matrix
+}
+
+create_tracking_array <- function(x, max_length, num_players) {
+    tracking_array <- array(0, dim = c(max_length, num_players))
+    if (nrow(x) > 0) {
+        tracking_array[1:nrow(x), ] <- 1
+    }
+    tracking_array
 }
 
 these_are_test_set <-
@@ -617,6 +457,7 @@ newdata |>
 
 double_creater <- function(player_number, vec){
 
+  print(player_number)
   print(vec)
   
 with_double_player <-
@@ -653,6 +494,8 @@ x_list_1 <-
       .progress = TRUE
     )
 
+
+
 y_padded_1 <-
     map2(
       .x = example_play_1$game_id,
@@ -665,10 +508,10 @@ x_padded_1 <- lapply(x_list_1, pad_time_series, max_length = max_length)
 
 x_data_1 <- array(dim = c(length(x_padded_1), time_steps, num_features))
 for (i in 1:length(x_padded_1)) {
-  x_data_1[i, , ] <- x_padded[[i]]
+  x_data_1[i, , ] <- x_padded_1[[i]]
 }
 
-y_data_1 <- array(dim = c(length(y_padded_1), max_length, ncol(y_padded[[1]])))
+y_data_1 <- array(dim = c(length(y_padded_1), max_length, ncol(y_padded_1[[1]])))
 for (i in 1:length(y_padded_1)) {
   y_data_1[i, , ] <- y_padded_1[[i]]
 }
@@ -676,20 +519,18 @@ for (i in 1:length(y_padded_1)) {
 tracking_list_1 <- lapply(x_list_1, create_tracking_array, max_length = max_length, num_players = 11)
 tracking_test_1 <- tracking_list_1
 
-y_pred_test_1 <- out$model %>% predict(x_data_1)
+y_pred_test_1 <- model2 %>% predict(x_data_1)
 
 y_pred_binarized_1 <- array(ifelse(y_pred_test_1 > 0.5, 1, 0), dim(y_pred_test_1))
 
 # Calculate accuracy
-accuracy_1 <- sum(y_pred_binarized_1 == y_data_1) / length(y_data_1)
+# accuracy_1 <- sum(y_pred_binarized_1 == y_data_1) / length(y_data_1)
 
 # Print accuracy
-print(paste("Accuracy:", accuracy_1))
+# print(paste("Accuracy:", accuracy_1))
 
 # Flatten the tracking arrays for the test set
 tracking_test_flat_1 <- array_reshape(do.call(cbind, tracking_test_1), c(dim(y_pred_test_1)[1] * dim(y_pred_test_1)[2] * dim(y_pred_test_1)[3]))
-
-
 
 # Flatten your model predictions in a similar manner
 predictions_flat_1 <- array_reshape(y_pred_test_1, c(dim(y_pred_test_1)[1] * dim(y_pred_test_1)[2] * dim(y_pred_test_1)[3]))
@@ -708,9 +549,7 @@ with_double_player |>
   mutate(game_idplay_id = str_c(game_id, play_id))
 
 test_joined_with_preds_1 |> 
-  # select(game_idplay_id, display_name, frame_id, tackle,  final_predictions_1, binary_predictions_1) |> 
   select(game_idplay_id, display_name, frame_id, tackle, final_predictions_1) |> 
-  # left_join(test_joined_with_preds |> select(game_idplay_id, display_name, frame_id, final_predictions, binary_predictions)) |> 
   left_join(test_joined_with_preds |> select(game_idplay_id, display_name, frame_id, final_predictions)) |> 
   group_by(game_idplay_id, frame_id, display_name) |> 
   filter(row_number() != 2) |> 
@@ -719,25 +558,194 @@ test_joined_with_preds_1 |>
   group_by(game_idplay_id) |> 
   summarise(increase_in_tackle_prob = sum(delta_probability_added)) |> 
   ungroup() |> 
-  left_join(player_removed) |> 
-  group_by(display_name) |> 
-  summarise(total_probability_added = sum(increase_in_tackle_prob), average_probability_added = mean(increase_in_tackle_prob)) |>
-  ungroup() |> 
-  arrange(-total_probability_added) 
+  left_join(player_removed) %>% 
+  mutate(player_number = player_number)
 
 }
 
-# map_dfr(.x = vectors[1:2], .f = ~double_creater(player_number = 1, vec = .x), .id = "vector_id")
+library(furrr)
+plan(multisession)
+options(future.globals.maxSize = 10000000000)
+tictoc::tic()
 player_out_results <-
-map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id")
+future_map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id", .progress = TRUE)
+tictoc::toc()
 
-player_out_results |> 
-  group_by(display_name) |> 
-  summarise(total_probability_added = sum(total_probability_added), average_probability_added = mean(average_probability_added)) |> 
-  arrange(total_probability_added)
-  # reframe(tackles_over_expected = sum(tackles_over_expected_play)) |> 
-  # arrange(tackles_over_expected)
+# player_out_results %>% write_parquet(here::here("04-models","player_out_results.parquet"))
+```
 
+
+```{r}
+
+player_out_results <- read_parquet(here::here("04-models","player_out_results.parquet"))
+
+player_probability_increase_by_play <-
+player_out_results %>% filter(!is.na(increase_in_tackle_prob)) %>% 
+  group_by(game_idplay_id, display_name) %>% 
+  summarise(total_increase_in_tackle_prob = mean(increase_in_tackle_prob, na.rm = TRUE)) 
+
+average_probability_increase <-
+player_probability_increase_by_play %>% 
+  group_by(display_name) %>% 
+  summarise(average_play_increase = mean(total_increase_in_tackle_prob), n = n())
+
+average_probability_increase %>% 
+  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  filter(n > 19) %>% 
+  group_by(club) %>% 
+  filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
+
+week_1 |> distinct(club) |> 
+  print(n = Inf)
+
+library(kableExtra)
+
+average_probability_increase %>% 
+  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
+  filter(n > 19) %>% 
+  arrange(-average_play_increase) |> 
+  mutate(average_play_increase =  round(average_play_increase, 1)) |> 
+  left_join(team_colors) |> 
+  slice(1:5) |> 
+  select(-n) |> 
+  rename(Player = 1, ATPA = 2, Position = 3, Team = 4)  |> 
+  select(-Color) |> 
+  kableExtra::kable()
+
+
+average_probability_increase %>% 
+  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
+  filter(n > 19) %>% 
+  arrange(average_play_increase) |> 
+  mutate(average_play_increase =  round(average_play_increase, 1)) |> 
+  left_join(team_colors) |> 
+  slice(1:5) |> 
+  select(-n) |> 
+  rename(Player = 1, ATPA = 2, Position = 3, Team = 4)  |> 
+  select(-Color) |> 
+  kableExtra::kable()
+
+
+atpa <-
+average_probability_increase %>%
+  filter(n >= 20) %>%
+  ggplot(aes(y = average_play_increase, x = fct_reorder(display_name, -average_play_increase), fill = average_play_increase)) +
+  geom_col() +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient(low = "firebrick", high = "forestgreen") +
+  theme_minimal(15) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "none", panel.grid.major = element_blank()) +
+  labs(x = "", y = "Tackle Probability Added")
+
+ggsave(filename = "05-presentation-files/atpa.svg", plot = atpa, width = 10, height = 8)
+```
+
+
+
+
+```{r}
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >=20) |> 
+  arrange(-tackles_over_expected_per_play) |> 
+  select(-plays) |> 
+  slice(1:5) |> 
+  rename(Player = 1, Position = 2, Team = 3, TOE = 4) |> 
+  mutate(TOE = round(TOE,3)) |> 
+  kableExtra::kable()
+
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >=20) |> 
+  arrange(tackles_over_expected_per_play) |> 
+  select(-plays) |> 
+  slice(1:5) |> 
+  rename(Player = 1, Position = 2, Team = 3, TOE = 4) |> 
+  mutate(TOE = round(TOE,3)) |> 
+  kableExtra::kable() 
+
+
+toe_plot <-
+test_joined_with_preds |> 
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  distinct(game_idplay_id, frame_id, display_name, .keep_all = TRUE) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
+  group_by(display_name, game_idplay_id, position, club) |> 
+  summarise(tackles_over_expected_play = mean(tackles_over_expected_frame)) |> 
+  group_by(display_name, position, club) |> 
+  summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
+  ungroup() |> 
+  filter(plays >= 20) |> distinct(display_name, .keep_all = TRUE)  |> 
+  ggplot(aes(y = tackles_over_expected_per_play, x = fct_reorder(display_name, -tackles_over_expected_per_play), fill = tackles_over_expected_per_play)) +
+  geom_col() +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient(low = "firebrick", high = "forestgreen") +
+  theme_minimal(15) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "none", panel.grid.major = element_blank()) +
+  labs(x = "", y = "Tackles Over Expected") +
+  ylim(-.5,.25)
+
+```
+
+
+
+
+## Other
+
+```{r}
+non_centered_newdata_for_log <-
+deff |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  mutate(tackle = as.numeric(as.character(tackle))) |> 
+  mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
+  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+  # as.data.table() |> one_hot() |> 
+  # as_tibble() |> 
+  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
+  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
+  mutate(game_id = as.numeric(as.character(game_id))) |> 
+  mutate(play_id = as.numeric(as.character(play_id))) |> 
+  group_by(game_id, play_id, display_name, frame_id) |> ## because one play had two of these per player/frame for some reason
+  mutate(x_from_los = mean(x_from_los)) |> 
+  ungroup() |> 
+  distinct(.keep_all = TRUE) |> 
+  select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), all_of(contains(discrete_factors)), tackle) |> 
+  arrange(game_id, play_id, frame_id, display_name) |> 
+  mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) |> 
+  mutate(game_idplay_id = str_c(game_id,play_id)) |> 
+  relocate(game_idplay_id)
+
+library(rsample)
+set.seed(123)
+data_split <- rsample::group_initial_split(non_centered_newdata_for_log, prop = 0.75, group = game_idplay_id) 
+
+# Extract the training and test sets
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+
+mod <- glm(formula = tackle ~ ., data = select(train_data, -game_id, -play_id, -display_name, -frame_id))
+
+predi
 
 ```
 

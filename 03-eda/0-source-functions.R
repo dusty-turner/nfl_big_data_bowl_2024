@@ -1,5 +1,6 @@
 library(keras)
 library(tensorflow)
+library(tidyverse)
 
 theme_field <- theme(panel.background = element_rect(fill = "white",
                                                      colour = "white",
@@ -341,3 +342,4 @@ team_colors <- tibble(
             "#002244", "#4f2683", "#203731", "#d50a0a", "#002244",
             "#002244", "#002244")
 )
+
