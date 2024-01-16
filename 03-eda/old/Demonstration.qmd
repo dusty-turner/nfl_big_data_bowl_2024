@@ -17,7 +17,7 @@ execute:
 library(tidyverse)
 library(gganimate)
 library(arrow)
-source(here::here("02_scripts","ggtheme_field.R"))
+source(here::here("02_scripts","0-source-functions.R"))
 
 week_1 <- read_parquet(here::here("01_data","tracking_week_1.parquet")) |> 
   left_join(y = read_parquet(here::here("01_data","tackles.parquet"))) |> 

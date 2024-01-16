@@ -21,29 +21,13 @@ library(tidyverse)
 library(gganimate)
 # library(arrow)
 
-source(here::here("03-eda","ggtheme_field.R"))
+source(here::here("03-eda","0-source-functions.R"))
 
-read_csv(here::here("04-models", "model_tracker.csv"))
+test_joined_with_preds <- read_rds("04-models/test_joined_with_preds_2024-01-07_16-03-36.rds")
 
-# model2 <- load_model_tf("04-models/2023-01-02_09-57-23", custom_objects = list(
-#   # model2 <- load_model_tf("04-models", custom_objects = list(
-#     weighted_binary_crossentropy = weighted_binary_crossentropy,
-#     python_function = weighted_binary_crossentropy
-# ))
+# week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
 
-main_model <- read_rds(here::here("04-models", "model_results.rds"))
-
-test_joined_with_preds <- main_model$test_joined_with_preds
-week_1 <- main_model$week_1
-week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
-
-test_joined_with_preds <-
-test_joined_with_preds |> 
-  select(game_id, play_id, display_name, final_predictions, binary_predictions, frame_id) |> 
-  left_join(non_centered_newdata |> mutate(game_id = as.character(game_id), play_id = as.character(play_id))) |> 
-  mutate(tackle = as.factor(as.character(tackle)))
-
-
+test_joined_with_preds 
 
 ```
 
@@ -61,26 +45,43 @@ test_joined_with_preds |>
 test_joined_with_preds |> 
   yardstick::precision(truth = tackle, estimate = binary_predictions)
 
-test_joined_with_preds |> select(binary_predictions)
+library(yardstick)
+# Define the multiple classification metrics
+classification_metrics <- metric_set(accuracy, precision, recall)
 
-week_1 |> 
-  mutate(tackle = as.factor(tackle))  |> 
-  filter(frames_from_tackle >= -40) |> 
-  left_join(test_joined_with_preds) |> 
-  group_by(frames_from_tackle) |> 
-  # yardstick::accuracy(truth = tackle, estimate = binary_predictions) |>
-  # yardstick::precision(truth = tackle, estimate = binary_predictions) |>
-  yardstick::recall(truth = tackle, estimate = binary_predictions) |>
-  ggplot(aes(x = frames_from_tackle, y = .estimate)) +
+
+fake <- factor(0, levels = c(0,1))
+
+test_joined_with_preds %>%
+  mutate(fake_prediction = fake) |> 
+  # filter(frames_from_tackle >= -40) %>%
+  # group_by(frames_from_tackle, play_type) %>%
+  classification_metrics(truth = tackle, estimate = fake_prediction)
+
+# Calculate the metrics for your data
+accuracy_plot <-
+test_joined_with_preds %>%
+  filter(frames_from_tackle >= -40) %>%
+  group_by(frames_from_tackle, play_type) %>%
+  classification_metrics(truth = tackle, estimate = binary_predictions) |>
+  mutate(.metric = str_to_title(.metric)) |> 
+  mutate(play_type = str_to_sentence(play_type)) |>
+  mutate(play_type = fct_relevel(play_type, "Run")) |> 
+  ggplot(aes(x = frames_from_tackle, y = .estimate, alpha = frames_from_tackle)) +
   geom_point() +
-  geom_line()
+  geom_line() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1, scale = 100)) +
+  scale_x_continuous(labels = c(4,3,2,1,0), breaks = c(-40,-30,-20,-10,0)) +
+  facet_grid(.metric~play_type, scales = "free_y") +
+  # facet_grid(play_type~.metric, nrow = 3, scales = "free_y") +
+  labs(y = "", x = "Seconds From Tackle") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none", panel.grid.minor = element_blank(), 
+        panel.background = element_rect(color = "grey75"), 
+        plot.background = element_rect(fill = "white", color = NA)) 
 
-test_joined_with_preds |> 
-  group_by(game_id, play_id) |>
-  filter(cur_group_id() == 3) |> 
-  select(display_name, tackle, final_predictions, binary_predictions, jersey_number) |> 
-  arrange(display_name) |> 
-  print(n = Inf)
+ggsave("05-presentation-files/accuracy-plot-1000-400.svg", plot = accuracy_plot, width = 9, height = 6)
+
 ```
 
 ```{r}
