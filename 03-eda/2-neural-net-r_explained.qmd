@@ -390,6 +390,35 @@ plot(out$history) +
   geom_line()
 ```
 
+### Make Predictions
+
+```{r}
+y_pred_test <- out$model %>% predict(x_test)
+
+y_pred_binarized <- array(ifelse(y_pred_test > 0.5, 1, 0), dim(y_pred_test))
+
+# Flatten the tracking arrays for the test set
+tracking_test_flat <- array_reshape(do.call(cbind, tracking_test), c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
+
+# Flatten your model predictions in a similar manner
+predictions_flat <- array_reshape(y_pred_test, c(dim(y_pred_test)[1] * dim(y_pred_test)[2] * dim(y_pred_test)[3]))
+
+# Now, filter out padded predictions using the tracking data
+final_predictions <- predictions_flat[tracking_test_flat == 1]
+
+test_joined_with_preds <-
+test_data |> 
+  arrange(game_id, play_id, frame_id, display_name) |>
+  mutate(game_id = as.character(game_id)) |> 
+  mutate(play_id = as.character(play_id)) |> 
+  mutate(tackle = as.factor(tackle)) |> 
+  mutate(final_predictions = as.double(final_predictions)) |> 
+  mutate(binary_predictions = as.factor(ifelse(final_predictions> .5, 1, 0))) |> 
+  mutate(game_idplay_id = str_c(game_id, play_id))
+
+```
+
+
 ### Tackles over Replacement
 
 To calculate this, I...
