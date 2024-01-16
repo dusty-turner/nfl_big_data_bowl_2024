@@ -23,12 +23,12 @@ plot_matrix <- function(mat) {
 }
 
 simplifier <- function(data){
-  if(Sys.info()["user"] == "dusty_turner1") {
-    data
-  } else {
+  # if(Sys.info()["user"] == "dusty_turner1") {
+    # data
+  # } else {
     data %>% 
       filter(week_id == "week_1")
-  }
+  # }
 }
 
 x_list_maker <- function(data) {
