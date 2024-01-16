@@ -20,7 +20,7 @@ options(scipen = 999)
 
 
 ```{r}
-source(here::here("03-eda","data_cleaning.R"))
+source(here::here("03-eda","1-data-clearning.R"))
 dak <- week_1 |> filter(display_name == "Dak Prescott") |> distinct(game_id, play_id)
 ```
 
