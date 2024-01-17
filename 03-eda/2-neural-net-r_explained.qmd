@@ -425,7 +425,7 @@ To calculate this, I...
 
 The shape of my data for prediction is
 
-```{r}
+```{r, eval=FALSE}
 vectors <- NULL
 for (i in 1:10) {
   # Create a vector of 10 ones
@@ -548,7 +548,7 @@ for (i in 1:length(y_padded_1)) {
 tracking_list_1 <- lapply(x_list_1, create_tracking_array, max_length = max_length, num_players = 11)
 tracking_test_1 <- tracking_list_1
 
-y_pred_test_1 <- model2 %>% predict(x_data_1)
+y_pred_test_1 <- out$model %>% predict(x_data_1)
 
 y_pred_binarized_1 <- array(ifelse(y_pred_test_1 > 0.5, 1, 0), dim(y_pred_test_1))
 
@@ -597,16 +597,16 @@ plan(multisession)
 options(future.globals.maxSize = 10000000000)
 tictoc::tic()
 player_out_results <-
-future_map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id", .progress = TRUE)
+map2_dfr(.x = sort(rep(1:10, 10)), .y = rep(vectors,10), .f = ~double_creater(player_number = .x, vec = .y), .id = "vector_id", .progress = TRUE)
 tictoc::toc()
 
-# player_out_results %>% write_parquet(here::here("04-models","player_out_results.parquet"))
+# player_out_results %>% write_parquet(here::here("04-models","player_out_results_small_demo.parquet"))
 ```
 
 
 ```{r}
 
-player_out_results <- read_parquet(here::here("04-models","player_out_results.parquet"))
+player_out_results <- read_parquet(here::here("04-models","player_out_results_small_demo.parquet"))
 
 player_probability_increase_by_play <-
 player_out_results %>% filter(!is.na(increase_in_tackle_prob)) %>% 
@@ -620,19 +620,19 @@ player_probability_increase_by_play %>%
 
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
-  filter(n > 19) %>% 
+  # filter(n > 19) %>% 
   group_by(club) %>% 
   filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
 
-week_1 |> distinct(club) |> 
-  print(n = Inf)
+# week_1 |> distinct(club) |> 
+  # print(n = Inf)
 
 library(kableExtra)
 
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
   distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
-  filter(n > 19) %>% 
+  # filter(n > 19) %>% 
   arrange(-average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -645,8 +645,8 @@ average_probability_increase %>%
 
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
-  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
-  filter(n > 19) %>% 
+  distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |>
+  # filter(n > 19) %>% 
   arrange(average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -659,7 +659,7 @@ average_probability_increase %>%
 
 atpa <-
 average_probability_increase %>%
-  filter(n >= 20) %>%
+  # filter(n >= 20) %>%
   ggplot(aes(y = average_play_increase, x = fct_reorder(display_name, -average_play_increase), fill = average_play_increase)) +
   geom_col() +
   scale_fill_viridis_c() +
@@ -668,7 +668,8 @@ average_probability_increase %>%
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "none", panel.grid.major = element_blank()) +
   labs(x = "", y = "Tackle Probability Added")
 
-ggsave(filename = "05-presentation-files/atpa.svg", plot = atpa, width = 10, height = 8)
+# ggsave(filename = "05-presentation-files/atpa.svg", plot = atpa, width = 10, height = 8)
+atpa
 ```
 
 
