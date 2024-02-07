@@ -32,7 +32,7 @@ simplifier <- function(data){
 }
 
 x_list_maker <- function(data) {
-  if (Sys.info()["user"] == "dusty_turner1") {
+  if (Sys.info()["user"] %in% c("dusty_turner1", "ubuntu")) {
     map2(
       .x = example_play$game_id,
       .y = example_play$play_id,
@@ -54,7 +54,7 @@ x_list_maker <- function(data) {
 }
 
 y_list_maker <- function(data) {
-  if (Sys.info()["user"] == "dusty_turner1") {
+  if (Sys.info()["user"] %in% c("dusty_turner1", "ubuntu")) {
     map2(
       .x = example_play$game_id,
       .y = example_play$play_id,

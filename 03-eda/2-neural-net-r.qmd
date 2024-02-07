@@ -17,239 +17,88 @@ library(tidyverse)
 library(keras)
 library(tensorflow)
 library(reticulate)
-library(data.table)
-library(gganimate)
-library(arrow)
+# library(data.table)
+# library(gganimate)
+# library(arrow)
 
-source(here::here("03-eda","0-source-functions.R"))
-if(digest::sha1(read_lines(here::here("03-eda", "1-data-cleaning.R"))) != read_lines(here::here("02-clean-data", "cleaninghash.txt"))){
-  source(here::here("03-eda", "1-data-cleaning.R"))
-} else {
-  defensive_model_building_data <- read_parquet(here::here("02-clean-data", "defensive_model_building_data.parquet"))
-  week_1 <- read_parquet(here::here("02-clean-data", "week_1.parquet"))
-}
+x_train <- read_rds("02-clean-data/x_train.rds")
+y_train <- read_rds("02-clean-data/y_train.rds")
+x_test <- read_rds("02-clean-data/x_test.rds")
+y_test <- read_rds("02-clean-data/y_test.rds")
+time_steps <- read_rds("02-clean-data/time_steps.rds")
+num_features <- dim(x_train)[3]
 
-if (Sys.info()["user"] == "dusty_turner1") {
-  mod <- read_rds(here::here("04-models", "model_data.rds"))
-  x_train <- mod$x_train
-  y_train <- mod$y_train
-  max_length <- mod$max_length
-  num_features <- dim(x_train)[3]
-  x_test <- mod$x_test
-  y_test <- mod$y_test
-  time_steps <- mod$time_steps
-  num_samples <- mod$num_samples
-  tracking_test <- mod$tracking_test
-  test_data <- mod$test_data
-}
+CustomSaveModelCallback <- R6::R6Class(
+  "CustomSaveModelCallback",
+  inherit = KerasCallback,
 
-```
+  public = list(
+    model = NULL,           
+    best_val_loss = Inf,    
+    best_model_path = NULL, 
+    best_metrics = list(),  # Store the best metrics
 
-```{r}
-deff <-
-defensive_model_building_data %>% 
-  # filter(is.na(pass_result)) |>
-  # filter(frame_id >= 5) |> 
-  filter(frames_from_tackle <=0) |> 
+    initialize = function(model) {
+      self$model <- model
+      self$best_metrics <- list(accuracy = 0, precision = 0, recall = 0, auc = 0, f1_score = 0, log_loss = Inf)
+    },
 
-  # filter(frames_from_tackle >=-5) %>% 
+    on_epoch_end = function(epoch, logs = list()) {
+      val_loss <- logs[['val_loss']]
+      if (!is.null(val_loss) && val_loss < self$best_val_loss) {
+        # Update the best validation loss and metrics
+        self$best_metrics$best_val_loss <- val_loss
+        self$best_metrics$accuracy <- logs[['python_function']]
+        self$best_metrics$precision <- logs[['precision']]
+        self$best_metrics$recall <- logs[['recall']]
+        self$best_metrics$auc <- logs[['auc']]
+        # self$best_metrics$f1_score <- logs[['f1_score']]  # Update F1 score
+        # self$best_metrics$log_loss <- logs[['log_loss']]  # Update log loss
 
-  ## end finds frames from tackle
-  mutate(position = as.character(position)) %>%
-  mutate(position = replace_na(position, "unknown")) %>%
-  mutate(position = factor(position)) |> 
-  select(c(x,y,distance_to_ball, distance_to_ball_next, x_going, y_going, s, a, o, dir, x_ball, y_ball, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball,
-           position, offense_formation, quarter, down, rank, 
-           alignment_cluster, play_type,
-           defenders_in_the_box, ball_in_fan3, ball_in_fan2, ball_in_fan1, pass_probability, yards_to_go, x_from_los, height, weight, tackle, frames_from_tackle, game_id, play_id, nfl_id, frame_id, display_name, game_idplay_id)) 
-
-library(mltools)
-library(data.table)
-
-should_be_factors <- c("ball_in_fan3", "ball_in_fan2", "ball_in_fan1", "position", "offense_formation", "quarter", "down", "rank", "defenders_in_the_box","alignment_cluster", "play_type")
-
-continuous_factors <- c("x", "y", "x_ball", "y_ball", "s", "a", "o", "distance_to_ball", "x_going", "y_going", "dir", "x_ball_next", "y_ball_next", "s_ball", "o_ball", "dir_ball", "angle_to_ball", "pass_probability",  "yards_to_go", "x_from_los", "height", "weight")
-
-discrete_factors <- c("quarter", "position", "offense_formation", "down", "rank", "defenders_in_the_box", 
-                      "ball_in_fan3", "ball_in_fan2", "ball_in_fan1",
-                      "alignment_cluster", "play_type")
-
-non_centered_newdata <-
-  deff |> 
-  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
-  mutate(tackle = as.numeric(as.character(tackle))) |> 
-  mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
-  mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
-  as.data.table() |> one_hot() |> 
-  as_tibble() |> 
-  mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
-  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
-  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
-  mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.na(.), mean(., na.rm = T), .))) |> 
-  mutate(game_id = as.numeric(as.character(game_id))) |> 
-  mutate(play_id = as.numeric(as.character(play_id))) |> 
-  group_by(game_id, play_id, display_name, frame_id) |> ## because one play had two of these per player/frame for some reason
-  mutate(x_from_los = mean(x_from_los)) |> 
-  ungroup() |> 
-  distinct(.keep_all = TRUE) |> 
-  select(game_id,play_id, display_name, frame_id, all_of(continuous_factors), all_of(contains(discrete_factors)), tackle) |> 
-  arrange(game_id, play_id, frame_id, display_name) 
-  # select(game_id,play_id, display_name, frame_id, x, y, x_ball, y_ball, s, a, o, distance_to_ball, x_going, y_going, dir, x_ball_next, y_ball_next, s_ball, o_ball, dir_ball, angle_to_ball, pass_probability, tackle) |> 
-
-newdata <- 
-  non_centered_newdata |> 
-  mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) 
-```
-
-### Shape up Data
-
-```{r}
-
-# Function to extract play data for a given game and play id
-get_play_data <- function(game_id_arg = 2022091112, play_id_arg = 86, df = newdata, 
-                          num_features_per_player_arg = num_features_per_player) {
-    # Select and arrange relevant data
-    play_data <- df %>%
-        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
-        arrange(frame_id, display_name)
-
-    # Determine the number of unique frames and players
-    num_frames <- length(unique(play_data$frame_id))
-    num_players <- length(unique(play_data$display_name))
-
-    # Initialize a matrix to store play data
-    play_matrix <- matrix(nrow = num_frames, ncol = num_players * num_features_per_player)
-dim(play_matrix)
-    # Populate the matrix with data for each frame
-    for (i in seq_len(num_frames)) {
-        frame_data <- play_data %>%
-            filter(frame_id == unique(play_data$frame_id)[i]) %>%
-            select(all_of(continuous_factors), contains(discrete_factors))
-            # select(x, y, x_ball, y_ball, s, a, o, distance_to_ball)
-        play_matrix[i, ] <- as.numeric(t(frame_data))
+        # Save model and update path
+        if (!is.null(self$best_model_path) && file.exists(self$best_model_path)) {
+          unlink(self$best_model_path, recursive = TRUE)
+        }
+        self$best_model_path <- sprintf("04-models/model-epoch-%02d-val_loss-%.2f", epoch, val_loss)
+        save_model_tf(self$model, self$best_model_path)
+      }
     }
-    play_matrix
+  )
+)
+
+
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = 8.5) {
+  # Calculate binary crossentropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Apply weights
+  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+  weighted_bce <- weights * bce
+  
+  # Return mean loss over the batch
+  return(keras::k_mean(weighted_bce))
 }
 
-num_features_per_player <- newdata |> select(-c(game_id, play_id, display_name, frame_id, tackle)) |> ncol()
-
-# Extract unique game and play combinations from the dataset
-example_play <- distinct(newdata, game_id, play_id) 
-
-# Generate a list of matrices for each play
-
-x_list <- x_list_maker()
-
-# Determine the maximum sequence length and pad all sequences
-max_length <- max(sapply(x_list, nrow))
-
-pad_time_series <- function(x, max_length) {
-    n_pad <- max_length - nrow(x)
-    pad_matrix <- matrix(0, nrow = n_pad, ncol = ncol(x))
-    rbind(x, pad_matrix)
+custom_accuracy <- function(y_true, y_pred) {
+  # Apply threshold to get binary class predictions
+  threshold <- 0.5
+  y_pred_binary <- k_cast(k_greater_equal(y_pred, threshold), 'float32')
+  
+  # Calculate accuracy
+  correct_predictions <- k_equal(y_pred_binary, y_true)
+  return(k_mean(correct_predictions))
 }
 
-x_padded <- lapply(x_list, pad_time_series, max_length = max_length)
-
-# Function to create target matrices for each play
-create_target_matrix <- function(game_id_arg, play_id_arg, df, padded_length) {
-    # Filter and arrange data, then transform to wide format
-    target_matrix <- df %>%
-        filter(game_id == game_id_arg, play_id == play_id_arg) %>%
-        arrange(frame_id, display_name) %>%
-        select(display_name, tackle) %>%
-        distinct() %>%
-        pivot_wider(names_from = display_name, values_from = tackle) %>%
-        mutate(n_rows = padded_length) %>%
-        uncount(n_rows) %>%
-        as.matrix()
-
-    # Set column names for clarity
-    colnames(target_matrix) <- paste0("Player ", 1:11)
-    target_matrix
-}
-
-# Generate target matrices for each play
-
-y_padded <- y_list_maker()
-
-# Function to create a tracking array indicating the presence of data per player
-create_tracking_array <- function(x, max_length, num_players) {
-    tracking_array <- array(0, dim = c(max_length, num_players))
-    if (nrow(x) > 0) {
-        tracking_array[1:nrow(x), ] <- 1
-    }
-    tracking_array
-}
-
-# Generate tracking arrays for each play
-tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, num_players = 11)
-
-# Reshape x_padded into a 3D array
-num_samples <- length(x_padded)
-time_steps <- max_length  # Assuming max_length is already defined
-num_features <- ncol(x_padded[[1]])
-
-x_data <- array(dim = c(num_samples, time_steps, num_features))
-for (i in 1:num_samples) {
-  x_data[i, , ] <- x_padded[[i]]
-}
-
-# Reshape y_padded into a 3D array
-# Assuming y_padded is structured similarly to x_padded
-y_data <- array(dim = c(length(y_padded), max_length, ncol(y_padded[[1]])))
-for (i in 1:length(y_padded)) {
-  y_data[i, , ] <- y_padded[[i]]
-}
-
-beepr::beep()
-
-```
-
-### Spliting and Identifying Data
-
-```{r}
-
-# Splitting data into training and testing sets
-set.seed(123)  # For reproducibility
-train_indices <- sample(seq_len(num_samples), size = 0.7 * num_samples)
-test_indices <- setdiff(seq_len(num_samples), train_indices)
-
-x_train <- x_data[train_indices, , ]
-y_train <- y_data[train_indices, , ]
-x_test <- x_data[test_indices, , ]
-y_test <- y_data[test_indices, , ]
-
-test_plays <- example_play[-train_indices, ]
-test_data <- non_centered_newdata %>%
-  semi_join(test_plays, by = c("game_id", "play_id"))
-
-# Apply the function to each element in x_list for tracking
-num_players <- 11  # Adjust if necessary
-tracking_list <- lapply(x_list, create_tracking_array, max_length = max_length, num_players = num_players)
-
-# Filter out the tracking arrays for the test set
-
-tracking_test <- tracking_list[test_indices]
-
-
-# if (Sys.info()["user"] == "dusty_turner1") {
-#   write_rds(list(x_train = x_train, y_train = y_train, x_test = x_test, y_test = y_test, test_data = test_data, max_length = max_length, time_steps = time_steps, num_samples = num_samples, tracking_test = tracking_test), "04-models/model_data.rds")
-# }
-
-```
-
-
-## Build Model
-
-```{r}
-run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epochs_param = 10, 
-                   optimizer_param = 'adam', positive_weight_param = 11,
-                   layers_param = 3, batch_size_param = 441/1, notes_param = NULL){
+run_nn <- function(units_param = 400, rate_param = .5, l2_value_param = .001, epochs_param = 3, 
+                   optimizer_param = 'adam', positive_weight_param = 8.5,
+                   layers_param = 3, batch_size_param = 7028/8, notes_param = NULL){
 
   keras::backend()$clear_session()
 
   positive_weight <- positive_weight_param
+  
+  now_time <- now()
+  formatted_time <- format(now_time, "%Y-%m-%d_%H-%M-%S")
   
   raw_tracker <-
     read_csv(here::here("04-models", "model_tracker.csv")) 
@@ -264,27 +113,24 @@ run_nn <- function(units_param = 50, rate_param = .5, l2_value_param = .01, epoc
 
 model <- keras_model_sequential() %>%
   layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
-  layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  layer_lstm(units = 400, return_sequences = TRUE, unroll = FALSE,
              kernel_regularizer = regularizer_l2(l2_value_param),
-             recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+             recurrent_regularizer = regularizer_l2(l2_value_param), activation = "relu") %>%
   layer_dropout(rate = rate_param) %>%
-    layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  # layer_lstm(units = 200, return_sequences = TRUE, unroll = FALSE,
+  #            kernel_regularizer = regularizer_l2(l2_value_param),
+  #            recurrent_regularizer = regularizer_l2(l2_value_param), activation = "relu") %>%
+  # layer_dropout(rate = rate_param) %>%
+  # layer_lstm(units = 200, return_sequences = TRUE, unroll = FALSE,
+  #            kernel_regularizer = regularizer_l2(l2_value_param),
+  #            recurrent_regularizer = regularizer_l2(l2_value_param), activation = "relu") %>%
+  # layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = 200, return_sequences = TRUE, unroll = FALSE,
              kernel_regularizer = regularizer_l2(l2_value_param),
-             recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+             recurrent_regularizer = regularizer_l2(l2_value_param), activation = "relu") %>%
   layer_dropout(rate = rate_param) %>%
   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
 
-# model <- keras_model_sequential() %>%
-#   layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
-#   layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE) %>%
-#   layer_dropout(rate = rate_param) %>%
-#   time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
-
-    
 # Compile the model
 model %>% compile(
   loss = weighted_binary_crossentropy,
@@ -299,73 +145,114 @@ model %>% compile(
   )
 )
 
+      # Define the multi-GPU strategy
+  # strategy <- tf$distribute$MirroredStrategy()
+  # 
+  # with(strategy$scope(), {
+  #   model <- keras_model_sequential() %>%
+  #     layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
+  #     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  #                kernel_regularizer = regularizer_l2(l2_value_param),
+  #                recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+  #     layer_dropout(rate = rate_param) %>%
+  #     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  #                kernel_regularizer = regularizer_l2(l2_value_param),
+  #                recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+  #     layer_dropout(rate = rate_param) %>%
+  #     time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+  # 
+  #   # Compile the model
+  #   model %>% compile(
+  #     loss = weighted_binary_crossentropy,
+  #     optimizer = optimizer_adam(learning_rate = 0.001),
+  #     metrics = list(
+  #       custom_accuracy,       # Assuming this is a predefined metric
+  #       metric_precision(),    # Precision
+  #       metric_recall(),       # Recall
+  #       # f1_score,              # F1 Score (custom)
+  #       metric_auc()           # AUC-ROC
+  #       # log_loss               # Log Loss (custom)
+  #     )
+  #   )
+  # })
+    
 model_start_time <- tictoc::tic()
+
+save_model_callback <- CustomSaveModelCallback$new(model)
 
 # Train the model
 history <- model %>% fit(
   x = x_train, y = y_train,
   epochs = epochs_param,
   batch_size = batch_size_param,
-  validation_data = list(x_test, y_test)
-  # callbacks = list(
+  validation_data = list(x_test, y_test),
+  callbacks = list(
     # early_stop_callback,
-    # model_checkpoint_callback,
+    save_model_callback
     # reduce_lr_callback
   #   # tensorboard_callback,
   #   # csv_logger_callback
-  # )
+  )
 )
 
+ best_metrics <- save_model_callback$best_metrics
+
+ save_model_callback$best_metrics
+ 
 model_end_time <- tictoc::toc()
 model_execution_time <- (model_end_time$toc - model_end_time$tic)[[1]]  # Calculate execution time for model building and training
 
-final_accuracy <- history$metrics$python_function[length(history$metrics$precision)]
-final_precision <- history$metrics$precision[length(history$metrics$precision)]
-final_recall <- history$metrics$recall[length(history$metrics$recall)]
-final_f1_score <- history$metrics$f1_score[length(history$metrics$f1_score)]
-final_auc <- history$metrics$auc[length(history$metrics$auc)]
-final_log_loss <- history$metrics$log_loss[length(history$metrics$log_loss)]
-
-now_time <- now()
-formatted_time <- format(now_time, "%Y-%m-%d_%H-%M-%S")
-
+# final_accuracy <- history$metrics$python_function[length(history$metrics$precision)]
+# final_precision <- history$metrics$precision[length(history$metrics$precision)]
+# final_recall <- history$metrics$recall[length(history$metrics$recall)]
+# final_f1_score <- history$metrics$f1_score[length(history$metrics$f1_score)]
+# final_auc <- history$metrics$auc[length(history$metrics$auc)]
+# final_log_loss <- history$metrics$log_loss[length(history$metrics$log_loss)]
+best_precision <- best_metrics$precision
+best_recall <- best_metrics$recall
+best_auc <- best_metrics$auc
+best_log_loss <- best_metrics$best_val_loss 
+best_accuracy <- best_metrics$accuracy
+# best_f1_score <- best_metrics$f1_score 
 
 tibble(
-  accuracy = final_accuracy, precision = final_precision, recall = final_recall, f1_score = final_f1_score, auc = final_auc, 
-  log_loss = final_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
+  accuracy = best_accuracy, precision = best_precision, recall = best_recall, 
+  # f1_score = best_f1_score, 
+  auc = best_auc, 
+  log_loss = best_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
   optimizer = optimizer_param, rate = rate_param, time = now_time, user = Sys.info()["user"], 
   positive_weight_param = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
 ) |> 
     bind_rows(raw_tracker) |> 
+  relocate(accuracy, log_loss) %>%
     arrange(desc(time)) |> 
-    print() |> 
+    print() %>% 
     write_csv(here::here("04-models", "model_tracker.csv"))
 
-save_model_tf(model, str_c("04-models/", formatted_time))
+# save_model_tf(model, str_c("04-models/", formatted_time))
 
 return(list(model = model, history = history))  
   
 }
 
-ratio <-
-newdata %>% 
-  count(tackle) %>% 
-  reframe(perc = n / sum(n)) %>% 
-  slice(1) %>% pull(perc) * 10
+
+# ratio <-
+# newdata %>% 
+#   count(tackle) %>% 
+#   reframe(perc = n / sum(n)) %>% 
+#   slice(1) %>% pull(perc) * 10
 
 out <- run_nn(
-  epochs_param = 500,
+  epochs_param = 10,
   units_param = 400,
-  rate_param = .75,
+  rate_param = .5,
   l2_value_param = .001,
   # l2_value_param = 0,
-  layers_param = 3,
-  batch_size_param = 7028/2,
-  positive_weight_param = ratio,
-  # positive_weight_param = ratio,
-  notes_param = "add in play type 2 layers 500 epoch",
+  layers_param = 4,
+  batch_size_param = 7028/8,
+  positive_weight_param = 8.5,
+  notes_param = "3 400s and a 200 4 layers",
   optimizer_param = "adam"
-  # activation_param = "relu"
 )
 
 

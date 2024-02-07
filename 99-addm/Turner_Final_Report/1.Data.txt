@@ -1,3 +1,0 @@
-Because my data file is large, I provide a link to it:
-
-https://www.kaggle.com/competitions/nfl-big-data-bowl-2024/data
