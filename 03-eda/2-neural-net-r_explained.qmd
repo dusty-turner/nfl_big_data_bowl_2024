@@ -9,7 +9,10 @@ cache: true
 warning: false
 message: false
 echo: false
+<<<<<<< HEAD
 embed-resources: true
+=======
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
 ---
 
 ## Neural Network Explaination
@@ -420,6 +423,7 @@ test_data |>
 ```
 
 
+<<<<<<< HEAD
 ### Average Tackle Probability Added
 
 To calculate this, the following steps are undertaken:
@@ -442,6 +446,13 @@ To calculate this, the following steps are undertaken:
 5. **Average This for All Plays for Each Player**:
    - This gives the Average Tackle Probability Added for each player.
 
+=======
+### Tackles over Replacement
+
+To calculate this, I...
+
+The shape of my data for prediction is
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
 
 ```{r, eval=FALSE}
 vectors <- NULL
@@ -636,11 +647,19 @@ player_probability_increase_by_play %>%
   group_by(display_name) %>% 
   summarise(average_play_increase = mean(total_increase_in_tackle_prob), n = n())
 
+<<<<<<< HEAD
 # average_probability_increase %>% 
 #   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
 #   filter(n > 5) %>%
 #   group_by(club) %>% 
 #   filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
+=======
+average_probability_increase %>% 
+  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+  # filter(n > 19) %>% 
+  group_by(club) %>% 
+  filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
 
 # week_1 |> distinct(club) |> 
   # print(n = Inf)
@@ -650,7 +669,11 @@ library(kableExtra)
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
   distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
+<<<<<<< HEAD
   filter(n > 5) %>%
+=======
+  # filter(n > 19) %>% 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   arrange(-average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -664,7 +687,11 @@ average_probability_increase %>%
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
   distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |>
+<<<<<<< HEAD
   filter(n > 5) %>%
+=======
+  # filter(n > 19) %>% 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   arrange(average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -677,7 +704,11 @@ average_probability_increase %>%
 
 atpa <-
 average_probability_increase %>%
+<<<<<<< HEAD
   filter(n >= 5) %>%
+=======
+  # filter(n >= 20) %>%
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   ggplot(aes(y = average_play_increase, x = fct_reorder(display_name, -average_play_increase), fill = average_play_increase)) +
   geom_col() +
   scale_fill_viridis_c() +
@@ -695,9 +726,13 @@ atpa
 
 ```{r}
 test_joined_with_preds |> 
+<<<<<<< HEAD
     left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |> 
   select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
   # select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+=======
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
   group_by(display_name, game_idplay_id, position, club) |> 
@@ -705,7 +740,11 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
+<<<<<<< HEAD
   filter(plays >=5) |> 
+=======
+  filter(plays >=20) |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   arrange(-tackles_over_expected_per_play) |> 
   select(-plays) |> 
   slice(1:5) |> 
@@ -714,7 +753,10 @@ test_joined_with_preds |>
   kableExtra::kable()
 
 test_joined_with_preds |> 
+<<<<<<< HEAD
   left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |>
+=======
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
@@ -723,7 +765,11 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
+<<<<<<< HEAD
   filter(plays >=5) |>
+=======
+  filter(plays >=20) |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   arrange(tackles_over_expected_per_play) |> 
   select(-plays) |> 
   slice(1:5) |> 
@@ -734,7 +780,11 @@ test_joined_with_preds |>
 
 toe_plot <-
 test_joined_with_preds |> 
+<<<<<<< HEAD
   left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |>      select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+=======
+  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   distinct(game_idplay_id, frame_id, display_name, .keep_all = TRUE) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
@@ -743,8 +793,12 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
+<<<<<<< HEAD
   # filter(plays >= 20) |> 
   distinct(display_name, .keep_all = TRUE)  |> 
+=======
+  filter(plays >= 20) |> distinct(display_name, .keep_all = TRUE)  |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   ggplot(aes(y = tackles_over_expected_per_play, x = fct_reorder(display_name, -tackles_over_expected_per_play), fill = tackles_over_expected_per_play)) +
   geom_col() +
   scale_fill_viridis_c() +
@@ -754,24 +808,38 @@ test_joined_with_preds |>
   labs(x = "", y = "Tackles Over Expected") +
   ylim(-.5,.25)
 
+<<<<<<< HEAD
 toe_plot
 
+=======
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
 ```
 
 
 
 
+<<<<<<< HEAD
 ## Logistic Regression
 
 ```{r, eval=TRUE}
+=======
+## Other
+
+```{r}
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
 non_centered_newdata_for_log <-
 deff |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
+<<<<<<< HEAD
   as.data.table() |> one_hot() |>
   as_tibble() |>
+=======
+  # as.data.table() |> one_hot() |> 
+  # as_tibble() |> 
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe
   mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
@@ -786,6 +854,7 @@ deff |>
   arrange(game_id, play_id, frame_id, display_name) |> 
   mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) |> 
   mutate(game_idplay_id = str_c(game_id,play_id)) |> 
+<<<<<<< HEAD
   relocate(game_idplay_id) 
 
 library(rsample)
@@ -899,3 +968,22 @@ from here:: [https://towardsdatascience.com/tutorial-on-lstm-a-computational-per
 ### Amazing Reference
 
 [https://blog.mlreview.com/understanding-lstm-and-its-diagrams-37e2f46f1714](https://blog.mlreview.com/understanding-lstm-and-its-diagrams-37e2f46f1714)
+=======
+  relocate(game_idplay_id)
+
+library(rsample)
+set.seed(123)
+data_split <- rsample::group_initial_split(non_centered_newdata_for_log, prop = 0.75, group = game_idplay_id) 
+
+# Extract the training and test sets
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+
+mod <- glm(formula = tackle ~ ., data = select(train_data, -game_id, -play_id, -display_name, -frame_id))
+
+predi
+
+```
+
+>>>>>>> f94c23a8f62bbb261733707eec831bcc0a23edfe

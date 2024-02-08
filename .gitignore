@@ -1,6 +1,7 @@
 # Project related files
 *.pem
 git_token.txt
+02-clean-data*
 *.h5
 04-models/202*
 model_data.rds
