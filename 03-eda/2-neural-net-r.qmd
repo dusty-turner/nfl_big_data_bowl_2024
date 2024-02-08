@@ -407,8 +407,8 @@ plot(out$history) + xlim(0,430)
 
 
 ```{r}
-model2 <- load_model_tf("04-models/2024-01-07_16-03-36", custom_objects = list(
-  # model2 <- load_model_tf("04-models", custom_objects = list(
+model2 <- load_model_tf("04-models/2024-01-30_17-55-16_from_aws", custom_objects = list( 
+# model2 <- load_model_tf("04-models/2024-01-07_16-03-36", custom_objects = list( ## one from Kaggle model
     weighted_binary_crossentropy = weighted_binary_crossentropy,
     python_function = weighted_binary_crossentropy
 ))

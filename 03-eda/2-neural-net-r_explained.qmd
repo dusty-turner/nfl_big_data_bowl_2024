@@ -9,6 +9,7 @@ cache: true
 warning: false
 message: false
 echo: false
+embed-resources: true
 ---
 
 ## Neural Network Explaination
@@ -419,11 +420,28 @@ test_data |>
 ```
 
 
-### Tackles over Replacement
+### Average Tackle Probability Added
 
-To calculate this, I...
+To calculate this, the following steps are undertaken:
 
-The shape of my data for prediction is
+1. **Predict on the Hold Out Set**: 
+   - Determine the model's probability of a tackle for each player at each frame.
+
+2. **At the Game/Play/Frame Level**: 
+   - Remove one player.
+   - Duplicate another player to ensure there are 11 players being predicted.
+   - Predict again.
+   - Find the difference between the previous tackle probability and the new probability with the missing player.
+   - Sum up the probability across all frames in a play.
+
+3. **Redo the Above for Each of the 10 Other Players**:
+   - Average the summed up probabilities across all iterations.
+
+4. **Repeat for All 11 Players on a Play**.
+
+5. **Average This for All Plays for Each Player**:
+   - This gives the Average Tackle Probability Added for each player.
+
 
 ```{r, eval=FALSE}
 vectors <- NULL
@@ -618,11 +636,11 @@ player_probability_increase_by_play %>%
   group_by(display_name) %>% 
   summarise(average_play_increase = mean(total_increase_in_tackle_prob), n = n())
 
-average_probability_increase %>% 
-  left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
-  # filter(n > 19) %>% 
-  group_by(club) %>% 
-  filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
+# average_probability_increase %>% 
+#   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
+#   filter(n > 5) %>%
+#   group_by(club) %>% 
+#   filter(average_play_increase == min(average_play_increase)) %>% arrange(-average_play_increase)
 
 # week_1 |> distinct(club) |> 
   # print(n = Inf)
@@ -632,7 +650,7 @@ library(kableExtra)
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
   distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |> 
-  # filter(n > 19) %>% 
+  filter(n > 5) %>%
   arrange(-average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -646,7 +664,7 @@ average_probability_increase %>%
 average_probability_increase %>% 
   left_join(week_1 %>% select(display_name, position, club) %>% distinct()) %>% 
   distinct(display_name, average_play_increase, n, position, .keep_all = TRUE) |>
-  # filter(n > 19) %>% 
+  filter(n > 5) %>%
   arrange(average_play_increase) |> 
   mutate(average_play_increase =  round(average_play_increase, 1)) |> 
   left_join(team_colors) |> 
@@ -659,7 +677,7 @@ average_probability_increase %>%
 
 atpa <-
 average_probability_increase %>%
-  # filter(n >= 20) %>%
+  filter(n >= 5) %>%
   ggplot(aes(y = average_play_increase, x = fct_reorder(display_name, -average_play_increase), fill = average_play_increase)) +
   geom_col() +
   scale_fill_viridis_c() +
@@ -677,7 +695,9 @@ atpa
 
 ```{r}
 test_joined_with_preds |> 
+    left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |> 
   select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  # select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
   group_by(display_name, game_idplay_id, position, club) |> 
@@ -685,7 +705,7 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
-  filter(plays >=20) |> 
+  filter(plays >=5) |> 
   arrange(-tackles_over_expected_per_play) |> 
   select(-plays) |> 
   slice(1:5) |> 
@@ -694,6 +714,7 @@ test_joined_with_preds |>
   kableExtra::kable()
 
 test_joined_with_preds |> 
+  left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |>
   select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
@@ -702,7 +723,7 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
-  filter(plays >=20) |> 
+  filter(plays >=5) |>
   arrange(tackles_over_expected_per_play) |> 
   select(-plays) |> 
   slice(1:5) |> 
@@ -713,7 +734,7 @@ test_joined_with_preds |>
 
 toe_plot <-
 test_joined_with_preds |> 
-  select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
+  left_join(week_1 %>% select(display_name, position, club, game_id, play_id, frame_id) %>% distinct(), by = c("display_name", "frame_id", "game_id", "play_id")) |>      select(game_idplay_id, final_predictions,binary_predictions, tackle, display_name, frame_id, position, club) |> 
   distinct(game_idplay_id, frame_id, display_name, .keep_all = TRUE) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(tackles_over_expected_frame = tackle - final_predictions) |> 
@@ -722,7 +743,8 @@ test_joined_with_preds |>
   group_by(display_name, position, club) |> 
   summarise(tackles_over_expected_per_play = mean(tackles_over_expected_play), plays = n()) |> 
   ungroup() |> 
-  filter(plays >= 20) |> distinct(display_name, .keep_all = TRUE)  |> 
+  # filter(plays >= 20) |> 
+  distinct(display_name, .keep_all = TRUE)  |> 
   ggplot(aes(y = tackles_over_expected_per_play, x = fct_reorder(display_name, -tackles_over_expected_per_play), fill = tackles_over_expected_per_play)) +
   geom_col() +
   scale_fill_viridis_c() +
@@ -732,22 +754,24 @@ test_joined_with_preds |>
   labs(x = "", y = "Tackles Over Expected") +
   ylim(-.5,.25)
 
+toe_plot
+
 ```
 
 
 
 
-## Other
+## Logistic Regression
 
-```{r}
+```{r, eval=TRUE}
 non_centered_newdata_for_log <-
 deff |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
   mutate(tackle = as.numeric(as.character(tackle))) |> 
   mutate(across(.cols = all_of(should_be_factors), .fns = ~if_else(is.na(.), "unknown", .))) |> 
   mutate(across(.cols = all_of(should_be_factors), ~as.factor(.))) |> 
-  # as.data.table() |> one_hot() |> 
-  # as_tibble() |> 
+  as.data.table() |> one_hot() |>
+  as_tibble() |>
   mutate(across(.cols = where(is.character), .fns = ~as.factor(.))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.nan(.), NA, .))) |> 
   mutate(across(.cols = where(is.numeric), .fns = ~if_else(is.infinite(.), NA, .))) |> 
@@ -762,20 +786,116 @@ deff |>
   arrange(game_id, play_id, frame_id, display_name) |> 
   mutate(across(.cols = all_of(continuous_factors),  .fns = ~ (. - mean(.)) / sd(.))) |> 
   mutate(game_idplay_id = str_c(game_id,play_id)) |> 
-  relocate(game_idplay_id)
+  relocate(game_idplay_id) 
 
 library(rsample)
 set.seed(123)
-data_split <- rsample::group_initial_split(non_centered_newdata_for_log, prop = 0.75, group = game_idplay_id) 
+data_split <- rsample::group_initial_split(non_centered_newdata_for_log, prop = 0.2, group = game_idplay_id)
+```
 
+For this model type, I use the same data, but I have to provide it in a different 'shape'.
+
+Each row is a game/play/frame/player combination vs a game/play/frame combination.
+
+The implications is that this is now the shape of the data:
+
+```{r, eval=TRUE, echo=TRUE}
+non_centered_newdata_for_log |> select(-game_idplay_id, -game_id, -play_id, -display_name, -frame_id) |> dim()
+```
+
+- There are 500,126 rows (game/play/frame/player combinations).
+- There are 86 'x's and 1 'y'.
+
+```{r, eval=TRUE}
 # Extract the training and test sets
-train_data <- training(data_split)
-test_data <- testing(data_split)
+train_data_log <- training(data_split)
+test_data_log <- testing(data_split)
 
 
-mod <- glm(formula = tackle ~ ., data = select(train_data, -game_id, -play_id, -display_name, -frame_id))
+mod <- glm(formula = tackle ~ ., data = select(train_data_log, -game_id, -play_id, -display_name, -frame_id, -game_idplay_id))
 
-predi
+final <-
+test_data_log |> 
+  mutate(pred = predict(mod, test_data_log, type = "response")) |> 
+  relocate(pred) |> 
+  select(original_pred = pred, game_idplay_id, frame_id, display_name)
+
+vec <- c(2,1,1,1,1,1,1,1,1,1)
+player_number <- 1
+```
+
+
+```{r, eval=TRUE}
+log_reg_mixer <- function(vec, player_number){
+
+  person_removed <-
+test_data_log |> 
+ group_by(game_idplay_id, frame_id) |>
+filter(row_number() == player_number) |> 
+    select(game_idplay_id, frame_id, person_removed = display_name) |> 
+    ungroup()
+  
+  # person_removed |> distinct(game_idplay_id, person_removed) |> filter(str_detect(person_removed,"Shawn R"))
+  
+test_data_log |> 
+ group_by(game_idplay_id, frame_id) |>
+  filter(row_number() != player_number) |> 
+  mutate(id = vec) |>
+  # mutate(id = c(2,1,1,1,1,1,1,1,1,1)) |>
+  ungroup() |> 
+  relocate(game_idplay_id, id)  |> 
+  uncount(id) |> 
+  # select(-game_idplay_id) |> 
+  mutate(pred = predict(mod, test_data_log, type = "response")) |> 
+  relocate(pred) |> 
+  select(pred, game_idplay_id, frame_id, display_name) |> 
+  left_join(final) |> 
+  left_join(person_removed) |> 
+  group_by(person_removed, game_idplay_id) |> 
+  filter(row_number() != 2) |> 
+  ungroup() |> 
+  mutate(delta_probability_added = original_pred - pred) |> 
+  group_by(person_removed, game_idplay_id) |> 
+  summarise(increase_in_tackle_prob = sum(delta_probability_added)) |>  ## this is the increase in tackle prob for one person on one play but for only one duplicate
+  ungroup()
+}
+
+# sort(rep(1:11, 11)) ## I want each player (1 through 11) to be held out 10 times
+vectors <- NULL
+for (i in 1:10) {
+  # Create a vector of 10 ones
+  vector <- rep(1, 10)
+  
+  # Replace the ith element with 2
+  vector[i] <- 2
+  
+  # Add the vector to the list
+  vectors[[i]] <- vector
+}
+# vectors  ## I want to duplicate all 10 other players -- each slot 1-10 10 times
+
+out <- map2_dfr(.x = sort(rep(1:11, 10)), .y = rep(vectors,11), .f = ~log_reg_mixer(vec = .y, player_number = .x), .progress = TRUE)
+```
+
+### Average Tackle Probability Added
+
+```{r, eval=TRUE}
+out |> bind_rows() |> group_by(person_removed, game_idplay_id) |> 
+  summarise(total_increase_in_tackle_prob_per_play = sum(increase_in_tackle_prob)) |> 
+  group_by(person_removed) |> 
+  summarise(average_increase_in_tackle_prob_across_plays = mean(total_increase_in_tackle_prob_per_play), num_plays = n()) |> 
+  ungroup() |> 
+  arrange(average_increase_in_tackle_prob_across_plays) |> 
+  filter(num_plays > 9)
 
 ```
 
+## LSTM Explained
+
+from here:: [https://towardsdatascience.com/tutorial-on-lstm-a-computational-perspective-f3417442c2cd#](https://towardsdatascience.com/tutorial-on-lstm-a-computational-perspective-f3417442c2cd#)
+
+![LSTM Explained](notes/lstm_explained.webp)
+
+### Amazing Reference
+
+[https://blog.mlreview.com/understanding-lstm-and-its-diagrams-37e2f46f1714](https://blog.mlreview.com/understanding-lstm-and-its-diagrams-37e2f46f1714)
