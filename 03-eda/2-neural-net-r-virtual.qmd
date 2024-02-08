@@ -1,0 +1,309 @@
+---
+title: "Neural-net"
+author: "Dusty Turner"
+format: html
+engines:
+  R: true
+  python: true
+cache: true
+warning: false
+message: false
+---
+
+## Testing
+
+```{r}
+library(tidyverse)
+library(keras)
+library(tensorflow)
+library(reticulate)
+# library(data.table)
+# library(gganimate)
+# library(arrow)
+
+x_train <- read_rds("02-clean-data/x_train.rds")
+y_train <- read_rds("02-clean-data/y_train.rds")
+x_test <- read_rds("02-clean-data/x_test.rds")
+y_test <- read_rds("02-clean-data/y_test.rds")
+time_steps <- read_rds("02-clean-data/time_steps.rds")
+num_features <- dim(x_train)[3]
+
+CustomSaveModelCallback <- R6::R6Class(
+  "CustomSaveModelCallback",
+  inherit = KerasCallback,
+
+public = list(
+    model = NULL,
+    best_val_accuracy = 0,
+    best_model_path = NULL,
+    best_metrics = list(val_accuracy = 0, precision = 0, recall = 0, auc = 0, f1_score = 0, log_loss = Inf),
+    formatted_time = NULL,
+
+    initialize = function(model, formatted_time) {
+      self$model <- model
+      self$formatted_time <- formatted_time
+    },
+
+    on_epoch_end = function(epoch, logs = list()) {
+      # Debugging: Print the logs to see the available metrics
+      # print(logs)
+    
+      val_accuracy <- logs[['val_python_function']]  # Ensure correct metric name
+      # print(paste("Current val_accuracy:", val_accuracy))
+    
+      if (!is.null(val_accuracy) && val_accuracy > self$best_val_accuracy) {
+        # print(paste("New best val_accuracy found:", val_accuracy))
+    
+        self$best_val_accuracy <- val_accuracy
+        self$best_metrics$best_val_loss <- logs[['val_loss']]
+        # self$best_val_loss <- logs[['val_loss']]
+        self$best_metrics$val_precision <- logs[['val_precision']]
+        self$best_metrics$val_recall <- logs[['val_recall']]
+        self$best_metrics$val_auc <- logs[['val_auc']]
+        self$best_metrics$val_python_function <- logs[['val_python_function']]
+    
+        if (!is.null(self$best_model_path) && file.exists(self$best_model_path)) {
+          unlink(self$best_model_path, recursive = TRUE)
+        }
+    
+        self$best_model_path <- sprintf("04-models/model-epoch-%02d-val_accuracy-%.4f-%s", epoch, val_accuracy, self$formatted_time)
+
+        # self$best_model_path <- sprintf("04-models/model-epoch-%02d-val_accuracy-%.4f", epoch, val_accuracy)
+        print(paste("Saving model to:", self$best_model_path))
+        save_model_tf(self$model, self$best_model_path)
+      }
+    }
+
+  )
+)
+
+weighted_binary_crossentropy <- function(y_true, y_pred, positive_weight = 8.87) {
+  # Calculate binary crossentropy
+  bce <- keras::k_binary_crossentropy(y_true, y_pred)
+  
+  # Apply weights
+  weights <- tf$cast(y_true, tf$float32) * (positive_weight - 1) + 1
+  weighted_bce <- weights * bce
+  
+  # Return mean loss over the batch
+  return(keras::k_mean(weighted_bce))
+}
+
+custom_accuracy <- function(y_true, y_pred) {
+  # Apply threshold to get binary class predictions
+  threshold <- 0.5
+  y_pred_binary <- k_cast(k_greater_equal(y_pred, threshold), 'float32')
+  
+  # Calculate accuracy
+  correct_predictions <- k_equal(y_pred_binary, y_true)
+  return(k_mean(correct_predictions))
+}
+
+run_nn <- function(units_param = 400, rate_param = .5, l2_value_param = .001, epochs_param = 2, 
+                   optimizer_param = 'adam', positive_weight_param = 8.87,
+                   layers_param = 3, batch_size_param = 7028/8, notes_param = NULL){
+
+  keras::backend()$clear_session()
+
+  positive_weight <- positive_weight_param
+  
+  now_time <- now()
+  now_time_ct <- with_tz(now_time, tzone = "America/Chicago")
+  formatted_time <- format(now_time_ct, "%Y-%m-%d_%H-%M-%S")
+  
+  raw_tracker <-
+    read_csv(here::here("04-models", "model_tracker.csv")) 
+    raw_tracker |> 
+    filter(epochs == epochs_param, units == units_param, rate == rate_param, 
+           l2_value == l2_value_param,
+           # activation == activation_param,
+           optimizer == optimizer_param, layers == layers_param) %>%
+      mutate(model_execution_time = as.character(model_execution_time)) |> 
+    print()
+    
+
+  model <- keras_model_sequential() %>%
+  layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
+  layer_lstm(units = 400, return_sequences = TRUE, unroll = FALSE,
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param), activation = "tanh") %>%
+  layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = 400, return_sequences = TRUE, unroll = FALSE,
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param), activation = "tanh") %>%
+  layer_dropout(rate = rate_param) %>%
+  layer_lstm(units = 200, return_sequences = TRUE, unroll = FALSE,
+             kernel_regularizer = regularizer_l2(l2_value_param),
+             recurrent_regularizer = regularizer_l2(l2_value_param), activation = "tanh") %>%
+  layer_dropout(rate = rate_param) %>%
+  time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+
+# Compile the model
+model %>% compile(
+  loss = weighted_binary_crossentropy,
+  optimizer = optimizer_adam(learning_rate = 0.001),
+  metrics = list(
+    custom_accuracy,       # Assuming this is a predefined metric
+    metric_precision(),    # Precision
+    metric_recall(),       # Recall
+    # f1_score,              # F1 Score (custom)
+    metric_auc()          # AUC-ROC
+    # log_loss               # Log Loss (custom)
+  )
+)
+
+      # Define the multi-GPU strategy
+  # strategy <- tf$distribute$MirroredStrategy()
+  # 
+  # with(strategy$scope(), {
+  #   model <- keras_model_sequential() %>%
+  #     layer_masking(mask_value = 0, input_shape = c(time_steps, num_features)) %>%
+  #     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  #                kernel_regularizer = regularizer_l2(l2_value_param),
+  #                recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+  #     layer_dropout(rate = rate_param) %>%
+  #     layer_lstm(units = units_param, return_sequences = TRUE, unroll = FALSE,
+  #                kernel_regularizer = regularizer_l2(l2_value_param),
+  #                recurrent_regularizer = regularizer_l2(l2_value_param)) %>%
+  #     layer_dropout(rate = rate_param) %>%
+  #     time_distributed(layer_dense(units = 11, activation = 'sigmoid'))
+  # 
+  #   # Compile the model
+  #   model %>% compile(
+  #     loss = weighted_binary_crossentropy,
+  #     optimizer = optimizer_adam(learning_rate = 0.001),
+  #     metrics = list(
+  #       custom_accuracy,       # Assuming this is a predefined metric
+  #       metric_precision(),    # Precision
+  #       metric_recall(),       # Recall
+  #       # f1_score,              # F1 Score (custom)
+  #       metric_auc()           # AUC-ROC
+  #       # log_loss               # Log Loss (custom)
+  #     )
+  #   )
+  # })
+    
+model_start_time <- tictoc::tic()
+
+save_model_callback <- CustomSaveModelCallback$new(model, formatted_time)
+
+# Train the model
+history <- model %>% fit(
+  x = x_train, y = y_train,
+  epochs = epochs_param,
+  batch_size = batch_size_param,
+  validation_data = list(x_test, y_test),
+  callbacks = list(
+    # early_stop_callback,
+    save_model_callback
+    # reduce_lr_callback
+  #   # tensorboard_callback,
+  #   # csv_logger_callback
+  )
+)
+
+model_end_time <- tictoc::toc()
+model_execution_time <- (model_end_time$toc - model_end_time$tic)[[1]]  # Calculate execution time for model building and training
+
+best_metrics <- save_model_callback$best_metrics
+
+# final_accuracy <- history$metrics$python_function[length(history$metrics$precision)]
+# final_precision <- history$metrics$precision[length(history$metrics$precision)]
+# final_recall <- history$metrics$recall[length(history$metrics$recall)]
+# final_f1_score <- history$metrics$f1_score[length(history$metrics$f1_score)]
+# final_auc <- history$metrics$auc[length(history$metrics$auc)]
+# final_log_loss <- history$metrics$log_loss[length(history$metrics$log_loss)]
+best_accuracy <- best_metrics$val_python_function
+best_precision <- best_metrics$val_precision
+best_recall <- best_metrics$val_recall
+best_auc <- best_metrics$val_auc
+# best_f1_score <- best_metrics$f1_score 
+best_log_loss <- best_metrics$best_val_loss 
+
+tibble(
+  accuracy = best_accuracy, precision = best_precision, recall = best_recall, auc = best_auc, 
+  # f1_score = best_f1_score, 
+  log_loss = best_log_loss,epochs = epochs_param, units = units_param, layers = layers_param,l2_value = l2_value_param,
+  optimizer = optimizer_param, rate = rate_param, time = now_time_ct, user = Sys.info()["user"], 
+  positive_weight_param = positive_weight_param,model_execution_time = model_execution_time, notes = notes_param
+) |> 
+    bind_rows(raw_tracker) |> 
+  relocate(accuracy, log_loss) %>% 
+    arrange(desc(time)) |> 
+    print() |> 
+    write_csv(here::here("04-models", "model_tracker.csv"))
+
+# save_model_tf(model, str_c("04-models/", formatted_time))
+
+return(list(model = model, history = history))  
+  
+}
+
+# ratio <-
+# newdata %>% 
+#   count(tackle) %>% 
+#   reframe(perc = n / sum(n)) %>% 
+#   slice(1) %>% pull(perc) * 10
+
+read_csv("04-models/model_tracker.csv") %>% print(n = 10)
+
+
+
+out <- run_nn(
+  epochs_param = 1000,
+  units_param = 400,
+  rate_param = .5,
+  l2_value_param = .001,
+  # l2_value_param = 0,
+  layers_param = 4,
+  batch_size_param = 7028/8,
+  positive_weight_param = 8.87,
+  notes_param = "400 200 but l1 and l2",
+  optimizer_param = "adam"
+)
+
+
+epoch_values <- c(10000)
+rate_values <- c(.5,.75)
+l2_values <- c(.001)
+positive_weight_value <- c(ratio)
+units_value <- c(400)
+
+# Generate all combinations
+set.seed(123)
+param_grid <- expand.grid(epochs_param = epoch_values,
+                          rate_param = rate_values,
+                          l2_value_param = l2_values,
+                          units_param = units_value,
+                          positive_weight_param = positive_weight_value)  
+
+  # sample_n(35)
+
+pmap(param_grid, function(epochs_param, rate_param, l2_value_param, units_param, positive_weight_param) {
+  run_nn(
+    epochs_param = epochs_param,
+    units_param = units_param,  # Assuming a fixed value
+    rate_param = rate_param,
+    l2_value_param = l2_value_param,
+    layers_param = 2,  # Assuming a fixed value
+    batch_size_param = 7028,  # Assuming a fixed value
+    notes_param = "Hyperparameter tuning 1111",
+    positive_weight_param = positive_weight_param,
+    optimizer_param = "adam"  # Assuming a fixed value
+    # activation_param = "relu"  # Uncomment if needed
+  )
+})
+
+# View the training history
+plot(out$history) + xlim(0,430)
+# history$metrics |> as_tibble() |> print(n = Inf)
+```
+
+
+```{r}
+model2 <- load_model_tf("04-models/2024-01-07_16-03-36", custom_objects = list(
+  # model2 <- load_model_tf("04-models", custom_objects = list(
+    weighted_binary_crossentropy = weighted_binary_crossentropy,
+    python_function = weighted_binary_crossentropy
+))
+```
