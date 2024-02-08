@@ -1,4 +1,5 @@
 # Project related files
+02-clean-data*
 *.h5
 04-models/202*
 model_data.rds
